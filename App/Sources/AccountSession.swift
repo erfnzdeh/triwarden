@@ -16,6 +16,8 @@ final class AccountSession {
     private(set) var equivalents = EquivalentDomains.none
     private(set) var lastSynced: Date?
     private(set) var isSyncing = false
+    /// Set when a sync retry fails. Cleared on the next successful sync.
+    private(set) var lastSyncError: String?
 
     private let userKey: SymmetricKeyPair
     private(set) var client: VaultClient?
@@ -66,6 +68,7 @@ final class AccountSession {
         try load(data)
         knownRevision = revision
         lastSynced = .now
+        lastSyncError = nil
         await startLiveSync()
     }
 
@@ -86,6 +89,7 @@ final class AccountSession {
             AccountStore.saveCache(data, account.id)
             knownRevision = revision
             lastSynced = .now
+            lastSyncError = nil
         } catch {
             try await refresh()
         }
@@ -96,6 +100,7 @@ final class AccountSession {
         guard let client else { return }
         if let known = knownRevision, let now = try? await client.revisionDate(), now == known {
             lastSynced = .now
+            lastSyncError = nil
             await startLiveSync()
             return
         }
@@ -113,6 +118,7 @@ final class AccountSession {
             try await refresh()
         } catch {
             // Offline or session expired: keep the cache.
+            lastSyncError = String(localized: "Couldn't sync. The vault on this Mac is unchanged.")
         }
     }
 
@@ -148,7 +154,9 @@ final class AccountSession {
                 // The AutoFill extension may have rotated the refresh token meanwhile; use the stored one.
                 if let stored = AccountStore.refreshToken(account.id) { await client?.restore(refreshToken: stored) }
                 if let token = try? await client?.refreshAccessToken() { AccountStore.setRefreshToken(token, account.id) }
-                try? await work()
+                do { try await work() } catch {
+                    lastSyncError = String(localized: "Couldn't sync. The vault on this Mac is unchanged.")
+                }
             }
         }
     }

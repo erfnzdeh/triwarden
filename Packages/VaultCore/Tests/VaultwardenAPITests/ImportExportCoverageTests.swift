@@ -158,6 +158,28 @@ import Testing
         #expect(try EncString(moved["fileName"]!).decryptString(with: orgKey) == "scan.pdf")
     }
 
+    @Test func severalWebsitesReplaceTheListAndKeepAnUnchangedMatch() throws {
+        var created = CipherEdit(name: "Mail")
+        created.uris = ["https://mail.google.com", "https://accounts.google.com"]
+        var raw = try #require(JSONSerialization.jsonObject(with: CipherEditor.newCipher(kind: .login, edit: created, key: userKey)) as? [String: Any])
+        var login = try #require(raw["login"] as? [String: Any])
+        var rows = try #require(login["uris"] as? [[String: Any]])
+        #expect(rows.count == 2)
+        #expect(try EncString(rows[0]["uri"] as? String ?? "").decryptString(with: userKey) == "https://mail.google.com")
+        rows[0]["match"] = 0
+        login["uris"] = rows
+        raw["login"] = login
+        var change = CipherEdit()
+        change.uris = ["https://mail.google.com", "https://gmail.com"]
+        let updated = try #require(JSONSerialization.jsonObject(with: CipherEditor.updatedCipher(
+            raw: JSONSerialization.data(withJSONObject: raw), edit: change, key: userKey)) as? [String: Any])
+        let next = try #require((updated["login"] as? [String: Any])?["uris"] as? [[String: Any]])
+        #expect(next.count == 2)
+        #expect(next[0]["match"] as? Int == 0)
+        #expect(try EncString(next[1]["uri"] as? String ?? "").decryptString(with: userKey) == "https://gmail.com")
+        #expect(!(next[1]["match"] is Int))
+    }
+
     @Test func legacyAttachmentsWithoutTheirOwnKeyAreRefused() throws {
         let raw: [String: Any] = ["id": "c1", "type": 2, "name": "x", "attachments": [["id": "a1", "fileName": "f"]]]
         #expect(throws: CipherEditor.ShareError.self) {

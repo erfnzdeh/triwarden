@@ -18,7 +18,10 @@ struct VaultItem: Identifiable, Hashable {
     let totp: TOTP?
     let notes: String?
     var totpSecret: String?
+    /// The first website. The full list is `uris`.
     var uri: String?
+    /// Every website on the login, in order.
+    var uris: [String] = []
     var favorite: Bool
     var hasPasskey = false
     var folderId: String?
@@ -51,6 +54,27 @@ struct VaultItem: Identifiable, Hashable {
 
     var hasTOTP: Bool { totp != nil }
 
+    /// Websites to show and edit. Falls back to `uri` for an item decoded before the list was kept.
+    var websites: [String] {
+        let list = uris.filter { !$0.isEmpty }
+        if !list.isEmpty { return list }
+        if let uri, !uri.isEmpty { return [uri] }
+        return []
+    }
+
+    /// Host of each website, for matching a page to this login.
+    var hosts: [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        for raw in websites {
+            let address = raw.contains("://") ? raw : "https://\(raw)"
+            guard let host = URL(string: address)?.host()?.lowercased(), seen.insert(host).inserted else { continue }
+            out.append(host)
+        }
+        if out.isEmpty, let host = host?.lowercased(), seen.insert(host).inserted { out.append(host) }
+        return out
+    }
+
     /// Extra fields for non-login kinds (card, identity, SSH key), in display order.
     var fields: [ItemField] = []
     /// Raw card / identity / SSH-key properties by API name, for editing.
@@ -79,7 +103,7 @@ struct VaultItem: Identifiable, Hashable {
     static func == (a: Self, b: Self) -> Bool {
         a.id == b.id && a.revised == b.revised && a.favorite == b.favorite && a.isDeleted == b.isDeleted
             && a.archived == b.archived && a.name == b.name && a.username == b.username && a.password == b.password
-            && a.notes == b.notes && a.totpSecret == b.totpSecret && a.uri == b.uri && a.folderId == b.folderId
+            && a.notes == b.notes && a.totpSecret == b.totpSecret && a.uri == b.uri && a.uris == b.uris && a.folderId == b.folderId
             && a.folderName == b.folderName && a.organizationId == b.organizationId && a.collectionIds == b.collectionIds
             && a.reprompt == b.reprompt && a.properties == b.properties && a.customFields == b.customFields
             && a.attachments == b.attachments && a.passwordHistory == b.passwordHistory && a.passwordRevised == b.passwordRevised && a.deleted == b.deleted && a.reuseCount == b.reuseCount

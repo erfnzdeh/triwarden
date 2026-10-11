@@ -72,9 +72,9 @@
 	<string>$(TW_LEMON_PRODUCT_ID)</string>
 	<key>TWLicensePublicKey</key>
 	<string>$(TW_LICENSE_PUBLIC_KEY)</string>
-	<key>TWStoreURL</key>
-	<string>$(TW_STORE_URL)</string>
 	<key>TWPricingURL</key>
 	<string>$(TW_PRICING_URL)</string>
+	<key>TWStoreURL</key>
+	<string>$(TW_STORE_URL)</string>
 </dict>
 </plist>

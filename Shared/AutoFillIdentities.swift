@@ -13,15 +13,21 @@ enum AutoFillIdentities {
         guard isEnabled else { return }
         let logins = items.filter { !$0.isDeleted && !$0.isArchived && $0.kind == .login }
         var identities: [any ASCredentialIdentity] = logins.flatMap { item -> [any ASCredentialIdentity] in
-            guard let host = item.host, item.password != nil else { return [] }
-            let hosts = [host] + equivalents.related(to: host).filter { !EquivalentDomains.within(host, $0) }.sorted()
-            return hosts.map { site in
+            guard item.password != nil else { return [] }
+            var sites = Set<String>()
+            for host in item.hosts {
+                sites.insert(host)
+                for related in equivalents.related(to: host) where !EquivalentDomains.within(host, related) {
+                    sites.insert(related)
+                }
+            }
+            return sites.sorted().map { site in
                 ASPasswordCredentialIdentity(serviceIdentifier: ASCredentialServiceIdentifier(identifier: site, type: .domain),
                                              user: item.username ?? "", recordIdentifier: item.id)
             }
         }
         identities += logins.compactMap { item in
-            guard let host = item.host, item.totp != nil else { return nil }
+            guard let host = item.hosts.first, item.totp != nil else { return nil }
             return ASOneTimeCodeCredentialIdentity(serviceIdentifier: ASCredentialServiceIdentifier(identifier: host, type: .domain),
                                                    label: item.name, recordIdentifier: item.id)
         }

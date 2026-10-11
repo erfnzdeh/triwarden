@@ -230,8 +230,7 @@ final class AutoFillState {
     private var equivalents = EquivalentDomains.none
 
     func matches(_ item: VaultItem) -> Bool {
-        guard let host = item.host?.lowercased() else { return false }
-        return domains.contains { equivalents.matches(itemHost: host, site: $0) }
+        item.hosts.contains { host in domains.contains { equivalents.matches(itemHost: host, site: $0) } }
     }
 
     func fill(_ item: VaultItem) {
@@ -295,7 +294,7 @@ struct AutoFillView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(width: 440, height: 520)
-        .background(Palette.window)
+        .background { AutoFillGlass() }
         .tint(Color(nsColor: .triwardenBrand))
     }
 }
@@ -312,6 +311,41 @@ private enum Palette {
 
     static func adaptive(light: NSColor, dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light })
+    }
+}
+
+private struct AppIconMark: View {
+    var size: CGFloat = 64
+
+    var body: some View {
+        Image(nsImage: Self.icon)
+            .resizable()
+            .interpolation(.high)
+            .frame(width: size, height: size)
+    }
+
+    /// The host app's icon. The extension's own bundle has none, and Launch Services would hand back a generic one.
+    private static let icon: NSImage = {
+        let app = Bundle.main.bundleURL
+            .deletingLastPathComponent() // PlugIns
+            .deletingLastPathComponent() // Contents
+            .deletingLastPathComponent()
+        let image = NSWorkspace.shared.icon(forFile: app.path)
+        image.size = NSSize(width: 256, height: 256)
+        return image
+    }()
+}
+
+private struct AutoFillGlass: View {
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let dark = scheme == .dark
+        Rectangle()
+            .fill(.regularMaterial)
+            .background(dark ? Color.black.opacity(0.15) : Color.white.opacity(0.55))
+            .overlay(Rectangle().strokeBorder(Color.primary.opacity(dark ? 0.14 : 0.08), lineWidth: 0.5))
+            .ignoresSafeArea()
     }
 }
 
@@ -419,9 +453,12 @@ private struct UnlockPane: View {
     var body: some View {
         VStack(spacing: 16) {
             Spacer(minLength: 0)
+            AppIconMark(size: 64)
             Card(padding: 22) {
                 VStack(spacing: 14) {
-                    IconTile(symbol: "lock.fill", size: 48)
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundStyle(.primary)
                     Group {
                         switch state.mode {
                         case .passkey: Text("Unlock to sign in")
@@ -442,13 +479,13 @@ private struct UnlockPane: View {
                                 Text(verbatim: state.email).lineLimit(1).truncationMode(.middle)
                                 Image(systemName: "chevron.up.chevron.down").font(.system(size: 9, weight: .semibold))
                             }
-                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                            .font(.system(size: 12)).foregroundStyle(.primary)
                             .padding(.horizontal, 12).frame(height: 26)
                             .background(Color.primary.opacity(0.06), in: .capsule)
                         }
                         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
                     } else {
-                        Text(verbatim: state.email).font(.system(size: 12)).foregroundStyle(.secondary)
+                        Text(verbatim: state.email).font(.system(size: 12)).foregroundStyle(.primary)
                     }
                     PasswordField(title: "Master password", text: $password, prompt: Text("Master password"),
                                   isFocused: $focused.wrappedBinding) {

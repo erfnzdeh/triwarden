@@ -4,9 +4,10 @@ import LocalAuthentication
 import Foundation
 import Observation
 import SwiftUI
+import UserNotifications
 import VaultwardenAPI
 
-/// Drives the create/edit sheet.
+/// Drives the item form in the detail panel.
 struct EditRequest: Identifiable {
     let id = UUID()
     let mode: EditItemSheet.Mode
@@ -288,30 +289,25 @@ final class AppModel {
         newFolderParent = parent
         promptingNewFolder = true
     }
-    /// Non-nil while an item form is open: editing in a sheet, a new item (or a clone) in the detail panel.
+    /// Non-nil while an item form is open in the detail panel (new, clone, or edit).
     var editing: EditRequest?
-    /// The new-item form in the detail panel, if one is open.
-    var newItemForm: EditRequest? {
-        guard let editing, !editing.mode.isEdit else { return nil }
-        return editing
-    }
-    /// The edit sheet's request, if one is open.
-    var editSheet: EditRequest? {
-        get { editing.flatMap { $0.mode.isEdit ? $0 : nil } }
-        set { if newValue == nil, editing?.mode.isEdit == true { editing = nil } }
-    }
-    /// The new-item form has input in it (it reports this), so leaving it asks first.
+    /// The form in the detail panel, if one is open.
+    var newItemForm: EditRequest? { editing }
+    /// The form has input in it (it reports this), so leaving it asks first.
     var newItemFormDirty = false
     /// What to do once "Discard this new item?" is answered with Discard.
     var pendingLeave: (() -> Void)?
     /// The item selected before the new-item form opened, shown again if it's cancelled.
     private var selectionBeforeForm: VaultItem.ID?
 
-    /// Opens an item form: editing in a sheet, a new item or clone in the detail panel (the list's selection steps
-    /// aside for it). Leaving a new item with input in it asks first.
+    /// Opens an item form in the detail panel. A new item or clone steps the list's selection aside; an edit keeps
+    /// that item selected. Leaving a form with input in it asks first.
     func beginEditing(_ request: EditRequest) {
         leaveNewItemForm { [self] in
-            if !request.mode.isEdit {
+            if case .edit(let item) = request.mode {
+                selectionBeforeForm = nil
+                selectedID = item.id
+            } else {
                 selectionBeforeForm = selectedID
                 selectedID = nil
             }
@@ -334,12 +330,14 @@ final class AppModel {
         action?()
     }
 
-    /// Closes the new-item form; cancelled, the item selected before it shows again.
+    /// Closes the form. Cancelling a new item or clone shows the item selected before it; cancelling an edit
+    /// shows that same item.
     func closeNewItemForm(restoringSelection: Bool = true) {
-        guard newItemForm != nil else { return }
-        editing = nil
+        guard let editing else { return }
+        let restore = restoringSelection && !editing.mode.isEdit
+        self.editing = nil
         newItemFormDirty = false
-        if restoringSelection, selectedID == nil { selectedID = selectionBeforeForm }
+        if restore, selectedID == nil { selectedID = selectionBeforeForm }
         selectionBeforeForm = nil
     }
     /// The import or export sheet; an import may start with a file (dropped on the window).
@@ -624,6 +622,47 @@ final class AppModel {
 
     /// Opens the command palette (set by the app; the search box, ⌘K/⌘F and the global shortcut all use it).
     @ObservationIgnored var openPalette: () -> Void = {}
+    /// The vault window, so Help and Keyboard Shortcuts can sit in its center and dim it.
+    @ObservationIgnored weak var mainWindow: NSWindow?
+    /// True while Help or Keyboard Shortcuts is open. The vault window draws a scrim from this.
+    var helpScrim = false
+    @ObservationIgnored private var shortcutsWindow: GlassWindow?
+    @ObservationIgnored private var helpWindow: GlassWindow?
+
+    func showShortcuts() {
+        if shortcutsWindow == nil {
+            shortcutsWindow = GlassWindow(model: self, title: String(localized: "Keyboard Shortcuts"),
+                                          size: NSSize(width: 960, height: 680), minSize: NSSize(width: 860, height: 560)) {
+                AnyView(KeyboardShortcutsView())
+            }
+        }
+        shortcutsWindow?.show()
+    }
+
+    func showHelp() {
+        if helpWindow == nil {
+            helpWindow = GlassWindow(model: self, title: String(localized: "Triwarden Help"),
+                                     size: NSSize(width: 820, height: 560), minSize: NSSize(width: 720, height: 480)) {
+                AnyView(HelpGuideView())
+            }
+        }
+        helpWindow?.show()
+    }
+
+    func dismissHelpPanels() {
+        shortcutsWindow?.close()
+        helpWindow?.close()
+    }
+
+    func refreshHelpScrim() {
+        let on = (shortcutsWindow?.isShown == true) || (helpWindow?.isShown == true)
+        guard helpScrim != on else { return }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            helpScrim = on
+        } else {
+            withAnimation(.easeOut(duration: 0.22)) { helpScrim = on }
+        }
+    }
     /// Waits for the palette to finish closing: it holds the keyboard until then, even over another app.
     @ObservationIgnored var paletteClosed: () async -> Void = {}
     /// SwiftUI's `openSettings`, captured by the main window (it only exists inside a scene).
@@ -787,6 +826,86 @@ final class AppModel {
         for session in sessions where session.lastSynced.map({ Date.now.timeIntervalSince($0) > 60 }) ?? true {
             session.scheduleSync()
         }
+        announceInbox()
+    }
+
+    /// The bell should open. A system notification tap sets this; the header button consumes it.
+    var presentInbox = false
+
+    /// Brings the vault forward and opens the bell.
+    func revealInbox() {
+        bringToFront()
+        presentInbox = true
+    }
+
+    private var inboxAnnounce: Task<Void, Never>?
+
+    /// Posts a system banner for each new thing waiting in the bell. SSH signatures keep their own banner.
+    func announceInbox() {
+        inboxAnnounce?.cancel()
+        inboxAnnounce = Task { await announceInboxNow() }
+    }
+
+    private func announceInboxNow() async {
+        guard isUnlocked else { return }
+        var banners: [InboxBanner] = []
+        if sessions.contains(where: { $0.lastSyncError != nil }) {
+            banners.append(InboxBanner(id: "sync", title: String(localized: "Couldn't sync"),
+                                       body: String(localized: "The vault on this Mac is unchanged."), sound: true))
+        }
+        if let version = updates.availableVersion {
+            banners.append(InboxBanner(id: "update-\(version)", title: String(localized: "Update \(version) is ready"),
+                                       body: String(localized: "Install when you're ready.")))
+        }
+        let report = WatchtowerReport(items: items, breaches: breachCounts)
+        let breached = report.issues[.breached]?.count ?? 0
+        if breached > 0 {
+            let body = breached == 1
+                ? String(localized: "A password was found in a data breach.")
+                : String(localized: "\(breached) passwords were found in data breaches.")
+            banners.append(InboxBanner(id: "breached-\(breached)", title: String(localized: "Watchtower"), body: body))
+        }
+        let cards = report.issues[.cardExpiring]?.count ?? 0
+        if cards > 0 {
+            let body = cards == 1
+                ? String(localized: "A card expires soon.")
+                : String(localized: "\(cards) cards expire soon.")
+            banners.append(InboxBanner(id: "cards-\(cards)", title: String(localized: "Watchtower"), body: body))
+        }
+        let soon = Date.now.addingTimeInterval(48 * 60 * 60)
+        for send in sends.prefix(3) where !send.disabled && !send.isExpired {
+            guard let date = send.expirationDate ?? send.deletionDate, date > .now, date < soon else { continue }
+            banners.append(InboxBanner(id: "send-\(send.id)", title: send.name, body: String(localized: "Send expires soon")))
+        }
+        if !Task.isCancelled {
+            for session in sessions {
+                guard let trusted = try? await session.emergencyContacts(granted: false),
+                      let granted = try? await session.emergencyContacts(granted: true) else { continue }
+                for contact in trusted where contact.status == .recoveryInitiated {
+                    let person = contact.name ?? contact.email
+                    banners.append(InboxBanner(id: "emergency-\(contact.id)", title: person,
+                                               body: String(localized: "Asked for emergency access"), sound: true))
+                }
+                for contact in trusted where contact.status == .accepted {
+                    let person = contact.name ?? contact.email
+                    banners.append(InboxBanner(id: "emergency-confirm-\(contact.id)", title: person,
+                                               body: String(localized: "Needs confirming")))
+                }
+                for contact in granted where contact.status == .recoveryApproved {
+                    let person = contact.name ?? contact.email
+                    banners.append(InboxBanner(id: "emergency-granted-\(contact.id)", title: person,
+                                               body: String(localized: "Emergency access granted"), sound: true))
+                }
+            }
+        }
+        guard !Task.isCancelled else { return }
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        if settings.authorizationStatus == .notDetermined, !banners.isEmpty {
+            _ = try? await center.requestAuthorization(options: [.alert, .sound])
+        }
+        guard !Task.isCancelled else { return }
+        InboxAnnouncer.deliver(banners)
     }
 
     /// Drop the cached client so new headers / certificates take effect on the next request.
@@ -2006,7 +2125,7 @@ final class AppModel {
         }) { monitors.append(m) }
         // Hold ⌥ to reveal masked fields (only ⌥, so ⌥-shortcuts don't flash secrets).
         if let m = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged, handler: { [weak self] e in
-            let flags = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            let flags = e.modifierFlags.intersection([.shift, .control, .option, .command])
             self?.optionHeld = flags == .option
             return e
         }) { monitors.append(m) }

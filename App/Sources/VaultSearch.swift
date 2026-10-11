@@ -142,7 +142,7 @@ extension AppModel {
             item.name.localizedStandardContains(word)
                 || (item.username?.localizedStandardContains(word) ?? false)
                 || (item.host?.localizedStandardContains(word) ?? false)
-                || (item.uri?.localizedStandardContains(word) ?? false)
+                || item.websites.contains { $0.localizedStandardContains(word) }
         }
     }
 }

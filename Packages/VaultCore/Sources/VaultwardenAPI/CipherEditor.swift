@@ -5,7 +5,7 @@ import Foundation
 public struct CipherEdit: Sendable, Equatable {
     public static func == (a: Self, b: Self) -> Bool {
         a.name == b.name && a.notes == b.notes && a.username == b.username && a.password == b.password && a.totp == b.totp
-            && a.uri == b.uri && a.favorite == b.favorite && a.folderId == b.folderId && a.properties == b.properties
+            && a.uri == b.uri && a.uris == b.uris && a.favorite == b.favorite && a.folderId == b.folderId && a.properties == b.properties
             && a.customFields == b.customFields && a.passkey == b.passkey
             && a.passkeyCounter?.credentialId == b.passkeyCounter?.credentialId && a.passkeyCounter?.counter == b.passkeyCounter?.counter
             && a.reprompt == b.reprompt
@@ -17,6 +17,8 @@ public struct CipherEdit: Sendable, Equatable {
     public var password: String?
     public var totp: String?
     public var uri: String?
+    /// Replaces every website. Nil leaves them as they are. An empty list clears them.
+    public var uris: [String]?
     public var favorite: Bool?
     /// `.some(nil)` moves the item out of any folder.
     public var folderId: String??
@@ -166,7 +168,17 @@ public enum CipherEditor {
             }
             login["password"] = try enc(password)
         }
-        if let uri = edit.uri {
+        if let uris = edit.uris {
+            let existing = login["uris"] as? [[String: Any]] ?? []
+            var matchFor: [String: Any] = [:]
+            for row in existing {
+                if let plain = dec(row["uri"]) { matchFor[plain] = row["match"] ?? NSNull() }
+            }
+            let cleaned = uris.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            login["uris"] = try cleaned.map { plain -> [String: Any] in
+                ["uri": try enc(plain), "match": matchFor[plain] ?? NSNull()]
+            }
+        } else if let uri = edit.uri {
             var uris = login["uris"] as? [[String: Any]] ?? []
             if uri.isEmpty {
                 if !uris.isEmpty { uris.removeFirst() }

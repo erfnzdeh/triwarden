@@ -40,7 +40,8 @@ enum VaultDecoder {
                 s.flatMap { try? EncString($0).decryptString(with: key) }.flatMap { $0.isEmpty ? nil : $0 }
             }
             let kind = VaultItem.Kind(rawValue: cipher.type) ?? .login
-            let fullURI = dec(cipher.login?.uris?.first?.uri)
+            let uris = (cipher.login?.uris ?? []).compactMap { dec($0.uri) }
+            let fullURI = uris.first
             let totpSecret = dec(cipher.login?.totp)
             var item = VaultItem(
                 id: cipher.id,
@@ -54,6 +55,7 @@ enum VaultDecoder {
                 notes: dec(cipher.notes),
                 totpSecret: totpSecret,
                 uri: fullURI,
+                uris: uris,
                 favorite: cipher.favorite ?? false,
                 hasPasskey: !(cipher.login?.fido2Credentials ?? []).isEmpty,
                 folderId: cipher.folderId,

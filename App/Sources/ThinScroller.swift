@@ -19,7 +19,10 @@ struct ThinScroller: ViewModifier {
             .onScrollGeometryChange(for: ScrollGeometry.self) { $0 } action: { _, new in geometry = new }
             .onScrollPhaseChange { _, phase in withAnimation(.easeOut(duration: 0.2)) { scrolling = phase.isScrolling } }
             .onHover { inside in withAnimation(.easeOut(duration: 0.2)) { hovering = inside } }
-            .overlay(alignment: .topTrailing) { thumb }
+            .overlay(alignment: .topTrailing) {
+                // Only the thumb is hit-testable. A full-size overlay would swallow clicks on the rows.
+                thumb.fixedSize()
+            }
     }
 
     @ViewBuilder private var thumb: some View {

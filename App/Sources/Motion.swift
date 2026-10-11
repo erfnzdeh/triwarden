@@ -12,6 +12,62 @@ struct DecodingText: View {
     }
 }
 
+/// A secret that rolls into view from the left. Hiding runs that same roll from the right, into dots.
+struct MaskedSecret: View {
+    let secret: String
+    let revealed: Bool
+    /// How many dots stand in for the secret while it is hidden.
+    var dots = 12
+
+    @State private var shown: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var mask: String {
+        // One dot per character, so the row does not shrink when the flicker finishes.
+        String(repeating: "•", count: max(secret.count, dots))
+    }
+    private static let glyphs = Array("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789")
+
+    init(secret: String, revealed: Bool, dots: Int = 12) {
+        self.secret = secret
+        self.revealed = revealed
+        self.dots = dots
+        let mask = String(repeating: "•", count: max(secret.count, dots))
+        _shown = State(initialValue: revealed ? secret : mask)
+    }
+
+    var body: some View {
+        Text(verbatim: shown)
+            .task(id: revealed) { await roll(to: revealed ? secret : mask, fromLeft: revealed) }
+    }
+
+    /// Same roll either way. Revealing locks the secret in from the left. Hiding locks dots in from the right.
+    /// Characters the wave has not reached yet keep flickering.
+    private func roll(to target: String, fromLeft: Bool) async {
+        guard Motion.plays, !reduceMotion, shown != target else { shown = target; return }
+        let steps = 12
+        let from = Array(shown)
+        let to = Array(target)
+        let count = max(from.count, to.count, 1)
+        for step in 0...steps {
+            let settled = count * step / steps
+            shown = String((0..<count).map { index in
+                let done = fromLeft ? index < settled : index >= count - settled
+                if done { return index < to.count ? to[index] : "•" }
+                return Self.glyphs.randomElement()!
+            })
+            try? await Task.sleep(for: .milliseconds(26))
+            if Task.isCancelled { return }
+        }
+        // Hiding must not end shorter than the roll that just played.
+        if !fromLeft, to.count < count {
+            shown = String(repeating: "•", count: count)
+        } else {
+            shown = target
+        }
+    }
+}
+
 /// Draws `text` through `content`, rolling every character through random glyphs whenever it changes, settling left
 /// to right like a slot machine. `keep`: characters that stay put (spaces, a passphrase's separators).
 struct Rolling<Content: View>: View {

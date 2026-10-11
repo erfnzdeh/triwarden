@@ -188,8 +188,8 @@ final class CLIBridge {
     static func logins(for host: String, in items: [VaultItem]) -> [VaultItem] {
         guard !host.isEmpty else { return [] }
         return items.filter { item in
-            guard !item.isDeleted, !item.isArchived, item.kind == .login, item.password != nil, let h = item.host?.lowercased() else { return false }
-            return h == host || host.hasSuffix("." + h) || h.hasSuffix("." + host)
+            guard !item.isDeleted, !item.isArchived, item.kind == .login, item.password != nil else { return false }
+            return item.hosts.contains { h in h == host || host.hasSuffix("." + h) || h.hasSuffix("." + host) }
         }
     }
 
@@ -200,6 +200,7 @@ final class CLIBridge {
     static func matches(_ item: VaultItem, _ q: String) -> Bool {
         item.name.localizedCaseInsensitiveContains(q) || (item.username?.localizedCaseInsensitiveContains(q) ?? false)
             || (item.host?.localizedCaseInsensitiveContains(q) ?? false)
+            || item.websites.contains { $0.localizedCaseInsensitiveContains(q) }
     }
 
     /// Id, then exact name, then a unique partial match.

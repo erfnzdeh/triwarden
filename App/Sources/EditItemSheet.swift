@@ -2,6 +2,14 @@ import TriCrypto
 import SwiftUI
 import VaultwardenAPI
 
+/// Tallest website row, so a drag knows when the pointer has crossed into the next one.
+private struct WebsiteRowHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat { 0 }
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 /// Create or edit any item type. Only changed fields are sent; everything else on the server's copy
 /// (passkeys, item key, linked fields, history) is preserved by `CipherEditor`.
 struct EditItemSheet: View {
@@ -11,7 +19,6 @@ struct EditItemSheet: View {
         /// A new item filled in from an existing one (passkeys and attachments stay with the original).
         case clone(VaultItem)
 
-        /// Editing opens as a sheet; a new item (or clone) opens in the detail panel.
         var isEdit: Bool { if case .edit = self { true } else { false } }
     }
 
@@ -24,16 +31,17 @@ struct EditItemSheet: View {
 
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let mode: Mode
     var prefill: Prefill?
-    /// In the detail panel (a new item) rather than a sheet: Cancel and Save sit at the top, by the title.
+    /// In the detail panel rather than a sheet: Cancel and Save sit at the top, by the title.
     var inPanel = false
 
     @State private var name = ""
     @State private var username = ""
     @State private var password = ""
     @State private var totp = ""
-    @State private var uri = ""
+    @State private var websites: [WebsiteRow] = [WebsiteRow()]
     @State private var notes = ""
     @State private var folderId: String?
     @State private var accountId: String?
@@ -52,9 +60,33 @@ struct EditItemSheet: View {
     @State private var confirmingDiscard = false
     @State private var scanning = false
     @State private var scanProblem: String?
+    /// The website row under the pointer, its travel, and where that drag began.
+    @State private var draggingWebsite: UUID?
+    @State private var dragTranslation: CGFloat = 0
+    @State private var dragAnchorIndex = 0
+    @State private var websiteRowHeight: CGFloat = 64
+    @State private var websiteAdds = 0
+    @FocusState private var focusedWebsite: UUID?
+
+    /// Row height plus the stack's gap, so a drag swaps as the pointer crosses the next row.
+    private var websiteStride: CGFloat { websiteRowHeight + 12 }
+    private var websiteAnimation: Animation {
+        reduceMotion || !Motion.plays ? .easeOut(duration: 0.15) : .snappy(duration: 0.34, extraBounce: 0.05)
+    }
+
+    private struct WebsiteRow: Identifiable, Equatable {
+        var id = UUID()
+        var text = ""
+    }
+
+    /// Websites with the blanks left out, which is what gets saved.
+    private var websiteValues: [String] {
+        websites.map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+    }
 
     private struct Draft: Equatable {
-        var name, username, password, totp, uri, notes: String
+        var name, username, password, totp, notes: String
+        var uris: [String]
         var folderId: String?
         var props: [String: String]
         var customFields: [CustomField]
@@ -62,7 +94,7 @@ struct EditItemSheet: View {
     }
 
     private var draft: Draft {
-        Draft(name: name, username: username, password: password, totp: totp, uri: uri, notes: notes, folderId: folderId,
+        Draft(name: name, username: username, password: password, totp: totp, notes: notes, uris: websiteValues, folderId: folderId,
               props: props.filter { !$0.value.isEmpty }, customFields: customFields, reprompt: reprompt)
     }
 
@@ -237,7 +269,9 @@ struct EditItemSheet: View {
             }
 
             switch kind {
-            case .login: loginSection
+            case .login:
+                loginSection
+                autofillSection
             case .card: cardSection
             case .identity: identitySection
             case .sshKey: sshSection
@@ -293,11 +327,6 @@ struct EditItemSheet: View {
                 }
                 if !password.isEmpty { StrengthMeter(password: password).padding(.top, 2) }
             }
-            FormField(label: "Website") {
-                TextField("Website", text: $uri, prompt: Text(verbatim: "https://example.com"))
-                    .textFieldStyle(SoftFieldStyle())
-                    .textContentType(.URL)
-            }
             FormField(label: "One-time code secret", note: "From the site's two-factor setup: scan its QR code, or paste the otpauth:// link or the key under it.") {
                 HStack(spacing: 8) {
                     TextField("One-time code secret", text: $totp, prompt: Text("otpauth://… or base32 key"))
@@ -327,6 +356,160 @@ struct EditItemSheet: View {
                         .font(.system(size: 11)).foregroundStyle(.orange)
                 }
             }
+        }
+    }
+
+    /// Where this login is offered. Separate from the sign-in itself.
+    @ViewBuilder private var autofillSection: some View {
+        FormCard(title: "AutoFill") {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach($websites) { $site in
+                    let index = websites.firstIndex(where: { $0.id == site.id }) ?? 0
+                    let dragging = draggingWebsite == site.id
+                    websiteRow($site, index: index, dragging: dragging)
+                        .background {
+                            GeometryReader { proxy in
+                                Color.clear.preference(key: WebsiteRowHeightKey.self, value: proxy.size.height)
+                            }
+                        }
+                        .background {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.panelStrong)
+                                .shadow(color: .black.opacity(dragging ? 0.16 : 0), radius: dragging ? 16 : 0, y: dragging ? 8 : 0)
+                                .padding(.horizontal, -8)
+                                .padding(.vertical, -4)
+                                .opacity(dragging ? 1 : 0)
+                        }
+                        .scaleEffect(dragging && Motion.plays && !reduceMotion ? 1.02 : 1)
+                        .offset(y: websiteOffset(id: site.id, index: index))
+                        .zIndex(dragging ? 1 : 0)
+                        // The lifted row tracks the pointer. The others slide into the gap it leaves.
+                        .animation(dragging ? nil : websiteAnimation, value: websites.map(\.id))
+                        .animation(websiteAnimation, value: dragging)
+                        .transition(websiteRowTransition)
+                }
+                Button(action: addWebsite) {
+                    Label("Add website", systemImage: "plus")
+                        .symbolEffect(.bounce, value: websiteAdds)
+                }
+                .buttonStyle(.appSecondarySmall)
+            }
+            .onPreferenceChange(WebsiteRowHeightKey.self) { height in
+                if height > 1 { websiteRowHeight = height }
+            }
+        }
+    }
+
+    private var websiteRowTransition: AnyTransition {
+        .asymmetric(
+            insertion: .opacity.combined(with: .offset(y: -8)).combined(with: .scale(scale: 0.97, anchor: .top)),
+            removal: .opacity.combined(with: .scale(scale: 0.96, anchor: .top))
+        )
+    }
+
+    @ViewBuilder private func websiteRow(_ site: Binding<WebsiteRow>, index: Int, dragging: Bool) -> some View {
+        let label: LocalizedStringKey = index == 0 ? "Website" : "Website \(index + 1)"
+        FormField(label: label) {
+            HStack(spacing: 8) {
+                websiteField(site)
+                if websites.count > 1 {
+                    websiteControls(id: site.wrappedValue.id, dragging: dragging)
+                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                }
+            }
+            .animation(websiteAnimation, value: websites.count)
+        }
+    }
+
+    private func websiteField(_ site: Binding<WebsiteRow>) -> some View {
+        TextField("Website", text: site.text, prompt: Text(verbatim: "https://example.com"))
+            .textFieldStyle(SoftFieldStyle())
+            .textContentType(.URL)
+            .focused($focusedWebsite, equals: site.wrappedValue.id)
+    }
+
+    private func websiteControls(id: UUID, dragging: Bool) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                removeWebsite(id)
+            } label: {
+                Image(systemName: "minus.circle.fill").font(.system(size: 15)).foregroundStyle(.secondary)
+                    .frame(width: 28, height: 38)
+                    .accessibilityLabel(Text("Remove"))
+            }
+            .buttonStyle(.plain)
+            .help(Text("Remove"))
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(dragging ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tertiary))
+                .frame(width: 28, height: 38)
+                .contentShape(.rect)
+                .gesture(websiteDrag(id))
+                .onHover { hovering in
+                    if hovering { NSCursor.openHand.set() } else { NSCursor.arrow.set() }
+                }
+                .help(Text("Drag to reorder"))
+                .accessibilityLabel(Text("Drag to reorder"))
+                .accessibilityAction(named: Text("Move up")) { moveWebsite(id, by: -1) }
+                .accessibilityAction(named: Text("Move down")) { moveWebsite(id, by: 1) }
+        }
+    }
+
+    /// Keeps the grabbed row under the pointer after its slot in the stack has moved.
+    private func websiteOffset(id: UUID, index: Int) -> CGFloat {
+        guard draggingWebsite == id else { return 0 }
+        return dragTranslation - CGFloat(index - dragAnchorIndex) * websiteStride
+    }
+
+    private func websiteDrag(_ id: UUID) -> some Gesture {
+        DragGesture(minimumDistance: 2)
+            .onChanged { value in
+                let index = websites.firstIndex { $0.id == id } ?? 0
+                if draggingWebsite != id {
+                    dragAnchorIndex = index
+                    withAnimation(websiteAnimation) { draggingWebsite = id }
+                }
+                dragTranslation = value.translation.height
+                let proposed = min(max(dragAnchorIndex + Int((value.translation.height / websiteStride).rounded()), 0), websites.count - 1)
+                guard index != proposed else { return }
+                withAnimation(websiteAnimation) {
+                    websites.move(fromOffsets: IndexSet(integer: index), toOffset: proposed > index ? proposed + 1 : proposed)
+                }
+            }
+            .onEnded { _ in
+                withAnimation(websiteAnimation) {
+                    draggingWebsite = nil
+                    dragTranslation = 0
+                }
+            }
+    }
+
+    private func addWebsite() {
+        let row = WebsiteRow()
+        withAnimation(websiteAnimation) {
+            websites.append(row)
+            websiteAdds += 1
+        }
+        // The field is inserted by the animation above; focus it once it is on screen.
+        Task { @MainActor in focusedWebsite = row.id }
+    }
+
+    private func removeWebsite(_ id: UUID) {
+        withAnimation(websiteAnimation) {
+            websites.removeAll { $0.id == id }
+            if draggingWebsite == id {
+                draggingWebsite = nil
+                dragTranslation = 0
+            }
+        }
+    }
+
+    private func moveWebsite(_ id: UUID, by step: Int) {
+        guard let from = websites.firstIndex(where: { $0.id == id }) else { return }
+        let dest = from + step
+        guard websites.indices.contains(dest) else { return }
+        withAnimation(websiteAnimation) {
+            websites.move(fromOffsets: IndexSet(integer: from), toOffset: dest > from ? dest + 1 : dest)
         }
     }
 
@@ -495,7 +678,11 @@ struct EditItemSheet: View {
         let source: VaultItem
         switch mode {
         case .create:
-            if let prefill { name = prefill.name; uri = prefill.uri; password = prefill.password }
+            if let prefill {
+                name = prefill.name
+                password = prefill.password
+                if !prefill.uri.isEmpty { websites = [WebsiteRow(text: prefill.uri)] }
+            }
             return
         case .edit(let item): source = item
         case .clone(let item): source = item
@@ -505,7 +692,7 @@ struct EditItemSheet: View {
         username = item.kind == .login ? item.username ?? "" : ""
         password = item.password ?? ""
         totp = item.totpSecret ?? ""
-        uri = item.uri ?? ""
+        websites = item.websites.isEmpty ? [WebsiteRow()] : item.websites.map { WebsiteRow(text: $0) }
         notes = item.notes ?? ""
         folderId = item.folderId
         props = item.properties
@@ -528,7 +715,10 @@ struct EditItemSheet: View {
             let newKind: AppModel.NewItemKind = if case .create(let k) = mode { k } else { AppModel.NewItemKind(kind) }
             var edit = CipherEdit(name: name, notes: notes, folderId: .some(folderId))
             edit.reprompt = reprompt
-            if newKind == .login { (edit.username, edit.password, edit.totp, edit.uri) = (username, password, totp, uri) }
+            if newKind == .login {
+                (edit.username, edit.password, edit.totp) = (username, password, totp)
+                edit.uris = websiteValues
+            }
             edit.properties = props.filter { !$0.value.isEmpty }
             if !cleanFields.isEmpty { edit.customFields = cleanFields }
             ok = await model.createItem(newKind, edit: edit, accountId: accountId)
@@ -543,7 +733,7 @@ struct EditItemSheet: View {
                 if username != (item.username ?? "") { edit.username = username }
                 if password != (item.password ?? "") { edit.password = password }
                 if totp != (item.totpSecret ?? "") { edit.totp = totp }
-                if uri != (item.uri ?? "") { edit.uri = uri }
+                if websiteValues != item.websites { edit.uris = websiteValues }
             }
             edit.properties = props.filter { item.properties[$0.key, default: ""] != $0.value }
             if cleanFields != item.customFields.filter({ $0.kind != .linked }) { edit.customFields = cleanFields }

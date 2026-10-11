@@ -14,9 +14,15 @@ struct MenuBarContent: View {
 
     var body: some View {
         VStack(spacing: 8) {
+            if let pending = model.sshAgent.pending {
+                SSHApprovalCard(prompt: pending, leadsWithUntilLock: model.sshAgent.pendingLeadsWithUntilLock) { choice in
+                    model.sshAgent.choose(choice)
+                }
+            }
             topRow
             if model.isUnlocked, focusedOpen {
                 if query.trimmingCharacters(in: .whitespaces).isEmpty {
+                    FrontTabMatchPrompt()
                     SiteCard()
                     ShelfCard()
                     QuickActions()
@@ -34,7 +40,11 @@ struct MenuBarContent: View {
         .frame(width: 380)
         // Light: a soft grey wash over the system's near-white glass, so the white cards have something to stand on.
         .background(Color.menuWash)
-        .onAppear { model.captureForeground() } // the page or app the panel was opened over
+        .onAppear {
+            MenuBarOpener.isOpen = true
+            model.captureForeground()
+        }
+        .onDisappear { MenuBarOpener.isOpen = false }
         .animation(.snappy(duration: 0.22), value: query.isEmpty)
     }
 
@@ -520,29 +530,29 @@ private struct SSHRow: View {
         if agent.isRunning || keys > 0 {
             PanelCard(padding: 12) {
                 HStack(spacing: 10) {
-                    Image(systemName: "terminal").font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(agent.isRunning ? Color.green : .secondary)
-                        .frame(width: 30, height: 30)
-                        .background((agent.isRunning ? Color.green : Color.primary).opacity(0.1), in: .rect(cornerRadius: 8, style: .continuous))
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("SSH agent").font(.system(size: 13, weight: .semibold))
-                        Group {
-                            if !agent.isRunning {
-                                Text("Off · ^[\(keys) key](inflect: true) in the vault")
-                            } else if let last = agent.recent.first {
-                                Text("^[\(keys) key](inflect: true) · \(last.program) used \(last.key) \(last.date.formatted(.relative(presentation: .named)))")
-                            } else {
-                                Text("^[\(keys) key](inflect: true) ready")
+                        Image(systemName: "terminal").font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(agent.isRunning ? Color.green : .secondary)
+                            .frame(width: 30, height: 30)
+                            .background((agent.isRunning ? Color.green : Color.primary).opacity(0.1), in: .rect(cornerRadius: 8, style: .continuous))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("SSH agent").font(.system(size: 13, weight: .semibold))
+                            Group {
+                                if !agent.isRunning {
+                                    Text("Off · ^[\(keys) key](inflect: true) in the vault")
+                                } else if let last = agent.recent.first {
+                                    Text("^[\(keys) key](inflect: true) · \(last.program) used \(last.key) \(last.date.formatted(.relative(presentation: .named)))")
+                                } else {
+                                    Text("^[\(keys) key](inflect: true) ready")
+                                }
                             }
+                            .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
                         }
-                        .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                    Spacer()
-                    Text(agent.isRunning ? "On" : "Off")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(agent.isRunning ? Color.green : .secondary)
-                        .padding(.horizontal, 8).frame(height: 20)
-                        .background((agent.isRunning ? Color.green : Color.primary).opacity(0.1), in: .capsule)
+                        Spacer()
+                        Text(agent.isRunning ? "On" : "Off")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(agent.isRunning ? Color.green : .secondary)
+                            .padding(.horizontal, 8).frame(height: 20)
+                            .background((agent.isRunning ? Color.green : Color.primary).opacity(0.1), in: .capsule)
                 }
             }
         }
@@ -629,8 +639,9 @@ private struct AccountMenu: View {
 
 /// Menu bar glyph: a compact vault dial. A fine bezel and three rings share their opening at six o'clock, below the
 /// keyhole. It remains legible at menu-bar size without the visual noise of the full application icon. A template image.
+/// `pending` adds a filled mark at the top trailing while an SSH signature is waiting.
 enum MenuBarGlyph {
-    static let image: NSImage = {
+    static func image(pending: Bool) -> NSImage {
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
             let c = NSPoint(x: rect.midX, y: rect.midY)
             NSColor.black.set()
@@ -657,12 +668,15 @@ enum MenuBarGlyph {
             slot.line(to: NSPoint(x: c.x - 0.675, y: c.y - 1.7))
             slot.close()
             slot.fill()
+            if pending {
+                NSBezierPath(ovalIn: NSRect(x: rect.maxX - 5, y: rect.maxY - 5, width: 4.5, height: 4.5)).fill()
+            }
             return true
         }
         image.isTemplate = true
-        image.accessibilityDescription = "Triwarden"
+        image.accessibilityDescription = pending ? String(localized: "Triwarden, SSH signature waiting") : "Triwarden"
         return image
-    }()
+    }
 }
 
 extension Color {

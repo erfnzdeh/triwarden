@@ -17,6 +17,9 @@ final class Updater {
     let isConfigured: Bool
     private(set) var canCheck = false
     private(set) var lastChecked: Date?
+    /// Set when Sparkle finds a newer signed release. Cleared when a check finds nothing.
+    private(set) var availableVersion: String?
+    private let notice = UpdateNotice()
 
     var current: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0" }
 
@@ -24,8 +27,9 @@ final class Updater {
         let key = (Bundle.main.object(forInfoDictionaryKey: "SUPublicEDKey") as? String) ?? ""
         isConfigured = !key.trimmingCharacters(in: .whitespaces).isEmpty
         guard start, isConfigured else { controller = nil; return }
-        let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+        let controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: notice, userDriverDelegate: nil)
         self.controller = controller
+        notice.owner = self
         // Carry over the old "check daily" choice once.
         if UserDefaults.standard.bool(forKey: Pref.checkUpdates) {
             controller.updater.automaticallyChecksForUpdates = true
@@ -59,5 +63,23 @@ final class Updater {
     /// Shows Sparkle's window: up to date, or what's new with Install / Later.
     func checkForUpdates() {
         controller?.checkForUpdates(nil)
+    }
+
+    func noteAvailableVersion(_ version: String?) {
+        availableVersion = version
+    }
+}
+
+/// Remembers a found update for the header bell. Sparkle still shows its own install window.
+private final class UpdateNotice: NSObject, SPUUpdaterDelegate {
+    weak var owner: Updater?
+
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        let version = item.displayVersionString
+        Task { @MainActor in owner?.noteAvailableVersion(version) }
+    }
+
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        Task { @MainActor in owner?.noteAvailableVersion(nil) }
     }
 }

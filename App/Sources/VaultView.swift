@@ -1,9 +1,11 @@
 import AppKit
+import SSHAgent
 import TriCrypto
 import QuickLook
 import SwiftUI
 import TipKit
 import UniformTypeIdentifiers
+import VaultwardenAPI
 
 // Implements the "Vault window (static spec)" artboard: floating glass sidebar, rounded item list,
 // dark hero card with password/code tiles, grouped detail rows.
@@ -121,7 +123,7 @@ struct VaultView: View {
         }
     }
 
-    /// A new item's form opens in the detail panel: from a tool page, go to the items; on a narrow window, slide to
+    /// An item form opens in the detail panel: from a tool page, go to the items; on a narrow window, slide to
     /// it. Leaving it with input in it asks first.
     private func newItemFormHandling(_ content: some View) -> some View {
         content
@@ -131,13 +133,21 @@ struct VaultView: View {
                 if !isItemSection { section = .section(.all) }
                 if compact { depth = 2 }
             }
-            .confirmationDialog("Discard this new item?", isPresented: Binding(get: { model.pendingLeave != nil },
-                                                                               set: { if !$0 { model.pendingLeave = nil } })) {
+            .confirmationDialog(discardFormTitle, isPresented: Binding(get: { model.pendingLeave != nil },
+                                                                        set: { if !$0 { model.pendingLeave = nil } })) {
                 Button("Discard", role: .destructive) { withAnimation(.snappy(duration: 0.25)) { model.discardNewItemAndLeave() } }
                 Button("Keep Editing", role: .cancel) {}
             } message: {
-                Text("What you've typed for it isn't saved yet.")
+                if model.editing?.mode.isEdit == true {
+                    Text("What you've typed here isn't saved yet.")
+                } else {
+                    Text("What you've typed for it isn't saved yet.")
+                }
             }
+    }
+
+    private var discardFormTitle: LocalizedStringKey {
+        model.editing?.mode.isEdit == true ? "Discard your changes?" : "Discard this new item?"
     }
 
     @State private var initialMeasure = true
@@ -216,7 +226,7 @@ struct VaultView: View {
 
     @ViewBuilder private var detailPane: some View {
         if let request = model.newItemForm {
-            // A new item (or a clone) is made right here, where it will show once saved.
+            // New, clone, and edit all happen right here, where the item shows.
             EditItemSheet(mode: request.mode, prefill: request.prefill, inPanel: true)
                 .id(request.id)
                 .transition(.opacity.combined(with: .offset(y: 8)))
@@ -293,6 +303,7 @@ struct VaultView: View {
                                 .frame(width: searchWidth)
                                 .padding(.leading, compact ? 0 : max(0, width / 2 - detailX - Self.headerSlotInset - searchWidth / 2
                                                                          - Self.plusInset - NewItemButton.size - 8))
+                            SSHRequestsButton()
                             // A slot holding a single view lays it out at zero size; a zero-width sibling keeps it measured.
                             Text(verbatim: " ").frame(width: 0).accessibilityHidden(true)
                         }
@@ -306,9 +317,8 @@ struct VaultView: View {
                 .sharedBackgroundVisibility(.hidden)
             }
             .background {
-                // Keyboard: ⌘K opens the command palette, ⌘F the list's search, ⌘G the generator.
-                Group {
-                    Button("") { model.openPalette() }.keyboardShortcut("k", modifiers: .command)
+                // Keyboard: ⌘K is Help › Command Palette, ⌘F the list's search, ⌘G the generator.
+                    Group {
                     Button("") { focusSearch() }.keyboardShortcut("f", modifiers: .command)
                     Button("") { section = .generator }.keyboardShortcut("g", modifiers: .command)
                 }
@@ -347,7 +357,6 @@ struct VaultView: View {
         .onChange(of: model.showingGenerator) { _, show in
             if show { section = .generator; model.showingGenerator = false }
         }
-        .sheet(item: $model.editSheet) { request in EditItemSheet(mode: request.mode, prefill: request.prefill) }
         .sheet(item: $model.repromptRequest) { request in RepromptSheet(request: request) }
         .sheet(item: $model.signInPrompt) { prompt in SignInApprovalSheet(prompt: prompt) }
         .sheet(isPresented: Binding(get: { model.eventLogFor != nil }, set: { if !$0 { model.eventLogFor = nil } })) {
@@ -1089,6 +1098,8 @@ private struct FolderRow: View {
 /// Looks like a search field; opens the command palette (⌘K / ⌘F).
 private struct PaletteTrigger: View {
     @Environment(AppModel.self) private var model
+    /// Matches the + and the bell so the header controls share one height.
+    static let height: CGFloat = 32
     /// A narrow header: just "Search".
     var compactLabel = false
     @State private var hovering = false
@@ -1107,7 +1118,7 @@ private struct PaletteTrigger: View {
         }
         .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
-        .frame(height: 32)
+        .frame(height: Self.height)
         .modifier(HeaderChrome(shape: .capsule, hovering: hovering))
         .contentShape(.capsule)
         .onTapGesture { model.openPalette() }
@@ -1124,7 +1135,7 @@ private struct PaletteTrigger: View {
 /// other controls.
 private struct NewItemButton: View {
     @Environment(AppModel.self) private var model
-    static let size: CGFloat = 36
+    static let size: CGFloat = PaletteTrigger.height
     @State private var hovering = false
 
     var body: some View {
@@ -1165,6 +1176,576 @@ private struct NewItemButton: View {
         .onHover { hovering = $0 }
         .help(Text("New Item (⌘N)"))
         .accessibilityLabel(Text("New Item"))
+    }
+}
+
+/// Shows `content` in an AppKit popover attached to the bottom edge of this view. SwiftUI's toolbar popover
+/// does not appear when asked to open downward.
+private struct BelowPopover<Content: View>: NSViewRepresentable {
+    @Binding var isPresented: Bool
+    @ViewBuilder var content: () -> Content
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.isPresented = $isPresented
+        if isPresented {
+            let popover = context.coordinator.makePopover()
+            context.coordinator.host?.rootView = AnyView(content())
+            guard !popover.isShown, !context.coordinator.pendingShow, nsView.window != nil else { return }
+            context.coordinator.pendingShow = true
+            DispatchQueue.main.async {
+                context.coordinator.pendingShow = false
+                guard context.coordinator.isPresented.wrappedValue, nsView.window != nil, popover.isShown == false else { return }
+                context.coordinator.host?.view.layoutSubtreeIfNeeded()
+                popover.show(relativeTo: nsView.bounds, of: nsView, preferredEdge: .minY)
+            }
+        } else if let popover = context.coordinator.popover, popover.isShown {
+            popover.performClose(nil)
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator: NSObject, NSPopoverDelegate {
+        var popover: NSPopover?
+        var host: NSHostingController<AnyView>?
+        var isPresented: Binding<Bool> = .constant(false)
+        var pendingShow = false
+
+        func makePopover() -> NSPopover {
+            if let popover { return popover }
+            let host = NSHostingController(rootView: AnyView(EmptyView()))
+            host.sizingOptions = .preferredContentSize
+            let popover = NSPopover()
+            popover.behavior = .transient
+            popover.animates = true
+            popover.contentViewController = host
+            popover.delegate = self
+            self.host = host
+            self.popover = popover
+            return popover
+        }
+
+        func popoverDidClose(_ notification: Notification) {
+            popover = nil
+            host = nil
+            if isPresented.wrappedValue { isPresented.wrappedValue = false }
+        }
+    }
+}
+
+/// Header bell, just right of search. Opens whatever is waiting: an SSH signature, and the other notices.
+private struct SSHRequestsButton: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.colorScheme) private var scheme
+    @State private var hovering = false
+    @State private var open = false
+    @State private var emergency: [EmergencyNotice] = []
+
+    var body: some View {
+        let count = Inbox.badgeCount(model: model, emergency: emergency)
+        Button { open.toggle() } label: {
+            Image(systemName: "bell")
+                .font(.system(size: 14, weight: .medium))
+                .symbolRenderingMode(.monochrome)
+                .frame(width: PaletteTrigger.height, height: PaletteTrigger.height)
+                .overlay(alignment: .topTrailing) {
+                    if count > 0 {
+                        Text(verbatim: count > 9 ? "9+" : "\(count)")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 3)
+                            .frame(minWidth: 14, minHeight: 14)
+                            .background(Color.red, in: .capsule)
+                            .offset(x: 3, y: -1)
+                    }
+                }
+                .modifier(HeaderChrome(shape: .circle, hovering: hovering))
+                .contentShape(.circle)
+                .animation(.easeOut(duration: 0.12), value: hovering)
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .onHover { hovering = $0 }
+        .help(Text("Notifications"))
+        .accessibilityLabel(Text("Notifications"))
+        .accessibilityValue(Text("^[\(count) waiting](inflect: true)"))
+        .onAppear { revealIfAsked() }
+        .onChange(of: model.presentInbox) { _, _ in revealIfAsked() }
+        .task(id: model.isUnlocked) {
+            await loadEmergency()
+            model.announceInbox()
+        }
+        .onChange(of: model.sessions.map { $0.lastSyncError ?? "" }) { _, _ in model.announceInbox() }
+        .onChange(of: model.updates.availableVersion) { _, _ in model.announceInbox() }
+        .background {
+            // A toolbar popover with `arrowEdge: .bottom` never appears. Anchor an AppKit popover to this button instead.
+            BelowPopover(isPresented: $open) {
+                SSHRequestsPopover(emergency: emergency, close: { open = false }) { await loadEmergency() }
+                    .environment(model)
+                    .environment(\.colorScheme, scheme)
+            }
+        }
+    }
+
+    private func revealIfAsked() {
+        guard model.presentInbox else { return }
+        open = true
+        model.presentInbox = false
+    }
+
+    private func loadEmergency() async {
+        guard model.isUnlocked else { emergency = []; return }
+        var notes: [EmergencyNotice] = []
+        for session in model.sessions {
+            guard let trusted = try? await session.emergencyContacts(granted: false),
+                  let granted = try? await session.emergencyContacts(granted: true) else { continue }
+            for contact in trusted where contact.status == .recoveryInitiated || contact.status == .accepted {
+                notes.append(EmergencyNotice(sessionID: session.id, contact: contact, granted: false))
+            }
+            for contact in granted where contact.status == .recoveryApproved {
+                notes.append(EmergencyNotice(sessionID: session.id, contact: contact, granted: true))
+            }
+        }
+        emergency = notes
+    }
+}
+
+/// The request list for the header bell: the waiting signature, other notices, trusts, and the recent log.
+private struct SSHRequestsPopover: View {
+    @Environment(AppModel.self) private var model
+    var emergency: [EmergencyNotice]
+    var close: () -> Void
+    var reloadEmergency: () async -> Void
+
+    var body: some View {
+        let agent = model.sshAgent!
+        let notes = Inbox.notes(model: model, emergency: emergency, dismiss: close, reload: reloadEmergency)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Notifications")
+                    .font(.system(size: 13, weight: .semibold))
+                Spacer(minLength: 8)
+                if !agent.accessLog.events.isEmpty {
+                    Button("Clear") { agent.clearAccessLog() }
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if let prompt = agent.pending {
+                SSHApprovalCard(prompt: prompt, leadsWithUntilLock: agent.pendingLeadsWithUntilLock) { choice in
+                    agent.choose(choice)
+                }
+            }
+            if !agent.trustedUntilLock.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Trusted until lock")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    ForEach(agent.trustedUntilLock) { trust in
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(verbatim: trust.displayName).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                                Text(verbatim: trust.keyName).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                            Spacer(minLength: 8)
+                            Button("Remove") { agent.revokeTrust(id: trust.id) }
+                                .buttonStyle(.appSecondarySmall)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 12, style: .continuous))
+                    }
+                }
+            }
+            if !notes.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Needs attention")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    ScrollView {
+                        VStack(spacing: 6) {
+                            ForEach(notes) { note in
+                                InboxRow(note: note)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 220)
+                    .scrollBounceBehavior(.basedOnSize)
+                    .thinScroller()
+                }
+            }
+            if agent.accessLog.events.isEmpty, agent.pending == nil, notes.isEmpty {
+                Text("Nothing waiting.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            } else if !agent.accessLog.events.isEmpty {
+                ScrollView {
+                    VStack(spacing: 6) {
+                        ForEach(agent.accessLog.events.prefix(8)) { event in
+                            SSHAccessRow(event: event) {
+                                guard let item = model.items.first(where: {
+                                    $0.kind == .sshKey && !$0.isDeleted && $0.name == event.keyName
+                                }) else { return }
+                                close()
+                                model.showItem(item.id)
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 280)
+                .scrollBounceBehavior(.basedOnSize)
+                .thinScroller()
+            }
+        }
+        .padding(14)
+        .frame(width: 380)
+        .task { await reloadEmergency() }
+    }
+
+}
+
+/// One SSH access record: app, what it signed with, and how the request ended.
+private struct SSHAccessRow: View {
+    let event: SSHAccessEvent
+    var open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            row
+        }
+        .buttonStyle(PressableRowStyle())
+    }
+
+    private var row: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(tint)
+                .frame(width: 26, height: 26)
+                .background(tint.opacity(0.16), in: .rect(cornerRadius: 7, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(verbatim: event.appName)
+                        .font(.system(size: 13, weight: .medium))
+                        .lineLimit(1)
+                    Text("SSH access")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Color.primary.opacity(0.08), in: .capsule)
+                        .layoutPriority(1)
+                }
+                Text("via \(event.via) · \(event.keyName)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(label)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(tint.opacity(0.16), in: .capsule)
+                Text(verbatim: SSHAccessClock.label(since: event.date))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .contentShape(.rect(cornerRadius: 12, style: .continuous))
+    }
+
+    private var symbol: String {
+        switch event.outcome {
+        case .allowedOnce, .allowedForTenMinutes, .allowedUntilLock, .reusedTrust: "checkmark"
+        case .allowlisted: "checkmark.seal"
+        case .denied: "xmark"
+        case .timedOut: "clock"
+        case .locked: "lock"
+        }
+    }
+
+    private var tint: Color {
+        switch event.outcome {
+        case .allowedOnce, .allowedForTenMinutes, .allowedUntilLock, .allowlisted, .reusedTrust:
+            Color(red: 0.35, green: 0.78, blue: 0.55)
+        case .denied: Color(red: 0.95, green: 0.45, blue: 0.42)
+        case .timedOut: Color(red: 0.95, green: 0.72, blue: 0.38)
+        case .locked: .secondary
+        }
+    }
+
+    private var label: LocalizedStringKey {
+        switch event.outcome {
+        case .allowedOnce: "Allowed once"
+        case .allowedForTenMinutes: "Allowed for 10 minutes"
+        case .allowedUntilLock: "Trusted until lock"
+        case .allowlisted: "Always allowed"
+        case .denied: "Denied"
+        case .timedOut: "Timed out"
+        case .locked: "Vault locked"
+        case .reusedTrust: "Used an existing grant"
+        }
+    }
+}
+
+/// One person involved in emergency access who needs a decision.
+private struct EmergencyNotice: Identifiable {
+    let sessionID: String
+    let contact: EmergencyContact
+    /// A vault that trusts this account, rather than someone trusted with this vault.
+    let granted: Bool
+    var id: String { sessionID + contact.id + (granted ? "-g" : "-t") }
+    var person: String { contact.name.map { "\($0) · \(contact.email)" } ?? contact.email }
+}
+
+/// A row in the bell that is not an SSH signature.
+private struct InboxNote: Identifiable {
+    let id: String
+    let symbol: String
+    let tint: Color
+    let title: String
+    let subtitle: String
+    var primaryTitle: LocalizedStringKey?
+    var primary: () -> Void = {}
+    var secondaryTitle: LocalizedStringKey?
+    var secondary: () -> Void = {}
+}
+
+/// Press and hover for a row in the bell. The fill lives here so a click is visible.
+private struct PressableRowStyle: ButtonStyle {
+    @State private var hovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                Color.primary.opacity(configuration.isPressed ? 0.16 : (hovering ? 0.10 : 0.05)),
+                in: .rect(cornerRadius: 12, style: .continuous)
+            )
+            .onHover { hovering = $0 }
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.12), value: hovering)
+    }
+}
+
+private struct InboxRow: View {
+    let note: InboxNote
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Button(action: note.primary) {
+                HStack(spacing: 10) {
+                    Image(systemName: note.symbol)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(note.tint)
+                        .frame(width: 26, height: 26)
+                        .background(note.tint.opacity(0.16), in: .rect(cornerRadius: 7, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: note.title)
+                            .font(.system(size: 13, weight: .medium))
+                            .lineLimit(1)
+                        Text(verbatim: note.subtitle)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    if note.secondaryTitle == nil, let primaryTitle = note.primaryTitle {
+                        Text(primaryTitle)
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .contentShape(.rect(cornerRadius: 12, style: .continuous))
+            }
+            .buttonStyle(PressableRowStyle())
+            .disabled(note.primaryTitle == nil)
+            if let secondaryTitle = note.secondaryTitle {
+                Button(secondaryTitle, action: note.secondary)
+                    .buttonStyle(.borderless)
+                    .font(.system(size: 12, weight: .medium))
+                if let primaryTitle = note.primaryTitle {
+                    Button(primaryTitle, action: note.primary)
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.trailing, 10)
+                }
+            }
+        }
+    }
+}
+
+/// What the bell counts and lists, besides the SSH card and its log.
+@MainActor
+private enum Inbox {
+    static func badgeCount(model: AppModel, emergency: [EmergencyNotice]) -> Int {
+        var count = model.sshAgent?.pending == nil ? 0 : 1
+        if model.sessions.contains(where: { $0.lastSyncError != nil }) { count += 1 }
+        if model.updates.availableVersion != nil { count += 1 }
+        if !expiringOrOpened(model.sends).isEmpty { count += 1 }
+        if hasUrgentWatchtower(model) { count += 1 }
+        if !emergency.isEmpty { count += 1 }
+        return count
+    }
+
+    static func notes(model: AppModel, emergency: [EmergencyNotice], dismiss: @escaping () -> Void, reload: @escaping () async -> Void) -> [InboxNote] {
+        var notes: [InboxNote] = []
+        if model.sessions.contains(where: { $0.lastSyncError != nil }) {
+            notes.append(InboxNote(
+                id: "sync",
+                symbol: "arrow.triangle.2.circlepath",
+                tint: Color(red: 0.95, green: 0.72, blue: 0.38),
+                title: String(localized: "Couldn't sync"),
+                subtitle: String(localized: "The vault on this Mac is unchanged."),
+                primaryTitle: "Retry",
+                primary: { model.scheduleSync() }
+            ))
+        }
+        if let version = model.updates.availableVersion {
+            notes.append(InboxNote(
+                id: "update",
+                symbol: "arrow.down.circle",
+                tint: Color(red: 0.35, green: 0.78, blue: 0.55),
+                title: String(localized: "Update \(version) is ready"),
+                subtitle: String(localized: "Install when you're ready."),
+                primaryTitle: "Install",
+                primary: {
+                    model.updates.checkForUpdates()
+                    dismiss()
+                }
+            ))
+        }
+        for notice in emergency {
+            guard let session = model.session(for: notice.sessionID) else { continue }
+            if notice.granted {
+                notes.append(InboxNote(
+                    id: "emergency-" + notice.id,
+                    symbol: "person.badge.key",
+                    tint: Color(red: 0.95, green: 0.45, blue: 0.42),
+                    title: notice.person,
+                    subtitle: String(localized: "Emergency access granted"),
+                    primaryTitle: "Review",
+                    primary: {
+                        model.showSettings(.accounts)
+                        dismiss()
+                    }
+                ))
+            } else if notice.contact.status == .recoveryInitiated {
+                notes.append(InboxNote(
+                    id: "emergency-" + notice.id,
+                    symbol: "person.badge.key",
+                    tint: Color(red: 0.95, green: 0.72, blue: 0.38),
+                    title: notice.person,
+                    subtitle: String(localized: "Asked for emergency access"),
+                    primaryTitle: "Approve",
+                    primary: {
+                        Task {
+                            try? await session.emergencyAccess("approve", notice.contact)
+                            await reload()
+                        }
+                    },
+                    secondaryTitle: "Reject",
+                    secondary: {
+                        Task {
+                            try? await session.emergencyAccess("reject", notice.contact)
+                            await reload()
+                        }
+                    }
+                ))
+            } else {
+                notes.append(InboxNote(
+                    id: "emergency-" + notice.id,
+                    symbol: "person.badge.key",
+                    tint: .secondary,
+                    title: notice.person,
+                    subtitle: String(localized: "Needs confirming"),
+                    primaryTitle: "Review",
+                    primary: {
+                        model.showSettings(.accounts)
+                        dismiss()
+                    }
+                ))
+            }
+        }
+        let report = WatchtowerReport(items: model.items, breaches: model.breachCounts)
+        for item in (report.issues[.breached] ?? []).prefix(3) {
+            notes.append(InboxNote(
+                id: "watch-" + item.id,
+                symbol: "exclamationmark.shield",
+                tint: Color(red: 0.95, green: 0.45, blue: 0.42),
+                title: item.name,
+                subtitle: String(localized: "Password found in a data breach"),
+                primaryTitle: "Open",
+                primary: {
+                    model.showInWatchtower(item)
+                    dismiss()
+                }
+            ))
+        }
+        for item in (report.issues[.cardExpiring] ?? []).prefix(2) {
+            notes.append(InboxNote(
+                id: "card-" + item.id,
+                symbol: "creditcard",
+                tint: Color(red: 0.95, green: 0.72, blue: 0.38),
+                title: item.name,
+                subtitle: String(localized: "Card expiring soon"),
+                primaryTitle: "Open",
+                primary: {
+                    model.showInWatchtower(item)
+                    dismiss()
+                }
+            ))
+        }
+        for send in expiringOrOpened(model.sends).prefix(4) {
+            let expiring = isExpiringSoon(send)
+            notes.append(InboxNote(
+                id: "send-" + send.id,
+                symbol: "paperplane",
+                tint: expiring ? Color(red: 0.95, green: 0.72, blue: 0.38) : .secondary,
+                title: send.name,
+                subtitle: expiring
+                    ? String(localized: "Send expires soon")
+                    : String(localized: "Opened \(send.accessCount) times"),
+                primaryTitle: "Open",
+                primary: {
+                    model.requestedSection = .sends
+                    dismiss()
+                }
+            ))
+        }
+        return notes
+    }
+
+    private static func hasUrgentWatchtower(_ model: AppModel) -> Bool {
+        let report = WatchtowerReport(items: model.items, breaches: model.breachCounts)
+        return !(report.issues[.breached] ?? []).isEmpty || !(report.issues[.cardExpiring] ?? []).isEmpty
+    }
+
+    private static func isExpiringSoon(_ send: SendItem) -> Bool {
+        let soon = Date.now.addingTimeInterval(48 * 60 * 60)
+        guard let date = send.expirationDate ?? send.deletionDate else { return false }
+        return date > .now && date < soon
+    }
+
+    private static func expiringOrOpened(_ sends: [SendItem]) -> [SendItem] {
+        var seen = Set<String>()
+        var picked: [SendItem] = []
+        for send in sends where !send.disabled && !send.isExpired {
+            let opened = send.accessCount > 0 && !send.isUsedUp
+            guard isExpiringSoon(send) || opened else { continue }
+            guard seen.insert(send.id).inserted else { continue }
+            picked.append(send)
+        }
+        return picked.sorted { isExpiringSoon($0) && !isExpiringSoon($1) }
     }
 }
 
@@ -1575,13 +2156,29 @@ struct ItemDetail: View {
     @Environment(AppModel.self) private var model
     let item: VaultItem
     @State private var revealToggle = false
+    /// ⌥ peek, after a short hold. Releasing ⌥ waits a moment, then the secret rolls back into dots.
+    @State private var optionPeek = false
+    @State private var peekWait: Task<Void, Never>?
     @State private var starBurst = 0
     @State private var confirmDelete = false
     @State private var dropping = false
-    /// Revealed while toggled on, or while ⌥ is held.
-    private var reveal: Binding<Bool> {
-        // Holding ⌥ peeks, except on items that ask for the master password first.
-        Binding(get: { revealToggle || (model.optionHeld && model.isRepromptPassed(item)) }, set: { revealToggle = $0 })
+    /// Revealed by the eye, or by holding ⌥.
+    private var secretsVisible: Bool { revealToggle || optionPeek }
+
+    /// Holding ⌥ alone peeks. A quick tap does nothing; letting go waits, then the mask rolls back.
+    private func setOptionPeek(_ held: Bool) {
+        peekWait?.cancel()
+        peekWait = Task {
+            if held {
+                try? await Task.sleep(for: .milliseconds(260))
+                guard !Task.isCancelled, model.isRepromptPassed(item) else { return }
+                optionPeek = true
+            } else {
+                try? await Task.sleep(for: .milliseconds(160))
+                guard !Task.isCancelled else { return }
+                optionPeek = false
+            }
+        }
     }
 
     var body: some View {
@@ -1598,12 +2195,12 @@ struct ItemDetail: View {
                     }
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                 }
-                HeroCard(item: item, reveal: reveal)
+                HeroCard(item: item, reveal: secretsVisible)
 
                 if !item.fields.isEmpty {
                     VStack(spacing: 0) {
                         ForEach(Array(item.fields.enumerated()), id: \.element.id) { index, field in
-                            FieldLine(item: item, field: field, reveal: reveal.wrappedValue)
+                            FieldLine(item: item, field: field, reveal: secretsVisible)
                                 .overlay(alignment: .top) { if index > 0 { Divider().opacity(0.6).padding(.leading, 16) } }
                         }
                     }
@@ -1612,10 +2209,10 @@ struct ItemDetail: View {
                 }
 
                 VStack(spacing: 0) {
-                    if let address = item.uri ?? item.host,
-                       let url = URL(string: address.contains("://") ? address : "https://" + address) {
-                        DetailRow(symbol: "globe", title: "Website") {
-                            Button { NSWorkspace.shared.open(url) } label: {
+                    ForEach(Array(item.websites.enumerated()), id: \.offset) { index, address in
+                        let url = URL(string: address.contains("://") ? address : "https://" + address)
+                        DetailRow(symbol: "globe", title: index == 0 ? "Website" : "Website \(index + 1)") {
+                            Button { if let url { NSWorkspace.shared.open(url) } } label: {
                                 HStack(spacing: 5) {
                                     Text(verbatim: address).lineLimit(1).truncationMode(.middle)
                                     Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold))
@@ -1625,6 +2222,7 @@ struct ItemDetail: View {
                                 .contentShape(.rect)
                             }
                             .buttonStyle(.plain)
+                            .disabled(url == nil)
                             .help(Text("Open in your browser"))
                             .contextMenu {
                                 Button("Copy", systemImage: "doc.on.doc") { model.copyPlain(address) }
@@ -1798,6 +2396,8 @@ struct ItemDetail: View {
         } message: {
             Text("This can't be undone.")
         }
+        .onChange(of: model.optionHeld, initial: true) { _, held in setOptionPeek(held) }
+        .onDisappear { peekWait?.cancel() }
     }
 
     /// What Watchtower says about this password: the same checks as the list's mark.
@@ -1821,12 +2421,14 @@ struct ItemDetail: View {
             } else {
                 // Reveal, then a divider, whenever the item has anything secret (password, private key, card code…).
                 if item.password != nil || item.fields.contains(where: \.secret) {
-                    toolbarButton(reveal.wrappedValue ? "eye.slash" : "eye", help: reveal.wrappedValue ? "Hide" : "Reveal (hold ⌥)",
-                                  spoken: reveal.wrappedValue ? "Hide" : "Reveal") {
-                        if reveal.wrappedValue {
-                            withAnimation(.snappy) { reveal.wrappedValue = false }
+                    toolbarButton(secretsVisible ? "eye.slash" : "eye", help: secretsVisible ? "Hide" : "Reveal (hold ⌥)",
+                                  spoken: secretsVisible ? "Hide" : "Reveal") {
+                        if secretsVisible {
+                            revealToggle = false
+                            optionPeek = false
+                            peekWait?.cancel()
                         } else {
-                            model.guarded(item) { withAnimation(.snappy) { reveal.wrappedValue = true } }
+                            model.guarded(item) { revealToggle = true }
                         }
                     }
                     Rectangle().fill(Color.primary.opacity(0.12)).frame(width: 1, height: 16).padding(.horizontal, 3)
@@ -1874,14 +2476,9 @@ extension HeroCard {
                             Text(strength.1)
                         }
                         .font(.system(size: 12)).foregroundStyle(style.muted)
-                        Group {
-                            if reveal {
-                                DecodingText(password).font(.system(size: 16, weight: .semibold, design: .monospaced)).tracking(0.5)
-                            } else {
-                                Text(verbatim: String(repeating: "•", count: 12))
-                                    .font(.system(size: 20, weight: .semibold, design: .monospaced)).tracking(2)
-                            }
-                        }
+                        MaskedSecret(secret: password, revealed: reveal)
+                            .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                            .tracking(0.5)
                             .lineLimit(1)
                             .frame(height: 24, alignment: .leading)
                         // Same place and size as the code's countdown bar, so the tiles line up.
@@ -1930,7 +2527,7 @@ private struct HeroCard: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorScheme) private var scheme
     let item: VaultItem
-    @Binding var reveal: Bool
+    let reveal: Bool
     @State var passwordArmed: Int?
     @State var passwordCopied = false
     @State var codeArmed: Int?
@@ -2039,12 +2636,11 @@ private struct FieldLine: View {
                 .font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
                 .frame(width: 110, alignment: .leading)
             Group {
-                if field.secret && !reveal {
-                    Text(verbatim: String(repeating: "•", count: 10))
-                } else if field.secret {
-                    DecodingText(shown)
+                if field.secret {
+                    MaskedSecret(secret: shown, revealed: reveal, dots: 10)
                 } else {
                     Text(verbatim: shown)
+                        .contentTransition(.opacity)
                 }
             }
                 .font(.system(size: 13, design: field.monospaced ? .monospaced : .default))
@@ -2052,7 +2648,6 @@ private struct FieldLine: View {
                 .truncationMode(.middle)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .contentTransition(.opacity)
             Button {
                 armed = model.copyCount
                 if field.secret { model.guarded(item) { model.copy(field.value, label: field.label) } } else { model.copy(field.value, label: field.label) }

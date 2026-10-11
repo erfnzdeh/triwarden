@@ -27,8 +27,19 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
                                                                     code: ASExtensionError.userCanceled.rawValue))
         }
         let host = NSHostingView(rootView: AutoFillView(state: state))
+        host.wantsLayer = true
+        host.layer?.isOpaque = false
+        host.layer?.backgroundColor = NSColor.clear.cgColor
         view = host
         preferredContentSize = NSSize(width: 440, height: 500)
+    }
+
+    override func viewWillAppear() {
+        super.viewWillAppear()
+        // The material has to sample through a clear window, the same way the palette and shortcuts panels do.
+        view.window?.isOpaque = false
+        view.window?.backgroundColor = .clear
+        view.window?.titlebarAppearsTransparent = true
     }
 
     // Password list for the current site.

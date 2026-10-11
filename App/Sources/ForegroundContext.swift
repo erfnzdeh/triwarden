@@ -1,7 +1,8 @@
 import AppKit
+import SwiftUI
 
-/// Where the user was when they called the palette or opened the menu bar panel: the app, and for a browser the
-/// site of its front tab. The palette and the panel put that site's (or app's) logins first.
+/// Where the user was when they called the palette or opened the menu bar panel: the app, and, when they have
+/// turned it on, the site of a browser's front tab. The palette and the panel put that site's (or app's) logins first.
 struct ForegroundContext: Equatable {
     let app: String
     let bundleID: String
@@ -55,8 +56,7 @@ struct ForegroundContext: Equatable {
         if let host {
             let equivalents = model.equivalentDomains
             return Array(live.filter { item in
-                guard let h = item.host, !h.isEmpty else { return false }
-                return equivalents.matches(itemHost: h, site: host)
+                return item.hosts.contains { equivalents.matches(itemHost: $0, site: host) }
             }.prefix(6))
         }
         guard !isBrowser, app.count >= 3 else { return [] }
@@ -82,8 +82,8 @@ extension AppModel {
         }
     }
 
-    /// Notes where the user is (the front app, or the last one before Triwarden), then asks a browser for its
-    /// front tab. Call it before Triwarden takes focus.
+    /// Notes where the user is (the front app, or the last one before Triwarden). A browser's front tab is
+    /// asked only after the person turns on matching. Call it before Triwarden takes focus.
     func captureForeground() {
         guard !foregroundPinned else { return }
         let front = NSWorkspace.shared.frontmostApplication
@@ -92,6 +92,28 @@ extension AppModel {
         guard context.isBrowser else { foreground = context; return }
         context.host = foreground?.bundleID == context.bundleID && foreground?.pid == context.pid ? foreground?.host : nil
         foreground = context
+        readFrontTab()
+    }
+
+    /// Turns front-tab matching on or off. On asks the browser already in front; off forgets the address and
+    /// keeps the reminder from coming back.
+    func setMatchFrontTab(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: Pref.matchFrontTab)
+        if on {
+            readFrontTab()
+        } else {
+            UserDefaults.standard.set(true, forKey: Pref.matchFrontTabDismissed)
+            foreground?.host = nil
+        }
+    }
+
+    func dismissFrontTabPrompt() {
+        UserDefaults.standard.set(true, forKey: Pref.matchFrontTabDismissed)
+    }
+
+    /// The front tab's host, when matching is on. This is the call that makes macOS show its Automation prompt.
+    private func readFrontTab() {
+        guard UserDefaults.standard.bool(forKey: Pref.matchFrontTab), let context = foreground, context.isBrowser else { return }
         Task {
             let host = await ForegroundContext.pageURL(bundleID: context.bundleID)?.host()?.lowercased()
             guard foreground?.pid == context.pid else { return }
@@ -105,7 +127,8 @@ extension AppModel {
         guard isUnlocked else { openPalette(); return }
         captureForeground()
         Task {
-            if let context = foreground, context.isBrowser, context.host == nil {
+            if UserDefaults.standard.bool(forKey: Pref.matchFrontTab),
+               let context = foreground, context.isBrowser, context.host == nil {
                 // Wait (briefly) for the browser to say which page it's on.
                 for _ in 0..<20 where foreground?.host == nil && foreground?.pid == context.pid {
                     try? await Task.sleep(for: .milliseconds(50))
@@ -134,5 +157,43 @@ extension AppModel {
     func returnToForeground() {
         guard let foreground, let app = NSRunningApplication(processIdentifier: foreground.pid) else { return }
         app.activate()
+    }
+}
+
+/// Shown over a browser while front-tab matching is still off, so the Automation prompt is a choice.
+struct FrontTabMatchPrompt: View {
+    var horizontalPadding: CGFloat = 0
+    @Environment(AppModel.self) private var model
+    @AppStorage(Pref.matchFrontTab) private var enabled = false
+    @AppStorage(Pref.matchFrontTabDismissed) private var dismissed = false
+
+    private var appName: String? {
+        guard model.isUnlocked, !enabled, !dismissed, let context = model.foreground, context.isBrowser else { return nil }
+        return context.app
+    }
+
+    var body: some View {
+        if let appName {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Match \(appName)'s front tab?")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("Triwarden can read the address of \(appName)'s front tab so that site's logins come first. macOS will ask to let Triwarden control the browser. Automation can reach documents and perform actions; Triwarden only asks for the front tab's http or https address. It does not read the page or change the browser.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Button("Turn On") { model.setMatchFrontTab(true) }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    Button("Not Now") { model.dismissFrontTabPrompt() }
+                        .controlSize(.small)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 12, style: .continuous))
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, horizontalPadding == 0 ? 0 : 8)
+        }
     }
 }

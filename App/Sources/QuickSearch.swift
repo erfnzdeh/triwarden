@@ -184,6 +184,10 @@ final class QuickSearchController {
     private let model: AppModel
     private var resignObserver: NSObjectProtocol?
     private var closing: Task<Void, Never>?
+    /// Waiting to see whether losing the keyboard was the system Fill a password sheet.
+    private var resignWatch: Task<Void, Never>?
+    /// The palette stays up under that sheet, then takes the keyboard back when the sheet goes.
+    private var holdingForFill = false
 
     init(model: AppModel) { self.model = model }
 
@@ -257,15 +261,102 @@ final class QuickSearchController {
         panel.isOpaque = false
         panel.hasShadow = false // the palette draws its own soft shadow
         panel.isMovableByWindowBackground = true
-        // Not hidesOnDeactivate: that hides it at once. Losing key (another window of ours, the desktop, another app)
-        // closes it through close(), so it plays its way out.
+        // Not hidesOnDeactivate: that hides it at once. Losing key to another window, the desktop, or another app
+        // closes it through close(), so it plays its way out. The system Fill a password sheet is the exception:
+        // choosing Triwarden… or Passwords… on the master-password field opens that sheet, and the palette stays.
         panel.hidesOnDeactivate = false
         resignObserver = NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: panel,
                                                                 queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.close() }
+            MainActor.assumeIsolated { self?.notePaletteResignKey() }
         }
         panel.contentView = NSHostingView(rootView: CommandPalette(close: { [weak self] in self?.close() })
             .environment(model))
         return panel
+    }
+
+    /// The palette lost the keyboard. Close, unless the system password sheet is what took it.
+    private func notePaletteResignKey() {
+        guard let panel, panel.isVisible, !panel.isKeyWindow, closing == nil, !holdingForFill else { return }
+        if let key = NSApp.keyWindow, key != panel {
+            close()
+            return
+        }
+        if Self.passwordFillOnScreen() {
+            holdWhilePasswordFillIsUp()
+            return
+        }
+        if Self.anotherAppTookFocus() {
+            close()
+            return
+        }
+        resignWatch?.cancel()
+        resignWatch = Task { @MainActor in
+            for _ in 0..<8 {
+                try? await Task.sleep(for: .milliseconds(80))
+                guard !Task.isCancelled else { return }
+                guard let panel = self.panel, panel.isVisible, !panel.isKeyWindow, closing == nil else { return }
+                if Self.passwordFillOnScreen() {
+                    holdWhilePasswordFillIsUp()
+                    return
+                }
+                if Self.anotherAppTookFocus() {
+                    close()
+                    return
+                }
+            }
+            guard let panel = self.panel, panel.isVisible, !panel.isKeyWindow, closing == nil, !holdingForFill else { return }
+            close()
+        }
+    }
+
+    /// Stay visible under Fill a password. When that sheet closes, take the keyboard back.
+    private func holdWhilePasswordFillIsUp() {
+        guard !holdingForFill else { return }
+        holdingForFill = true
+        resignWatch?.cancel()
+        // This panel sits above the menu bar. Drop it so the system sheet can cover it instead of the other way around.
+        panel?.level = .normal
+        Task { @MainActor in
+            while Self.passwordFillOnScreen() {
+                try? await Task.sleep(for: .milliseconds(200))
+            }
+            holdingForFill = false
+            guard let panel, panel.isVisible, closing == nil else { return }
+            panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+            if Self.anotherAppTookFocus() {
+                close()
+            } else {
+                panel.makeKeyAndOrderFront(nil)
+            }
+        }
+    }
+
+    /// A normal app (or the desktop) is in front, rather than the system password sheet.
+    private static func anotherAppTookFocus() -> Bool {
+        guard !NSApp.isActive else { return false }
+        let id = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
+        return !id.isEmpty && id != Bundle.main.bundleIdentifier && !passwordFillBundles.contains(id)
+    }
+
+    private static let passwordFillBundles: Set<String> = [
+        "com.apple.AutoFillPanelService",
+        "com.apple.Passwords",
+    ]
+
+    /// The Fill a password sheet is on screen. The service process stays running with no window, so a live window counts.
+    private static func passwordFillOnScreen() -> Bool {
+        let pids = Set(passwordFillBundles.flatMap {
+            NSRunningApplication.runningApplications(withBundleIdentifier: $0).map(\.processIdentifier)
+        })
+        guard !pids.isEmpty,
+              let info = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+        else { return false }
+        return info.contains { dict in
+            guard let pid = (dict[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value, pids.contains(pid),
+                  let bounds = dict[kCGWindowBounds as String] as? NSDictionary,
+                  let width = bounds["Width"] as? CGFloat, let height = bounds["Height"] as? CGFloat
+            else { return false }
+            return width > 80 && height > 80
+        }
     }
 }

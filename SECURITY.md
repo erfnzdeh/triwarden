@@ -44,9 +44,15 @@ with `completeUntilFirstUserAuthentication` file protection, and both the app an
   the extension, and `provideCredentialWithoutUserInteraction` always refuses. Only domains, usernames and
   passkey ids are shared with the system's QuickType list, never passwords.
 - **SSH agent** (off by default) listens on a `0600` socket in the App Group container. It only lists and
-  signs; it never adds, removes or exports keys. Every signature asks for Touch ID or the Mac password, names
-  the requesting program, and can optionally be remembered for 1 or 10 minutes per key and program. Keys
-  are only available while their account is unlocked.
+  signs; it never adds, removes or exports keys. A signature request names the app that owns the connecting
+  process (bundle id and Team ID when the signature is readable, otherwise the executable path). The person
+  allows it once, for 10 minutes, until the vault locks, or always for that app. macOS then asks for Touch ID
+  or the Mac login password, which Triwarden never receives. Short grants live in memory and are cleared on
+  lock. Allowing once also covers the same app and key for 15 seconds. Always is an app allowlist in
+  `ssh-allowlist.json`: it survives lock and quit, and while the vault is unlocked those apps sign with no
+  further prompt. Every request is appended to `ssh-access-log.json` in the
+  App Group container (newest 200; app, tool, path, key name, outcome; no key material and no signed payload).
+  Keys are only available while their account is unlocked.
 - **`tw` command line** (off by default) talks to the app over a `0600` socket in the App Group container.
   Status, generate and lock work without approval. Listing or reading anything needs the vault unlocked and
   Touch ID or the Mac password, with a prompt that names the calling program. Secrets go to stdout only,
@@ -56,9 +62,9 @@ with `completeUntilFirstUserAuthentication` file protection, and both the app an
   sandboxed. The helper listens on a `0600` socket in the App Group container and answers only the Triwarden
   executable of the bundle it sits in, signed by the same team; anyone else gets no answer at all. It stores
   nothing, types only what one request carries into the app that request names (after it comes forward), and
-  quits with Triwarden. Typing takes the same Touch ID / re-prompt as copying. The palette and the menu bar
-  ask the front browser for its tab's address over Apple Events (macOS asks once per browser), only to put
-  that site's logins first.
+  quits with Triwarden. Typing takes the same Touch ID / re-prompt as copying. Matching a browser tab is off
+  by default. When it is on, the palette and the menu bar ask the front browser for its tab's address over
+  Apple Events (macOS asks once per browser), only to put that site's logins first.
 - **Browser extension** (off by default; Safari, and Chrome/Edge/Brave through `tw` as the native host)
   stores nothing and holds no keys. The page URL comes from the browser, not the page. Suggestions are names
   and usernames for that site only, and only our own bundled binaries may ask for them. Filling needs Touch ID

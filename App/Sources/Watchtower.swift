@@ -99,7 +99,7 @@ struct WatchtowerReport {
             if let n = breaches?[item.id], n > 0 { issues[.breached, default: []].append(item) }
             if item.reuseCount > 0 { issues[.reused, default: []].append(item) }
             if Self.isWeak(pw) { issues[.weak, default: []].append(item) }
-            if let uri = item.uri, Self.isInsecure(uri) { issues[.insecure, default: []].append(item) }
+            if item.websites.contains(where: Self.isInsecure) { issues[.insecure, default: []].append(item) }
             if item.totp == nil, !item.hasPasskey, let host = item.host, Self.guide(for: host, in: twoFactor) != nil {
                 issues[.twoFactor, default: []].append(item)
             }

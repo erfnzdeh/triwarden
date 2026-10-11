@@ -87,8 +87,9 @@ final class ButtonTests: XCTestCase {
         select("GitHub")
         XCTAssertTrue(button("Edit").waitForExistence(timeout: 3), "item toolbar missing")
         button("Edit").click()
-        XCTAssertTrue(app.sheets.buttons["Cancel"].firstMatch.waitForExistence(timeout: 3), "Edit did not open the editor")
-        app.sheets.buttons["Cancel"].firstMatch.click()
+        XCTAssertTrue(window.staticTexts["Edit Item"].waitForExistence(timeout: 3), "Edit did not open in the detail panel")
+        window.buttons["Cancel"].firstMatch.click()
+        XCTAssertFalse(window.staticTexts["Edit Item"].waitForExistence(timeout: 1), "Edit did not close")
 
         button("Reveal").click()
         XCTAssertTrue(window.staticTexts["m7Kq#vR2!tLp9wZe$Hu"].waitForExistence(timeout: 2), "Reveal did not show the password")
