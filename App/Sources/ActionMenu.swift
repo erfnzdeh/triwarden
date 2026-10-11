@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Shared toolbar menus: stable icon columns, independent checkmarks and the sidebar’s neutral selection fill.
+/// Shared toolbar menus: stable icon columns, independent checkmarks and a translucent neutral selection wash that preserves the material underneath.
 struct ActionMenuEntry {
     var title: String
     var symbol: String = ""
@@ -39,6 +39,7 @@ private struct ActionMenuContents: View {
     @State private var path: [Int] = []
     @State private var selected: Int?
     @FocusState private var focused: Bool
+    @Environment(\.colorScheme) private var scheme
 
     private var current: [ActionMenuEntry] {
         path.reduce(entries) { list, index in list.indices.contains(index) ? list[index].children : [] }
@@ -79,7 +80,7 @@ private struct ActionMenuContents: View {
                                 .font(.system(size: 13))
                                 .padding(.horizontal, 10).frame(height: 26)
                                 .foregroundStyle(.primary)
-                                .background(selected == index ? Color(nsColor: .unemphasizedSelectedContentBackgroundColor) : .clear,
+                                .background(selected == index ? (scheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.10)) : .clear,
                                             in: .rect(cornerRadius: 8))
                                 .contentShape(.rect)
                             }

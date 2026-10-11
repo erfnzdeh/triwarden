@@ -105,3 +105,8 @@ The two synthetic records (`UI audit 20261011 edited` and `UI audit import 20261
 - Follow-up screenshot clarified that toolbar menu hover should match the sidebar's actual unemphasized gray selection, not the blue sidebar tint token. Menus now use the native `unemphasizedSelectedContentBackgroundColor` with normal foreground text and adaptive icons.
 - Shared menu rows are 26 points high (previously 32), separated by 1 point (previously 3); section and outer padding are also reduced. This covers New Item, Filters, Sort and nested choices.
 - Debug build and whitespace validation passed.
+
+## Translucent selection correction
+
+- The native unemphasized selection color rendered as an opaque gray block in the light popover. Replaced it with an explicit neutral wash (10% black in light appearance, 12% white in dark appearance), preserving the material color beneath. Compact row dimensions remain unchanged.
+- Debug build and whitespace validation passed.
