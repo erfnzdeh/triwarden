@@ -30,6 +30,19 @@ private final class ControlReturnMonitor: @unchecked Sendable {
     }
 }
 
+/// Sample the desktop behind the floating panel instead of stacking opaque SwiftUI tints.
+private struct PaletteBackdrop: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+}
+
 /// One runnable action in the palette.
 struct PaletteCommand: Identifiable {
     let id: String
@@ -257,8 +270,7 @@ struct CommandPalette: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(width: 704)
-        .background(.regularMaterial, in: .rect(cornerRadius: 22, style: .continuous))
-        .background((dark ? Color.black.opacity(0.15) : Color.white.opacity(0.55)), in: .rect(cornerRadius: 22, style: .continuous))
+        .background { PaletteBackdrop().clipShape(.rect(cornerRadius: 22, style: .continuous)) }
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.primary.opacity(dark ? 0.14 : 0.08), lineWidth: 0.5))
         .scaleEffect(x: appeared ? 1 : 0.92, y: appeared ? 1 : 0.94, anchor: .top) // a short way to grow: it feels instant
         .opacity(appeared ? 1 : 0)
@@ -354,6 +366,7 @@ struct CommandPalette: View {
             ScrollView {
                 resultRows(sections)
             }
+            .scrollIndicators(.hidden)
             .scrollBounceBehavior(.basedOnSize)
             .frame(maxHeight: Self.resultsMaxHeight)
             .fixedSize(horizontal: false, vertical: true) // as tall as the rows, up to the limit
