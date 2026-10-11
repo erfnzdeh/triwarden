@@ -211,7 +211,7 @@ struct CodesPane: View {
                 } pin: {
                     Task { await model.toggleFavorite(item) }
                 }
-                .contextMenu { ItemContextMenu(item: item) }
+                .appContextMenu(model.itemContextActions(item))
             }
         }
     }

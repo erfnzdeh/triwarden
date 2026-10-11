@@ -393,7 +393,7 @@ private struct QuickRow: View {
             }
         }
         .onHover { inside in withAnimation(.snappy(duration: 0.15)) { hovering = inside } }
-        .contextMenu { ItemContextMenu(item: item) }
+        .appContextMenu(model.itemContextActions(item))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(verbatim: item.name))
     }

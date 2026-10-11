@@ -12,6 +12,17 @@ struct SendsPane: View {
         }
     }
 
+    private func sendActions(_ send: SendItem) -> [ActionMenuEntry] {
+        var rows: [ActionMenuEntry] = []
+        if let link = model.sendLink(send) {
+            rows.append(ActionMenuEntry(title: String(localized: "Copy Link"), symbol: "link") { model.copyPlain(link.absoluteString) })
+            rows.append(ActionMenuEntry(title: String(localized: "Open Link"), symbol: "safari") { NSWorkspace.shared.open(link) })
+        }
+        rows.append(ActionMenuEntry(title: String(localized: "Edit…"), symbol: "pencil", separatorBefore: !rows.isEmpty) { model.editingSend = send })
+        rows.append(ActionMenuEntry(title: String(localized: "Delete…"), symbol: "trash", destructive: true) { model.confirmDeleteSend(send) })
+        return rows
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             VStack(spacing: 10) {
@@ -31,18 +42,7 @@ struct SendsPane: View {
                                 .accessibilityAddTraits(send.id == model.selectedSendID ? [.isButton, .isSelected] : .isButton)
                                 .accessibilityAction { model.composingSend = false; model.selectedSendID = send.id }
                                 .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                                .contextMenu {
-                                    Group {
-                                        if let link = model.sendLink(send) {
-                                            Button("Copy Link", systemImage: "link") { model.copyPlain(link.absoluteString) }
-                                            Button("Open Link", systemImage: "safari") { NSWorkspace.shared.open(link) }
-                                            Divider()
-                                        }
-                                        Button("Edit…", systemImage: "pencil") { model.editingSend = send }
-                                        Button("Delete…", systemImage: "trash", role: .destructive) { model.confirmDeleteSend(send) }
-                                    }
-                                    .labelStyle(.titleAndIcon)
-                                }
+                                .appContextMenu(sendActions(send))
                         }
                     }
                     .padding(6)

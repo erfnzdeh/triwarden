@@ -1,6 +1,10 @@
 import AppKit
 import SwiftUI
 
+enum ActionMenuPresentation {
+    static var animates: Bool { Motion.plays && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+}
+
 /// Shared toolbar menus: stable icon columns, independent checkmarks and a translucent neutral selection wash that preserves the material underneath.
 struct ActionMenuEntry {
     var title: String
@@ -8,6 +12,8 @@ struct ActionMenuEntry {
     var shortcut: String = ""
     var checked = false
     var enabled = true
+    var destructive = false
+    var separatorBefore = false
     var heading = false
     var children: [ActionMenuEntry] = []
     var run: () -> Void = {}
@@ -33,7 +39,7 @@ struct ActionMenu<Label: View>: View {
     }
 }
 
-private struct ActionMenuContents: View {
+struct ActionMenuContents: View {
     let entries: [ActionMenuEntry]
     let close: () -> Void
     @State private var path: [Int] = []
@@ -57,6 +63,7 @@ private struct ActionMenuContents: View {
                 VStack(alignment: .leading, spacing: 1) {
                     ForEach(current.indices, id: \.self) { index in
                         let entry = current[index]
+                        if entry.separatorBefore { Divider().padding(.vertical, 3) }
                         if entry.heading {
                             Text(verbatim: entry.title)
                                 .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
@@ -65,11 +72,11 @@ private struct ActionMenuContents: View {
                             Button { activate(index) } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: entry.symbol).frame(width: 18)
-                                        .foregroundStyle(selected == index ? Color.primary : Color.secondary)
+                                        .foregroundStyle(entry.destructive ? Color.red : selected == index ? Color.primary : Color.secondary)
                                     Text(verbatim: entry.title)
                                     Spacer(minLength: 12)
                                     if !entry.shortcut.isEmpty {
-                                        Text(verbatim: entry.shortcut).foregroundStyle(selected == index ? Color.primary : Color.secondary)
+                                        Text(verbatim: entry.shortcut).foregroundStyle(entry.destructive ? Color.red : selected == index ? Color.primary : Color.secondary)
                                     }
                                     if !entry.children.isEmpty {
                                         Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
@@ -79,7 +86,7 @@ private struct ActionMenuContents: View {
                                 }
                                 .font(.system(size: 13))
                                 .padding(.horizontal, 10).frame(height: 26)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(entry.destructive ? Color.red : Color.primary)
                                 .background(selected == index ? (scheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.10)) : .clear,
                                             in: .rect(cornerRadius: 8))
                                 .contentShape(.rect)
@@ -104,7 +111,7 @@ private struct ActionMenuContents: View {
         .onKeyPress(.upArrow) { step(-1); return .handled }
         .onKeyPress(.return) { if let selected { activate(selected) }; return .handled }
         .onKeyPress(.rightArrow) {
-            if let selected, !current[selected].children.isEmpty { activate(selected) }
+            if let selected, current.indices.contains(selected), !current[selected].children.isEmpty { activate(selected) }
             return .handled
         }
         .onKeyPress(.leftArrow) { back(); return .handled }

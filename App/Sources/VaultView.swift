@@ -842,15 +842,9 @@ struct AccountSwitcher: View {
                         }
                     }
                 }
-                .contextMenu {
-                    Group {
-                        if open { Button("Lock", systemImage: "lock") { model.lock(account.id) } }
-                        Button("Log Out…", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                            close(); model.confirmLogOut(account.id)
-                        }
-                    }
-                    .labelStyle(.titleAndIcon)
-                }
+                .appContextMenu((open ? [ActionMenuEntry(title: String(localized: "Lock"), symbol: "lock") { model.lock(account.id) }] : []) + [
+                    ActionMenuEntry(title: String(localized: "Log Out…"), symbol: "rectangle.portrait.and.arrow.right", destructive: true) { close(); model.confirmLogOut(account.id) }
+                ])
             }
             Divider().padding(.vertical, 4).padding(.horizontal, 8)
             action("Add Account…", "person.badge.plus") { model.beginAddAccount() }
@@ -1193,7 +1187,7 @@ struct BelowPopover<Content: View>: NSViewRepresentable {
             host.sizingOptions = .preferredContentSize
             let popover = NSPopover()
             popover.behavior = .transient
-            popover.animates = true
+            popover.animates = ActionMenuPresentation.animates
             popover.contentViewController = host
             popover.delegate = self
             self.host = host
@@ -1955,7 +1949,7 @@ private struct ItemColumn: View {
                                 .accessibilityAddTraits(item.id == selection ? [.isButton, .isSelected] : .isButton)
                                 .accessibilityAction { selection = item.id }
                                 .draggable(item.id) { ItemRow(item: item, isSelected: true).frame(width: 260) }
-                                .contextMenu { ItemContextMenu(item: item) }
+                                .appContextMenu(model.itemContextActions(item))
                                 // Trashed, archived or deleted: the row slips out; restored ones fade back in.
                                 .transition(.asymmetric(insertion: .opacity,
                                                         removal: .opacity.combined(with: .scale(scale: 0.96)).combined(with: .move(edge: .leading))))
@@ -2201,9 +2195,7 @@ struct ItemDetail: View {
                             .buttonStyle(.plain)
                             .disabled(url == nil)
                             .help(Text("Open in your browser"))
-                            .contextMenu {
-                                Button("Copy", systemImage: "doc.on.doc") { model.copyPlain(address) }
-                            }
+                            .appContextMenu([ActionMenuEntry(title: String(localized: "Copy"), symbol: "doc.on.doc") { model.copyPlain(address) }])
                         }
                     }
                     // Which vault it's in: the same names as the sidebar's Vaults (My vault, or a shared vault › its folders).
@@ -2462,10 +2454,10 @@ extension HeroCard {
                         LevelBar(level: strength.0, color: strength.0 <= 1 ? .red : strength.0 == 2 ? .orange : .green)
                     }
                     .copyTick(armed: $passwordArmed, copied: $passwordCopied)
-                    .contextMenu {
-                        Button("Copy Password", systemImage: "doc.on.doc") { model.copyPassword(item) }
-                        Button("Show in Large Type", systemImage: "textformat.size") { model.showLargeType(item) }
-                    }
+                    .appContextMenu([
+                        ActionMenuEntry(title: String(localized: "Copy Password"), symbol: "doc.on.doc") { model.copyPassword(item) },
+                        ActionMenuEntry(title: String(localized: "Show in Large Type"), symbol: "textformat.size") { model.showLargeType(item) }
+                    ])
                 }
                 if let totp = item.totp {
                     // The code and ring read the app's shared clock; the tile itself never ticks.

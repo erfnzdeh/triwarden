@@ -114,3 +114,10 @@ The two synthetic records (`UI audit 20261011 edited` and `UI audit import 20261
 ## Palette scroll affordance
 
 - Restored a visible scroll affordance by applying the existing draggable thin scroller to palette results. It appears on hover or while scrolling when results overflow; the wide system track remains suppressed.
+
+## Shared context panels and animation
+
+- All app-defined right-click menus now use the same compact ActionMenuContents surface as toolbar menus: translucent neutral hover, 26-point rows, 1-point gaps, stable icons, and separate checkmarks. Coverage includes sidebar destinations, vault/code/menu-bar item rows, accounts, Sends, website/password tiles, and shortcut settings. System-provided text-field menus remain native.
+- Toolbar and context popovers share one animation policy and respect Reduce Motion. Context menus support Escape, arrow-key traversal, nested pages and accessibility custom actions. Destructive actions retain the original guards and confirmation methods.
+- A live dev-account unlock initially exposed a hover-update loop. Context event handling now observes right-click events without participating in ordinary hover hit testing, and the thin scrollbar keeps a stable hover target as its thumb expands. Rebuilt Debug verification successfully unlocked, opened sidebar menus by right-click and Shift-F10, launched and canceled an unsaved SSH-key editor, and opened a vault item's context panel. No vault data was written. The final submenu pointer check was interrupted by a user UI change; no full visual matrix pass is claimed.
+- Debug build and whitespace validation passed. Source scan found no remaining app-defined SwiftUI contextMenu or NSMenu-based right-click presenters under App/Sources.

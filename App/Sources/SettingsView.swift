@@ -1190,12 +1190,7 @@ private struct ShortcutRecorder: View {
             .buttonStyle(.plain)
             .onHover { inside in withAnimation(.easeOut(duration: 0.12)) { hovering = inside } }
             .animation(.easeOut(duration: 0.15), value: recording)
-            .contextMenu {
-                if let initial = action.defaultShortcut, shortcut != initial {
-                    Button("Reset to \(initial.display)") { apply(initial) }
-                }
-                if shortcut != nil { Button("Turn off") { apply(nil) } }
-            }
+            .appContextMenu(shortcutContextActions)
             .accessibilityLabel(Text(action.title))
             .accessibilityValue(Text(verbatim: shortcut?.display ?? ""))
             if let problem {
@@ -1203,6 +1198,15 @@ private struct ShortcutRecorder: View {
             }
         }
         .onDisappear(perform: stop)
+    }
+
+    private var shortcutContextActions: [ActionMenuEntry] {
+        var rows: [ActionMenuEntry] = []
+        if let initial = action.defaultShortcut, shortcut != initial {
+            rows.append(ActionMenuEntry(title: String(localized: "Reset to \(initial.display)"), symbol: "arrow.counterclockwise") { apply(initial) })
+        }
+        if shortcut != nil { rows.append(ActionMenuEntry(title: String(localized: "Turn off"), symbol: "xmark.circle") { apply(nil) }) }
+        return rows
     }
 
     private func start() {
