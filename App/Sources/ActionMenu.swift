@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Shared toolbar menus: stable icon columns, independent checkmarks and a soft sky hover.
+/// Shared toolbar menus: stable icon columns, independent checkmarks and a the sidebar selection color.
 struct ActionMenuEntry {
     var title: String
     var symbol: String = ""
@@ -63,11 +63,11 @@ private struct ActionMenuContents: View {
                             Button { activate(index) } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: entry.symbol).frame(width: 18)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(selected == index ? Color.white : Color.secondary)
                                     Text(verbatim: entry.title)
                                     Spacer(minLength: 12)
                                     if !entry.shortcut.isEmpty {
-                                        Text(verbatim: entry.shortcut).foregroundStyle(.secondary)
+                                        Text(verbatim: entry.shortcut).foregroundStyle(selected == index ? Color.white : Color.secondary)
                                     }
                                     if !entry.children.isEmpty {
                                         Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
@@ -77,8 +77,8 @@ private struct ActionMenuContents: View {
                                 }
                                 .font(.system(size: 13))
                                 .padding(.horizontal, 10).frame(height: 32)
-                                .foregroundStyle(.primary)
-                                .background(selected == index ? Color.brandTint.opacity(0.8) : .clear,
+                                .foregroundStyle(selected == index ? Color.white : Color.primary)
+                                .background(selected == index ? Color.sidebarSelection : .clear,
                                             in: .rect(cornerRadius: 8))
                                 .contentShape(.rect)
                             }
