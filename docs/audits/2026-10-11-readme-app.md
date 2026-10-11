@@ -99,3 +99,9 @@ The two synthetic records (`UI audit 20261011 edited` and `UI audit import 20261
 
 - Main, Settings and license window content now observes the appearance preference in a hosted ViewModifier rather than capturing it from the App scene builder. General Settings uses the same typed AppearanceSetting values for its picker.
 - Debug build and whitespace validation passed. Live switching remains unverified because native menu automation did not successfully activate Settings; no immediate-switch pass is claimed.
+
+## Compact neutral menu selection
+
+- Follow-up screenshot clarified that toolbar menu hover should match the sidebar's actual unemphasized gray selection, not the blue sidebar tint token. Menus now use the native `unemphasizedSelectedContentBackgroundColor` with normal foreground text and adaptive icons.
+- Shared menu rows are 26 points high (previously 32), separated by 1 point (previously 3); section and outer padding are also reduced. This covers New Item, Filters, Sort and nested choices.
+- Debug build and whitespace validation passed.

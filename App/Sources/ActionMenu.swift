@@ -1,6 +1,7 @@
+import AppKit
 import SwiftUI
 
-/// Shared toolbar menus: stable icon columns, independent checkmarks and a the sidebar selection color.
+/// Shared toolbar menus: stable icon columns, independent checkmarks and the sidebar’s neutral selection fill.
 struct ActionMenuEntry {
     var title: String
     var symbol: String = ""
@@ -44,30 +45,30 @@ private struct ActionMenuContents: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 1) {
             if !path.isEmpty {
                 Button { back() } label: { Label("Back", systemImage: "chevron.left") }
-                    .buttonStyle(.plain).padding(8)
+                    .buttonStyle(.plain).padding(6)
                 Divider()
             }
             ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 1) {
                     ForEach(current.indices, id: \.self) { index in
                         let entry = current[index]
                         if entry.heading {
                             Text(verbatim: entry.title)
                                 .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-                                .padding(.horizontal, 10).padding(.top, index == 0 ? 3 : 10).padding(.bottom, 3)
+                                .padding(.horizontal, 10).padding(.top, index == 0 ? 2 : 6).padding(.bottom, 2)
                         } else {
                             Button { activate(index) } label: {
-                                HStack(spacing: 10) {
+                                HStack(spacing: 8) {
                                     Image(systemName: entry.symbol).frame(width: 18)
-                                        .foregroundStyle(selected == index ? Color.white : Color.secondary)
+                                        .foregroundStyle(selected == index ? Color.primary : Color.secondary)
                                     Text(verbatim: entry.title)
                                     Spacer(minLength: 12)
                                     if !entry.shortcut.isEmpty {
-                                        Text(verbatim: entry.shortcut).foregroundStyle(selected == index ? Color.white : Color.secondary)
+                                        Text(verbatim: entry.shortcut).foregroundStyle(selected == index ? Color.primary : Color.secondary)
                                     }
                                     if !entry.children.isEmpty {
                                         Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
@@ -76,9 +77,9 @@ private struct ActionMenuContents: View {
                                     }
                                 }
                                 .font(.system(size: 13))
-                                .padding(.horizontal, 10).frame(height: 32)
-                                .foregroundStyle(selected == index ? Color.white : Color.primary)
-                                .background(selected == index ? Color.sidebarSelection : .clear,
+                                .padding(.horizontal, 10).frame(height: 26)
+                                .foregroundStyle(.primary)
+                                .background(selected == index ? Color(nsColor: .unemphasizedSelectedContentBackgroundColor) : .clear,
                                             in: .rect(cornerRadius: 8))
                                 .contentShape(.rect)
                             }
@@ -95,7 +96,7 @@ private struct ActionMenuContents: View {
             .onChange(of: selected) { _, index in if let index { proxy.scrollTo(index) } }
             }
         }
-        .padding(8).frame(width: 280)
+        .padding(6).frame(width: 280)
         .focusable().focusEffectDisabled().focused($focused)
         .onAppear { focused = true }
         .onKeyPress(.downArrow) { step(1); return .handled }
