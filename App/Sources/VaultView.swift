@@ -513,10 +513,10 @@ private struct Sidebar: View {
 
     private func count(_ selection: SidebarSelection) -> Int { model.vaultItems.filter(selection.includes).count }
 
-    @ViewBuilder private var newFolderMenu: some View {
-        Button("New Folder…", systemImage: "folder.badge.plus") { model.promptNewFolder() }
-            .labelStyle(.titleAndIcon)
-            .tint(Color(nsColor: .labelColor))
+    private var newFolderActions: [SidebarContextAction] {
+        [SidebarContextAction(title: String(localized: "New Folder…"), symbol: "folder.badge.plus") {
+            model.promptNewFolder()
+        }]
     }
 
     private func row(_ s: VaultSection) -> some View {
@@ -580,7 +580,7 @@ private struct Sidebar: View {
             Section("Manage") {
                 if model.folders.isEmpty {
                     SidebarLabel("My Folders", symbol: "folder")
-                        .contextMenu { newFolderMenu }
+                        .sidebarContextMenu(newFolderActions)
                 } else {
                     DisclosureGroup(isExpanded: $foldersExpanded) {
                         ForEach(FolderNode.tree(model.folders)) { node in
@@ -588,7 +588,7 @@ private struct Sidebar: View {
                         }
                     } label: {
                         SidebarLabel("My Folders", symbol: "folder")
-                            .contextMenu { newFolderMenu }
+                            .sidebarContextMenu(newFolderActions)
                     }
                 }
                 row(.archive)
@@ -1002,16 +1002,15 @@ private struct SharedVaultRow: View {
     private var label: some View {
         SidebarLabel(verbatim: org.name, symbol: "building.2", tag: .organization(org.id), count: count(.organization(org.id)))
             .tag(SidebarSelection.organization(org.id))
-            .contextMenu {
-                Group {
-                    Button("Event Log…", systemImage: "list.bullet.rectangle") { model.eventLogFor = org.id }
-                    Button("Leave Shared Vault…", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                        model.leaveOrganization(org.id)
-                    }
+            .sidebarContextMenu([
+                SidebarContextAction(title: String(localized: "Event Log…"), symbol: "list.bullet.rectangle") {
+                    model.eventLogFor = org.id
+                },
+                SidebarContextAction(title: String(localized: "Leave Shared Vault…"),
+                                     symbol: "rectangle.portrait.and.arrow.right", destructive: true) {
+                    model.leaveOrganization(org.id)
                 }
-                .labelStyle(.titleAndIcon)
-                .tint(Color(nsColor: .labelColor))
-            }
+            ])
     }
 
     var body: some View {
@@ -1060,6 +1059,24 @@ private struct FolderRow: View {
     @State private var expanded = true
     @State private var targeted = false
 
+    private var folderActions: [SidebarContextAction] {
+        var actions = [
+            SidebarContextAction(title: String(localized: "New Subfolder…"), symbol: "folder.badge.plus") {
+                model.promptNewFolder(in: node.path)
+            },
+            SidebarContextAction(title: String(localized: "Rename…"), symbol: "pencil") {
+                model.renamingFolder = node.path
+            }
+        ]
+        if !node.folderIds.isEmpty {
+            actions.append(SidebarContextAction(title: String(localized: "Delete Folder…"),
+                                                symbol: "folder.badge.minus", destructive: true, separatorBefore: true) {
+                model.confirmDeleteFolder(name: node.name, ids: node.folderIds)
+            })
+        }
+        return actions
+    }
+
     var body: some View {
         let label = SidebarLabel(verbatim: node.name, symbol: node.folderIds.isEmpty ? "folder.badge.questionmark" : "folder",
                                  tag: .folder(node.path), count: count(.folder(node.path)))
@@ -1070,20 +1087,7 @@ private struct FolderRow: View {
                 Task { await model.move(itemIDs: ids, toFolderIn: node.folderIds) }
                 return true
             } isTargeted: { targeted = $0 }
-            .contextMenu {
-                Group {
-                    Button("New Subfolder…", systemImage: "folder.badge.plus") { model.promptNewFolder(in: node.path) }
-                    Button("Rename…", systemImage: "pencil") { model.renamingFolder = node.path }
-                    if !node.folderIds.isEmpty {
-                        Divider()
-                        Button("Delete Folder…", systemImage: "folder.badge.minus", role: .destructive) {
-                            model.confirmDeleteFolder(name: node.name, ids: node.folderIds)
-                        }
-                    }
-                }
-                .labelStyle(.titleAndIcon)
-                .tint(Color(nsColor: .labelColor)) // the sidebar's selection tint would colour the menu's icons blue
-            }
+            .sidebarContextMenu(folderActions)
         if node.children.isEmpty {
             label
         } else {

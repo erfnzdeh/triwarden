@@ -64,3 +64,10 @@ The two synthetic records (`UI audit 20261011 edited` and `UI audit import 20261
 - Password-fill focus handling checks an attached sheet before deciding to dismiss, allows time for the system service to appear, and restores focus when a canceled sheet returns to the original foreground application. Monitoring tasks are canceled when the palette closes. The actual right-click → AutoFill → Cancel flow still needs successful end-to-end verification; native UI automation was interrupted repeatedly and no pass is claimed for that path.
 - `make build` and `git diff --check` passed. Added a targeted UI regression checking that five toolbar actions remain individually named buttons. The targeted XCTest run was interrupted by Codex/desktop windows and stopped; it is not recorded as passing. The manual live-account label checks above passed independently.
 - Sidebar context-menu ideas are recorded separately in `docs/design/sidebar-context-actions.md`; they have not been implemented in this patch.
+
+## Sidebar context-target styling
+
+- Existing My Folders, folder and shared-vault context menus now use a native menu surface with a subtle rounded target fill, replacing SwiftUI's thick context-preview outline. Opening the menu does not select or navigate to its target.
+- Left clicks, scrolling, disclosure and drag/drop pass through to the existing sidebar. The same actions are exposed as accessibility custom actions; this change does not remove a keyboard focus ring. Destructive entries retain their confirmation flows and are colored red in the menu.
+- The macOS-owned password-provider popup (Triwarden… / Passwords…) retains system styling.
+- `make build` and `git diff --check` passed. Interactive verification was limited by changes to the active app during automation; no visual or keyboard-navigation pass is claimed for this final sidebar patch.
