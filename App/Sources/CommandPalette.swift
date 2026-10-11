@@ -366,7 +366,7 @@ struct CommandPalette: View {
             ScrollView {
                 resultRows(sections)
             }
-            .scrollIndicators(.never)
+            .thinScroller()
             .scrollBounceBehavior(.basedOnSize)
             .frame(maxHeight: Self.resultsMaxHeight)
             .fixedSize(horizontal: false, vertical: true) // as tall as the rows, up to the limit

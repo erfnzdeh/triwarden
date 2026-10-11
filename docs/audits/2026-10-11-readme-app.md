@@ -110,3 +110,7 @@ The two synthetic records (`UI audit 20261011 edited` and `UI audit import 20261
 
 - The native unemphasized selection color rendered as an opaque gray block in the light popover. Replaced it with an explicit neutral wash (10% black in light appearance, 12% white in dark appearance), preserving the material color beneath. Compact row dimensions remain unchanged.
 - Debug build and whitespace validation passed.
+
+## Palette scroll affordance
+
+- Restored a visible scroll affordance by applying the existing draggable thin scroller to palette results. It appears on hover or while scrolling when results overflow; the wide system track remains suppressed.
