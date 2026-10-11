@@ -16,7 +16,10 @@ Base: `main`; branch: `codex/audit-improvements`.
 
 ## Validation
 
-- `make test`: passed, including import-delivery timeout and independent-account sync regression tests. Dev-server integration tests skip without `TRIWARDEN_DEV_HOST`.
+- `make test`: passed, including import-delivery timeout and independent-account sync regression tests.
+- `make test-dev` against the configured LAN development stack: passed on both HTTPS Vaultwarden endpoints (18843 / 18844), including SSO against the separate OIDC stack. No dev-server test was skipped. The optional external breached-password lookup test remains disabled.
+- Added server regression tests on both endpoints: a real import commits two batches, then an injected lost-response error stops delivery; sync confirms exactly those two batches, no duplicate and no third batch, followed by cleanup. A rejected refresh token on one client does not block a second authenticated client from syncing. The lost response is injected after a successful server write; no proxy-level packet-loss test is claimed.
+- `make -o build selftest`: `SELFTEST OK`, 91 checks passed. This covers personal and organization import/export, account lifecycle, token restoration, multi-account behavior and live sync using isolated local test storage. Logs are retained in `build/audit-validation/integration.log` and `build/audit-validation/selftest.log`.
 - `make build`: passed with the configured signing identity. Existing deprecation and notification-concurrency warnings remain.
 - `python3 scripts/test-make-exit-codes.py`: seven commands correctly rejected deliberately failing executables, including a stale build binary.
 - New translation entries parse and preserve numeric placeholders in all five locales.
@@ -26,5 +29,5 @@ Base: `main`; branch: `codex/audit-improvements`.
 ## Validation still requiring the appropriate environment
 
 - Real VoiceOver / Full Keyboard Access walkthrough, Reduce Motion and Increase Contrast interaction checks.
-- Full click-through UI tests and server-backed end-to-end tests, including interrupted large imports and expired sessions.
+- Full click-through UI tests and a large import interrupted by an actual network/proxy failure. API integration and app end-to-end self-tests have now passed; deterministic accepted-write/lost-response and expired-session regression cases are covered.
 - Visual review of the generated snapshots; no visual pass is claimed by this change.

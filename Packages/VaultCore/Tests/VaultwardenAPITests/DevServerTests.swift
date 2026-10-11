@@ -281,6 +281,60 @@ struct DevServerTests {
         #expect(SyncResponse.sends(try await client.syncData()).allSatisfy { $0.id != created.id && $0.id != fileSend.id })
     }
 
+    /// The server commits a request, but the caller loses its response. Delivery must not resend it or send later batches.
+    @MainActor @Test(arguments: DevServer.ports)
+    func acceptedImportWithLostResponseIsNotResent(port: Int) async throws {
+        let client = try DevServer.client(port: port)
+        let key = try await client.login(email: "hachiware@chiikawarden.test", password: DevServer.password)
+        let marker = "import-delivery-" + UUID().uuidString
+        let bodies = try (0..<3).map { index in
+            let item = ImportedItem(json: ["type": 1, "name": marker + "-\(index)",
+                                           "login": ["username": "delivery-test", "password": "test-only"]], folder: nil)
+            return (body: try VaultImport.requestBody(items: [item], folders: [], key: key), count: 1)
+        }
+        var requests = 0
+        do {
+            try await ImportDelivery.send(bodies) { body in
+                requests += 1
+                try await client.importCiphers(body)
+                if requests == 2 { throw URLError(.networkConnectionLost) }
+            }
+            Issue.record("Expected ambiguous delivery failure")
+        } catch let error as ImportDeliveryError {
+            #expect(error.confirmed == 1)
+            #expect(error.uncertain == 1)
+            #expect(error.notSent == 1)
+        }
+        let imported = try await client.sync().ciphers.filter { cipher in
+            (try? EncString(cipher.name).decryptString(with: key))?.hasPrefix(marker) == true
+        }
+        // Clean up before assertions so failed expectations leave no imported test items.
+        for cipher in imported { try await client.deleteCipher(id: cipher.id) }
+        #expect(requests == 2)
+        #expect(imported.count == 2)
+        let names = try imported.map { try EncString($0.name).decryptString(with: key) }
+        #expect(Set(names) == [marker + "-0", marker + "-1"])
+    }
+
+    @MainActor @Test(arguments: DevServer.ports)
+    func expiredAccountDoesNotBlockHealthyAccount(port: Int) async throws {
+        let expired = try DevServer.client(port: port)
+        await expired.restore(refreshToken: "expired-integration-test-token")
+        let healthy = try DevServer.client(port: port)
+        _ = try await healthy.login(email: "usagi@chiikawarden.test", password: DevServer.password)
+        var healthySynced = false
+        do {
+            try await SyncBatch.run([expired, healthy]) { client in
+                if client === expired { try await client.refreshAccessToken() }
+                else { healthySynced = !(try await client.sync().ciphers).isEmpty }
+            }
+            Issue.record("Expected expired account to fail")
+        } catch {
+            #expect(error is APIError)
+        }
+        #expect(healthySynced)
+    }
+
     @Test(arguments: DevServer.ports)
     func wrongPasswordIsRejected(port: Int) async throws {
         let client = try DevServer.client(port: port)
