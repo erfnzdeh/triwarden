@@ -53,6 +53,8 @@ struct SettingsView: View {
                 Label(pane.title, systemImage: pane.symbol).tag(pane)
             }
             .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
+            .thinScroller()
             .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 280)
             // Settings always shows its sidebar, like System Settings: no button to fold it away.
             .toolbar(removing: .sidebarToggle)
@@ -70,6 +72,8 @@ struct SettingsView: View {
                 case .about: AboutSettings()
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background { WindowBackdrop() }
             .navigationTitle(pane.title)
             .settingsControlStyles()
         }
@@ -119,6 +123,8 @@ private struct AccountsSettings: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .thinScroller()
         .sheet(item: $shown) { account in AccountDetailsSheet(accountId: account.id) }
     }
 }
@@ -308,6 +314,8 @@ private struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .thinScroller()
     }
 }
 
@@ -375,6 +383,8 @@ private struct SecuritySettings: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .thinScroller()
     }
 }
 
@@ -523,6 +533,8 @@ private struct DeveloperSettings: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .thinScroller()
     }
 
 }
@@ -742,6 +754,8 @@ private struct AccountSettingsPage: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .thinScroller()
         .sheet(isPresented: $settingPIN) { SetPINSheet(account: account) }
         .confirmationDialog("Log out of \(account.email)?", isPresented: $confirmLogOut) {
             Button("Log Out", role: .destructive) { model.logOut(account.id) }
@@ -855,6 +869,8 @@ private struct ServerSettings: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .thinScroller()
         .task(id: model.accounts.map(\.id).joined(separator: ",")) {
             versionsLoaded = false
             await loadVersions()
@@ -1048,6 +1064,8 @@ private struct AboutSettings: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .thinScroller()
         .sheet(isPresented: $showingNotices) { NoticesSheet() }
     }
 
@@ -1100,6 +1118,7 @@ private struct NoticesSheet: View {
                     .padding(16)
             }
         }
+        .thinScroller()
         .frame(width: 620, height: 520)
     }
 }
@@ -1270,6 +1289,8 @@ private struct ShortcutsSettings: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .thinScroller()
     }
 }
 

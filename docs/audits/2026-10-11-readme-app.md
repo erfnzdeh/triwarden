@@ -87,3 +87,10 @@ The two synthetic records (`UI audit 20261011 edited` and `UI audit import 20261
 - The extension now uses native behind-window HUD glass without a solid tint. Its light-mode content card uses a lighter translucent fill.
 - SwiftUI and the credential provider now agree on a 440 × 480 content size, reducing excess vertical space.
 - End-to-end system AutoFill presentation still needs live verification; building the extension does not confirm which registered app copy macOS will host.
+
+## Toolbar menus and Settings visual consistency
+
+- Palette results use `.scrollIndicators(.never)` so the system's Always preference cannot force a wide scrollbar; `.hidden` had still allowed it. Settings grouped Forms hide their opaque scroll backgrounds, use the app's pastel backdrop, and opt into the existing thin scroller.
+- New Item, Filters and Sort share a custom toolbar popover with fixed symbol and checkmark columns, soft brand-tint hover, disabled actions, and keyboard navigation. Folder/vault choices use nested pages with Back; keyboard selection scrolls into view.
+- Live development-account checks: Filters opened and keyboard Down/Return applied Cards; the temporary filter was cleared. New Item opened and keyboard Down/Return launched an unsaved Secure Note editor, which was canceled. Sort displayed Title and A to Z as selected. Native capture remained distorted, so a complete visual pass and live Settings background confirmation are not claimed.
+- Debug build passed; no existing vault records were written during these checks.

@@ -1130,40 +1130,23 @@ private struct NewItemButton: View {
     @State private var hovering = false
 
     var body: some View {
-        Menu {
-            Group {
-                Button("New Login", systemImage: "key") { model.beginEditing(EditRequest(mode: .create(.login))) }
-                    .keyboardShortcut("n", modifiers: .command)
-                Button("New Secure Note", systemImage: "note.text") { model.beginEditing(EditRequest(mode: .create(.secureNote))) }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
-                Button("New Card", systemImage: "creditcard") { model.beginEditing(EditRequest(mode: .create(.card))) }
-                Button("New Identity", systemImage: "person.crop.rectangle") { model.beginEditing(EditRequest(mode: .create(.identity))) }
-                Button("New SSH Key", systemImage: "terminal") { model.beginEditing(EditRequest(mode: .create(.sshKey))) }
-                Divider()
-                Button("New Send", systemImage: "paperplane") {
-                    model.requestedSection = .sends
-                    model.composingSend = true
-                }
-                Button("New Folder…", systemImage: "folder.badge.plus") { model.promptNewFolder() }
-                    .keyboardShortcut("n", modifiers: [.command, .option])
-                Divider()
-                Button("Import…", systemImage: "square.and.arrow.down") { model.beginImport() }
-                    .keyboardShortcut("i", modifiers: [.command, .shift])
-                    .disabled(model.sessions.isEmpty)
-            }
-            .labelStyle(.titleAndIcon)
-        } label: {
+        ActionMenu(entries: [
+            ActionMenuEntry(title: String(localized: "New Login"), symbol: "key", shortcut: "⌘N") { model.beginEditing(EditRequest(mode: .create(.login))) },
+            ActionMenuEntry(title: String(localized: "New Secure Note"), symbol: "note.text", shortcut: "⇧⌘N") { model.beginEditing(EditRequest(mode: .create(.secureNote))) },
+            ActionMenuEntry(title: String(localized: "New Card"), symbol: "creditcard") { model.beginEditing(EditRequest(mode: .create(.card))) },
+            ActionMenuEntry(title: String(localized: "New Identity"), symbol: "person.crop.rectangle") { model.beginEditing(EditRequest(mode: .create(.identity))) },
+            ActionMenuEntry(title: String(localized: "New SSH Key"), symbol: "terminal") { model.beginEditing(EditRequest(mode: .create(.sshKey))) },
+            ActionMenuEntry(title: String(localized: "New Send"), symbol: "paperplane") { model.requestedSection = .sends; model.composingSend = true },
+            ActionMenuEntry(title: String(localized: "New Folder…"), symbol: "folder.badge.plus", shortcut: "⌥⌘N") { model.promptNewFolder() },
+            ActionMenuEntry(title: String(localized: "Import…"), symbol: "square.and.arrow.down", shortcut: "⇧⌘I", enabled: !model.sessions.isEmpty) { model.beginImport() }
+        ]) {
             Image(systemName: "plus").font(.system(size: 14, weight: .medium))
                 .frame(width: Self.size, height: Self.size)
                 .modifier(HeaderChrome(shape: .circle, hovering: hovering))
                 .contentShape(.circle)
                 .animation(.easeOut(duration: 0.12), value: hovering)
         }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
         .fixedSize()
-        .tint(Color(nsColor: .labelColor)) // in the sidebar, whose selection tint would colour the menu's icons blue
         .onHover { hovering = $0 }
         .help(Text("New Item (⌘N)"))
         .accessibilityLabel(Text("New Item"))
@@ -1172,7 +1155,7 @@ private struct NewItemButton: View {
 
 /// Shows `content` in an AppKit popover attached to the bottom edge of this view. SwiftUI's toolbar popover
 /// does not appear when asked to open downward.
-private struct BelowPopover<Content: View>: NSViewRepresentable {
+struct BelowPopover<Content: View>: NSViewRepresentable {
     @Binding var isPresented: Bool
     @ViewBuilder var content: () -> Content
 
@@ -1777,6 +1760,16 @@ enum ItemSort: String, CaseIterable, Identifiable {
         }
     }
 
+    var menuTitle: String {
+        switch self { case .title: String(localized: "Title"); case .edited: String(localized: "Date Edited"); case .created: String(localized: "Date Created") }
+    }
+    func menuOrderTitle(ascending: Bool) -> String {
+        switch self {
+        case .title: ascending ? String(localized: "A to Z") : String(localized: "Z to A")
+        case .edited, .created: ascending ? String(localized: "Oldest First") : String(localized: "Newest First")
+        }
+    }
+
     /// The index letter for a title: A–Z, with Chinese and Japanese romanised (銀行 → Y) and everything else "#".
     static func letter(_ name: String) -> String {
         let latin = name.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false) ?? name
@@ -1910,26 +1903,19 @@ private struct ItemColumn: View {
                     if selection == nil || !items.contains(where: { $0.id == selection }) { selection = items.first?.id }
                 }
                 SearchFilterMenu()
-                Menu {
-                    Picker("Sort By", selection: $sort) {
-                        ForEach(ItemSort.allCases) { Label($0.title, systemImage: $0.symbol).tag($0.rawValue) }
-                    }
-                    .pickerStyle(.inline)
-                    Picker("Order", selection: $ascending) {
-                        Text(order.orderTitle(ascending: true)).tag(true)
-                        Text(order.orderTitle(ascending: false)).tag(false)
-                    }
-                    .pickerStyle(.inline)
-                } label: {
+                ActionMenu(entries: [.heading(String(localized: "Sort By"))] + ItemSort.allCases.map { choice in
+                    ActionMenuEntry(title: choice.menuTitle, symbol: choice.symbol, checked: sort == choice.rawValue) { sort = choice.rawValue }
+                } + [
+                    .heading(String(localized: "Order")),
+                    ActionMenuEntry(title: order.menuOrderTitle(ascending: true), symbol: "arrow.up", checked: ascending) { ascending = true },
+                    ActionMenuEntry(title: order.menuOrderTitle(ascending: false), symbol: "arrow.down", checked: !ascending) { ascending = false }
+                ]) {
                     Image(systemName: "arrow.up.arrow.down")
                         .font(.system(size: 13, weight: .semibold))
                         .frame(width: 32, height: 32)
                         .modifier(HeaderChrome(shape: .circle))
                         .contentShape(.circle)
                 }
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .menuIndicator(.hidden)
                 .fixedSize()
                 .help(Text("Sort"))
                 .accessibilityLabel(Text("Sort"))
