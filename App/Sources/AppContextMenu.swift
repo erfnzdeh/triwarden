@@ -86,7 +86,7 @@ private struct ContextMenuSurface: NSViewRepresentable {
             panel.animates = ActionMenuPresentation.animates
             panel.delegate = self
             popover = panel
-            panel.show(relativeTo: NSRect(x: point.x, y: point.y, width: 1, height: 1), of: self, preferredEdge: .maxY)
+            panel.show(relativeTo: NSRect(x: point.x, y: point.y, width: 1, height: 1), of: self, preferredEdge: .maxX)
             needsDisplay = true
         }
 
