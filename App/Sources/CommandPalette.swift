@@ -52,6 +52,7 @@ struct CommandPalette: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorScheme) private var scheme
     let close: () -> Void
+    var sizeChanged: (CGSize) -> Void = { _ in }
     /// Snapshots: start with this typed, and (optionally) the first item's actions open.
     var initialQuery = ""
     var initialActions = false
@@ -244,31 +245,29 @@ struct CommandPalette: View {
             searchBar
             .padding(.horizontal, 18)
             .frame(height: 54)
-            Divider().opacity(0.6)
+            paletteDivider
 
             if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 FrontTabMatchPrompt(horizontalPadding: 14)
             }
             results(self.sections)
-            Divider().opacity(0.6)
+            paletteDivider
             footer
-                .padding(.horizontal, 16).frame(height: 36)
+                .padding(.horizontal, 18).padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(width: 704)
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.94), in: .rect(cornerRadius: 22, style: .continuous))
         .background(.regularMaterial, in: .rect(cornerRadius: 22, style: .continuous))
-        .background((dark ? Color.black.opacity(0.15) : Color.white.opacity(0.55)), in: .rect(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.primary.opacity(dark ? 0.14 : 0.08), lineWidth: 0.5))
-        .shadow(color: .black.opacity(dark ? 0.35 : 0.14), radius: 18, y: 8)
         .scaleEffect(x: appeared ? 1 : 0.92, y: appeared ? 1 : 0.94, anchor: .top) // a short way to grow: it feels instant
         .opacity(appeared ? 1 : 0)
     }
 
     var body: some View {
         card
-        .padding(28) // room for the shadow inside the panel
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // The transparent margin is part of the panel: a click there counts as outside.
-        .background(Color.black.opacity(0.001).onTapGesture { close() })
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { sizeChanged($0) }
+        .frame(maxWidth: .infinity, alignment: .top)
         .onChange(of: model.quickSearchNonce, initial: true) {
             query = initialQuery; scopeTokens = []; index = 0; focused = true
             promoteScopes()
@@ -430,9 +429,15 @@ struct CommandPalette: View {
         }
     }
 
+    private var paletteDivider: some View {
+        Rectangle().fill(Color.primary.opacity(0.10))
+            .frame(height: 0.5).padding(.horizontal, 18)
+            .accessibilityHidden(true)
+    }
+
     /// What the keys do for the highlighted entry (the rows stay clean); after a copy, what was copied.
     @ViewBuilder private var footer: some View {
-        HStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             if let flash {
                 Label { Text(verbatim: flash) } icon: { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
                     .font(.system(size: 12, weight: .medium))
@@ -440,42 +445,58 @@ struct CommandPalette: View {
             } else {
                 selectionHints
             }
-            Spacer()
         }
-        .animation(.easeOut(duration: 0.15), value: flash)
-        .animation(.easeOut(duration: 0.12), value: index)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(Motion.animation(.easeOut(duration: 0.15)), value: flash)
+        .animation(Motion.animation(.easeOut(duration: 0.12)), value: index)
     }
 
     @ViewBuilder private var selectionHints: some View {
         let current = entries.indices.contains(index) ? entries[index] : nil
         switch current {
         case .item(let item)?:
-            if let context, item.kind == .login {
-                footerHint("↵", "Type into \(context.app)")
-                if item.username != nil { footerHint("⌃↵", "Username") }
-                if item.password != nil { footerHint("⌥↵", "Password") }
-                if item.totp != nil { footerHint("⌘↵", "Code") }
-                Text("Hold ⇧ to submit")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-            } else {
-                footerHint("↵", "Open")
-                if item.password != nil { footerHint("⌘↵", "Copy password") }
-                if item.totp != nil { footerHint("⌥↵", "Copy code") }
-                if item.host != nil { footerHint("⇧↵", "Open website") }
+            HStack(spacing: 16) {
+                if let context, item.kind == .login {
+                    footerHint("↵", "Type into \(context.app)")
+                } else {
+                    footerHint("↵", "Open")
+                }
+                Spacer(minLength: 12)
+                footerHint("→", "More")
             }
-            footerHint("→", "More")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) { itemShortcutHints(item) }.fixedSize()
+                VStack(alignment: .leading, spacing: 8) { itemShortcutHints(item) }
+            }
         case .generated?:
-            footerHint("↵", "Copy")
-            footerHint("⌘↵", "Save as login")
-            footerHint("⌘R", "New")
+            HStack(spacing: 16) {
+                footerHint("↵", "Copy")
+                footerHint("⌘↵", "Save as login")
+                footerHint("⌘R", "New")
+            }
         case .command?:
-            footerHint("↵", actionsFor != nil ? "Run" : "Open")
-            if actionsFor != nil { footerHint("←", "Back") }
+            HStack(spacing: 16) {
+                footerHint("↵", actionsFor != nil ? "Run" : "Open")
+                if actionsFor != nil { footerHint("←", "Back") }
+            }
         case .ssh(let choice)?:
             footerHint("↵", choice.title)
         case nil:
             EmptyView()
+        }
+    }
+
+    @ViewBuilder private func itemShortcutHints(_ item: VaultItem) -> some View {
+        if context != nil, item.kind == .login {
+            if item.username != nil { footerHint("⌃↵", "Username") }
+            if item.password != nil { footerHint("⌥↵", "Password") }
+            if item.totp != nil { footerHint("⌘↵", "Code") }
+            Text("Hold ⇧ to submit")
+                .font(.system(size: 12)).foregroundStyle(.primary.opacity(0.8))
+        } else {
+            if item.password != nil { footerHint("⌘↵", "Copy password") }
+            if item.totp != nil { footerHint("⌥↵", "Copy code") }
+            if item.host != nil { footerHint("⇧↵", "Open website") }
         }
     }
 
@@ -487,7 +508,8 @@ struct CommandPalette: View {
     private func footerHint(_ keys: String, _ label: LocalizedStringKey) -> some View {
         HStack(spacing: 6) {
             Keycap(keys: keys)
-            Text(label).font(.system(size: 12)).foregroundStyle(.secondary)
+            Text(label).font(.system(size: 12)).foregroundStyle(.primary.opacity(0.8))
+                .lineLimit(1).truncationMode(.middle)
         }
     }
 

@@ -2448,6 +2448,7 @@ struct ItemDetail: View {
                 toolbarButton("trash", help: "Move to Trash… (⌘⌫)", spoken: "Move to Trash", effect: .bounce) { model.confirmTrash(item) }
             }
         }
+        .accessibilityElement(children: .contain)
         .padding(.horizontal, 3)
         .frame(height: 32)
         .modifier(HeaderChrome(shape: .capsule))
@@ -2456,9 +2457,8 @@ struct ItemDetail: View {
     /// `spoken`: the VoiceOver label when the tooltip carries a shortcut hint, e.g. "Edit" for "Edit (⌘E)".
     private func toolbarButton(_ symbol: String, help: LocalizedStringKey, spoken: LocalizedStringKey? = nil,
                                effect: ToolbarSymbolButton.Effect = .none, action: @escaping () -> Void) -> some View {
-        ToolbarSymbolButton(symbol: symbol, effect: effect, action: action)
+        ToolbarSymbolButton(symbol: symbol, label: spoken ?? help, effect: effect, action: action)
             .help(Text(help))
-            .accessibilityLabel(Text(spoken ?? help))
     }
 }
 
@@ -3617,6 +3617,7 @@ struct ToolbarSymbolButton: View {
     enum Effect { case none, bounce, bounceDown, wiggle, wiggleBack }
 
     let symbol: String
+    let label: LocalizedStringKey
     var effect: Effect = .none
     let action: () -> Void
     @State private var taps = 0
@@ -3631,6 +3632,7 @@ struct ToolbarSymbolButton: View {
                 .frame(width: 30, height: 26).contentShape(.rect)
         }
         .buttonStyle(HeaderIconStyle())
+        .accessibilityLabel(Text(label))
     }
 
     @ViewBuilder private func animated(_ image: some View) -> some View {
