@@ -216,7 +216,9 @@ struct ImportSheet: View {
     @State private var phase = Phase.choose
     @State private var dropTargeted = false
 
-    enum Phase { case choose, preview, importing, done(Int) }
+    enum Phase { case choose, preview, importing, done(Int), interrupted }
+    @State private var syncingImport = false
+    @State private var deliveryReport: String?
 
     private var session: AccountSession? { model.session(for: accountId) ?? model.sessions.first }
 
@@ -233,12 +235,19 @@ struct ImportSheet: View {
                     Text("Encrypting and importing…").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, minHeight: 120)
+            case .interrupted:
+                Text("Import stopped. Sync and inspect your vault before importing again.")
+                    .font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
             case .done(let count):
                 VStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill").font(.system(size: 30)).foregroundStyle(.green)
                     Text("Imported \(count) items").font(.system(size: 15, weight: .semibold))
                 }
                 .frame(maxWidth: .infinity, minHeight: 120)
+            }
+            if let deliveryReport {
+                Text(deliveryReport).font(.system(size: 12)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let error {
                 Label(error, systemImage: "exclamationmark.circle.fill").font(.system(size: 12)).foregroundStyle(.red)
@@ -409,7 +418,20 @@ struct ImportSheet: View {
                     .buttonStyle(.appPrimary).keyboardShortcut(.defaultAction).disabled(included.isEmpty)
             case .importing:
                 EmptyView()
-            case .done:
+            case .done, .interrupted:
+                if error != nil || deliveryReport != nil {
+                    Button("Sync Now") {
+                        syncingImport = true
+                        Task {
+                            defer { syncingImport = false }
+                            do {
+                                guard let session else { throw AccountSession.WriteError.offline }
+                                try await session.refresh(); error = nil
+                            }
+                            catch { self.error = String(localized: "Couldn't sync. The vault on this Mac is unchanged.") }
+                        }
+                    }.buttonStyle(.appSecondary).disabled(syncingImport)
+                }
                 Button("Done") { dismiss() }.buttonStyle(.appPrimary).keyboardShortcut(.defaultAction)
             }
         }
@@ -465,11 +487,17 @@ struct ImportSheet: View {
     private func runImport() {
         guard let preview, let session else { return }
         let items = included
+        deliveryReport = nil
+        error = nil
         withAnimation(.snappy) { phase = .importing }
         Task {
             do {
-                try await session.importItems(items, folders: preview.folders, organizationId: vaultId)
+                let synced = try await session.importItems(items, folders: preview.folders, organizationId: vaultId)
+                if !synced { error = String(localized: "Import saved. Sync failed; do not import the file again.") }
                 withAnimation(.snappy) { phase = .done(items.count) }
+            } catch let delivery as ImportDeliveryError {
+                self.deliveryReport = String(localized: "Confirmed: \(delivery.confirmed). Unconfirmed: \(delivery.uncertain). Not sent: \(delivery.notSent).")
+                withAnimation(.snappy) { phase = .interrupted }
             } catch {
                 self.error = String(localized: "The import didn't go through: \(error.localizedDescription)")
                 withAnimation(.snappy) { phase = .preview }

@@ -1,6 +1,6 @@
 # Triwarden roadmap
 
-Owner: product. Updated 2026-10-05. Status: ✅ done · 🟡 in progress · ⬜ planned
+Owner: product. Updated 2026-10-11. Status: ✅ done · 🟡 in progress · ⬜ planned
 
 > **Work is tracked in [GitHub Issues](https://github.com/sinhong2011/triwarden/issues)** by milestone
 > ([v0.2](https://github.com/sinhong2011/triwarden/milestone/1), [v0.3](https://github.com/sinhong2011/triwarden/milestone/2), [v1.0](https://github.com/sinhong2011/triwarden/milestone/3)).
@@ -27,16 +27,16 @@ You can replace the official desktop app for **reading** your vault:
 | 7 | Copy, reveal, live TOTP, open website | Core jobs | ✅ |
 | 8 | Search + filters + sidebar categories | Core jobs | ✅ |
 | 9 | Settings: appearance, auto-lock, lock on sleep, clipboard, custom CA, extra headers | Self-hosters and security defaults | ✅ |
-| 10 | Quick Search (⌥Space, global) + menu bar extra (codes, favorites, lock) | The reason to go native | ✅ |
+| 10 | Command palette (⇧⌘Space, global) + menu bar extra (codes, favorites, lock) | The reason to go native | ✅ |
 | 11 | Localized: en, zh-Hant, zh-HK, zh-Hans, ja | Day-one requirement | ✅ (kept current per change) |
 
 ## v0.2 — "use it instead of the browser extension"
 
 - ✅ **Multiple accounts** (e.g. personal Vaultwarden + work Bitwarden): merged list with per-account colour and filter, per-account lock/unlock and Touch ID (one touch opens all), AutoFill across accounts
 - ✅ AutoFill credential provider extension (passwords, one-time codes) — system-wide; QuickType suggestions; unlock required for every fill
-- Passkey provider
+- ✅ Passkey provider
 - ✅ Create / edit logins & notes (lossless patching: item key, passkeys, history kept; conflict-safe), Trash (restore / delete forever), password generator (unbiased CSPRNG), hold ⌥ to reveal, Item menu shortcuts
-- ⬜ Edit cards / identities / SSH keys, custom fields, attachments
+- ✅ Edit cards / identities / SSH keys, custom fields, attachments
 - ✅ Website icons from your own server, encrypted cache with keyed-hash names, placeholder detection; Watchtower (breached via HIBP k-anonymity on demand, reused, weak, unsecured http) with score
 
 ### Adopted from reviewing prizm (ideas only — its license is MIT + Commons Clause, so no code)
@@ -51,10 +51,19 @@ You can replace the official desktop app for **reading** your vault:
 
 ## v0.3 — "power users"
 
+The following capabilities are implemented; continued work focuses on reliability and validation.
+
 - SSH agent with Touch ID per signature; git commit signing
 - App Intents / Shortcuts, Services menu, `tw` CLI over XPC
 - Send, attachments, collections management, emergency access (Vaultwarden)
 - Safari Web Extension + Chromium native messaging (save prompts, inline fill)
+
+## Reliability priorities
+
+- Import delivery distinguishes confirmed writes, uncertain requests and batches not sent; failed reads never invite resending successful imports.
+- Every account syncs independently; failures stay visible with a retry action and the encrypted cache remains available.
+- Local build and test commands preserve failure exit codes.
+- Keep this document, README, keyboard shortcuts and accessibility notes aligned with shipped behavior.
 
 ## Quality bar (every change)
 
@@ -66,7 +75,7 @@ You can replace the official desktop app for **reading** your vault:
 
 ## Decisions log
 
-- 2026-10-05 Native Swift/SwiftUI, macOS 26+, self-distributed, MIT.
+- 2026-10-05 Native Swift/SwiftUI, macOS 26+, self-distributed. The earlier MIT decision was superseded by GPL-3.0; see LICENSE.
 - 2026-10-05 Vaultwarden-first; official Bitwarden cloud also supported.
 - 2026-10-05 UI follows the canvas "Vault window (static spec)"; **no Liquid Glass on custom components**, system sidebar only.
 - 2026-10-05 Keyguard is reference-only (All Rights Reserved) — never port its code.

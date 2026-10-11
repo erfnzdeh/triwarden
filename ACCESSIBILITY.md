@@ -20,13 +20,14 @@ with the `accessibility` label.
 
 | Action | Keys |
 |---|---|
-| Search or run a command | ⌘K or ⌘F |
+| Filter the vault list | ⌘F |
+| Find items or run commands | ⌘K |
 | Move through items | ↑ / ↓ in the item list |
 | New login / secure note / folder | ⌘N / ⇧⌘N / ⌥⌘N |
 | Edit item | ⌘E |
 | Move to Trash | ⌘⌫ |
 | Password generator | ⌘G |
-| Command palette from anywhere | ⌘K by default (Settings › General › Shortcuts), then ↑ / ↓, ↵ open, ⌘↵ password, ⌥↵ code, Esc to close |
+| Command palette from anywhere | ⇧⌘Space by default (Settings › Shortcuts); ↑ / ↓ selects, ↵ opens, ⌘↵ copies password, ⌥↵ copies code, Esc closes. Over another app: ↵ types both fields, ⌃↵ username, ⌥↵ password, ⇧ also submits |
 | AutoFill picker | type to search, ↑ / ↓, Return to fill or sign in |
 | Lock | ⇧⌘L |
 | Sheets and dialogs | Return confirms, Esc cancels |
@@ -41,25 +42,20 @@ backgrounds (WCAG 2.2 AA, relative-luminance formula):
 
 | Use | Light | Dark |
 |---|---|---|
-| White labels on tail-blue buttons | white on a #80C5EF → #3A9BDD gradient, semibold with a navy shadow: **2.0–3.1:1** (below AA; chosen for the look, see known gaps) | same |
+| White labels on primary buttons | white on flat #0F74B3: **5.04:1**; Increase Contrast uses navy on #80C5EF: **7.86:1** | same |
 | Navy text on tail-blue selection | #0B2A40 on #80C5EF: **7.86:1** | same |
 | Blue text / links / icons | #0F74B3 on #F2F2F7: **4.51:1** (5.04:1 on white) | #80C5EF on #1E1E1E: **8.85:1** |
-| White text on system prominent buttons | on #0F74B3: **5.04:1** | on #80C5EF: below AA (see known gaps) |
 
 All other text uses system semantic colours (`.primary`, `.secondary`), which follow macOS Increase Contrast.
 
 ## Motion
 
-The animated dial on the login screen stops when **Reduce Motion** is on.
+The animated dial, secret decoding, arrival effects and shared button, chip, segmented-control and copy-feedback
+animations respect **Reduce Motion**. Shared controls use one animation policy; button press scaling is also disabled.
 
 ## Known gaps
 
-- Primary buttons (Log in, Unlock, Open website) use white labels on the tail sky by design choice; that is
-  2.0–3.1:1. They are always paired with a clear label and a large hit area; with Increase Contrast on they should
-  switch to navy text (follow-up).
-
-- Short UI transitions (list changes, the toast, sheet content) still animate with Reduce Motion on.
-- System `.borderedProminent` buttons (e.g. Save in sheets) draw white text on the accent; in dark mode that is
-  under AA on the tail sky. Triwarden's own primary buttons use navy text instead; the system ones are a follow-up.
+- App windows, settings and the menu bar disable SwiftUI transaction animations with Reduce Motion.
+  AppKit panels and system-provided animations still follow macOS behavior; a complete real-hardware walkthrough remains necessary.
 - There is no automated accessibility test yet. Checks so far are code review plus snapshot review.
   A VoiceOver walkthrough on real hardware is tracked in the issues.

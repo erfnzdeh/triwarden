@@ -41,6 +41,8 @@ jobs:
         run: |
           xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" build | tail -20
+      - name: Verify local command failure reporting
+        run: python3 scripts/test-make-exit-codes.py
       - name: JavaScript syntax
         run: |
           node --check BrowserExtension/WebExtension/content.js

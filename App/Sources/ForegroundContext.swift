@@ -183,7 +183,7 @@ struct FrontTabMatchPrompt: View {
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 8) {
                     Button("Turn On") { model.setMatchFrontTab(true) }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.appPrimarySmall)
                         .controlSize(.small)
                     Button("Not Now") { model.dismissFrontTabPrompt() }
                         .controlSize(.small)

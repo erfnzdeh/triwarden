@@ -56,6 +56,7 @@ struct TriwardenApp: App {
             // System controls take the neutral global accent (ControlAccent); the app's switches set their own.
             RootView()
                 .environment(model)
+                .modifier(ReducedMotionPolicy())
                 .preferredColorScheme(appearance.scheme)
                 .onAppear { appDelegate.model = model; Bench.markAfterCommit("first-frame") }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -76,6 +77,7 @@ struct TriwardenApp: App {
         MenuBarExtra(isInserted: $showMenuBar) {
             MenuBarContent()
                 .environment(model)
+                .modifier(ReducedMotionPolicy())
         } label: {
             Image(nsImage: MenuBarGlyph.image(pending: model.sshAgent.pendingCount > 0))
                 .opacity(model.isUnlocked ? 1 : 0.55)
@@ -85,6 +87,7 @@ struct TriwardenApp: App {
         Window("Triwarden", id: LicenseReminderView.windowID) {
             LicenseReminderView()
                 .environment(model)
+                .modifier(ReducedMotionPolicy())
                 .preferredColorScheme(appearance.scheme)
         }
         .windowResizability(.contentSize)
@@ -95,6 +98,7 @@ struct TriwardenApp: App {
         Settings {
             SettingsView()
                 .environment(model)
+                .modifier(ReducedMotionPolicy())
                 .preferredColorScheme(appearance.scheme)
         }
         .defaultSize(width: 820, height: 640)

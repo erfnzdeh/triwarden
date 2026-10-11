@@ -56,20 +56,35 @@ final class AccountSession {
 
     // MARK: Sync
 
+    private func syncMessage(for error: any Error) -> String {
+        if case .http(let status, _) = error as? APIError, status == 401 {
+            return String(localized: "Sign in again to sync this account. The saved vault is still available.")
+        }
+        return String(localized: "Couldn't sync. The vault on this Mac is unchanged.")
+    }
+
     /// Pulls the whole vault, caches the (still encrypted) payload, rebuilds, then listens for live changes.
     func refresh() async throws {
-        guard let client else { return }
+        guard let client else {
+            lastSyncError = String(localized: "Offline · saved vault")
+            throw WriteError.offline
+        }
         isSyncing = true
-        defer { isSyncing = false }
-        // Asked first: a change landing during the sync then shows up as a newer revision next time.
-        let revision = try? await client.revisionDate()
-        let data = try await client.syncData()
-        AccountStore.saveCache(data, account.id)
-        try load(data)
-        knownRevision = revision
-        lastSynced = .now
-        lastSyncError = nil
-        await startLiveSync()
+        do {
+            defer { isSyncing = false }
+            // Asked first: a change landing during the sync then shows up as a newer revision next time.
+            let revision = try? await client.revisionDate()
+            let data = try await client.syncData()
+            try load(data)
+            AccountStore.saveCache(data, account.id)
+            knownRevision = revision
+            lastSynced = .now
+            lastSyncError = nil
+            await startLiveSync()
+        } catch {
+            lastSyncError = syncMessage(for: error)
+            throw error
+        }
     }
 
     /// Brings just these items up to date: each is fetched on its own and put into the cached payload, and only they
@@ -118,7 +133,7 @@ final class AccountSession {
             try await refresh()
         } catch {
             // Offline or session expired: keep the cache.
-            lastSyncError = String(localized: "Couldn't sync. The vault on this Mac is unchanged.")
+            lastSyncError = syncMessage(for: error)
         }
     }
 
@@ -155,7 +170,7 @@ final class AccountSession {
                 if let stored = AccountStore.refreshToken(account.id) { await client?.restore(refreshToken: stored) }
                 if let token = try? await client?.refreshAccessToken() { AccountStore.setRefreshToken(token, account.id) }
                 do { try await work() } catch {
-                    lastSyncError = String(localized: "Couldn't sync. The vault on this Mac is unchanged.")
+                    lastSyncError = syncMessage(for: error)
                 }
             }
         }
@@ -287,22 +302,25 @@ final class AccountSession {
         try VaultImport.preview(data, password: password, accountKey: userKey)
     }
 
-    /// Encrypts the chosen items here (with the organization's key when importing into one), sends them in one batch,
-    /// then syncs. Into an organization, the file's folders become collections.
-    func importItems(_ items: [ImportedItem], folders: [String], organizationId: String? = nil) async throws {
+    /// Prepares encrypted batches, sends each once, then syncs. The result distinguishes a failed final read
+    /// from failed delivery. Into an organization, the file's folders become collections.
+    @discardableResult
+    func importItems(_ items: [ImportedItem], folders: [String], organizationId: String? = nil) async throws -> Bool {
         guard let client else { throw WriteError.offline }
-        // Bitwarden's cloud caps one import at about 7,000 items: send batches, keeping each folder in one batch.
-        for batch in VaultImport.batches(items, limit: 5_000) {
+        let batches = try VaultImport.batches(items, limit: 5_000).map { batch -> (body: Data, count: Int) in
             if let organizationId {
                 guard let key = keyring?.orgKeys[organizationId] else { throw WriteError.offline }
-                try await client.importOrganizationCiphers(
-                    VaultImport.organizationRequestBody(items: batch, collections: folders, organizationId: organizationId, key: key),
-                    organizationId: organizationId)
-            } else {
-                try await client.importCiphers(VaultImport.requestBody(items: batch, folders: folders, key: userKey))
+                return (try VaultImport.organizationRequestBody(items: batch, collections: folders,
+                                                               organizationId: organizationId, key: key), batch.count)
             }
+            return (try VaultImport.requestBody(items: batch, folders: folders, key: userKey), batch.count)
         }
-        try await refresh()
+        try await ImportDelivery.send(batches) { body in
+            if let organizationId { try await client.importOrganizationCiphers(body, organizationId: organizationId) }
+            else { try await client.importCiphers(body) }
+        }
+        // A failed read after successful writes must not invite another import.
+        do { try await refresh(); return true } catch { return false }
     }
 
     // MARK: Send

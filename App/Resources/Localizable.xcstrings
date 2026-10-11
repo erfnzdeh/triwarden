@@ -1,6 +1,176 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+  "Find items or run commands": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Find items or run commands"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "尋找項目或執行命令"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "搵項目或執行指令"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "查找项目或运行命令"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "項目を検索、またはコマンドを実行"
+        }
+      }
+    }
+  },
+  "Import stopped. Sync and inspect your vault before importing again.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Import stopped. Sync and inspect your vault before importing again."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "匯入已停止。再次匯入前，請先同步並檢查保管庫。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "匯入已停止。再次匯入之前，請先同步並檢查保管庫。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "导入已停止。再次导入前，请先同步并检查密码库。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "インポートが停止しました。再度インポートする前に同期して保管庫を確認してください。"
+        }
+      }
+    }
+  },
+  "Import saved. Sync failed; do not import the file again.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Import saved. Sync failed; do not import the file again."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "匯入已儲存，但同步失敗；請勿再次匯入此檔案。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "匯入已儲存，但同步失敗；請勿再次匯入呢個檔案。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "导入已保存，但同步失败；请勿再次导入此文件。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "インポートは保存されましたが、同期に失敗しました。同じファイルを再度インポートしないでください。"
+        }
+      }
+    }
+  },
+  "Confirmed: %lld. Unconfirmed: %lld. Not sent: %lld.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Confirmed: %lld. Unconfirmed: %lld. Not sent: %lld."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已確認：%lld。未確認：%lld。未送出：%lld。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已確認：%lld。未確認：%lld。未傳送：%lld。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已确认：%lld。未确认：%lld。未发送：%lld。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "確認済み：%lld。未確認：%lld。未送信：%lld。"
+        }
+      }
+    }
+  },
+  "Sign in again to sync this account. The saved vault is still available.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Sign in again to sync this account. The saved vault is still available."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "請重新登入以同步此帳戶。仍可使用已儲存的保管庫。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "請重新登入以同步呢個帳戶。仍可使用已儲存嘅保管庫。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "请重新登录以同步此账户。仍可使用已保存的密码库。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "このアカウントを同期するには再度ログインしてください。保存済みの保管庫は引き続き利用できます。"
+        }
+      }
+    }
+  },
     "" : {
       "shouldTranslate" : false
     },

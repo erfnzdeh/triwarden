@@ -393,7 +393,12 @@ final class AppModel {
     }
     /// True while ⌥ is held: reveals masked fields.
     var optionHeld = false
-    var isOnline: Bool { sessions.contains { $0.lastSynced != nil } }
+    var hasSyncError: Bool { sessions.contains { $0.lastSyncError != nil } }
+    var isOnline: Bool {
+        !sessions.isEmpty && sessions.allSatisfy {
+            $0.lastSyncError == nil && ($0.lastSynced.map { Date.now.timeIntervalSince($0) < 330 } ?? false)
+        }
+    }
     var folders: [Grouping] = []
     var sends: [SendItem] = []
     var selectedSendID: SendItem.ID?
@@ -1344,7 +1349,7 @@ final class AppModel {
 
     /// Syncs every unlocked account now.
     func refresh() async throws {
-        for session in sessions { try await session.refresh() }
+        try await SyncBatch.run(sessions) { try await $0.refresh() }
     }
 
     // MARK: Unlock

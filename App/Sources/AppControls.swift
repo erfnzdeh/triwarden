@@ -39,8 +39,8 @@ struct AppButtonStyle: ButtonStyle {
                 }
             }
             .opacity(isEnabled ? 1 : 0.45)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.snappy(duration: 0.15), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && Motion.animation(.default) != nil ? 0.97 : 1)
+            .animation(Motion.animation(.snappy(duration: 0.15)), value: configuration.isPressed)
             .contentShape(.capsule)
     }
 
@@ -128,7 +128,7 @@ struct AppSegmented<Value: Hashable>: View {
         HStack(spacing: 2) {
             ForEach(Array(options.enumerated()), id: \.offset) { _, option in
                 let selected = option.0 == selection
-                Button { withAnimation(.spring(duration: 0.3, bounce: 0.15)) { selection = option.0 } } label: {
+                Button { withAnimation(Motion.animation(.spring(duration: 0.3, bounce: 0.15))) { selection = option.0 } } label: {
                     Text(option.1)
                         .font(.system(size: 13, weight: selected ? .semibold : .medium))
                         .foregroundStyle(selected ? .primary : .secondary)
@@ -151,7 +151,7 @@ struct AppSegmented<Value: Hashable>: View {
         .background(dark ? Color.white.opacity(0.06) : Color.black.opacity(0.05), in: .capsule)
         // The thumb slides whenever the selection changes, even when it arrives outside an animation (a binding
         // backed by @AppStorage updates a moment later, which made it jump).
-        .animation(.spring(duration: 0.3, bounce: 0.15), value: selection)
+        .animation(Motion.animation(.spring(duration: 0.3, bounce: 0.15)), value: selection)
     }
 }
 
@@ -162,7 +162,7 @@ struct ToggleChip: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        Button { withAnimation(.snappy(duration: 0.15)) { isOn.toggle() } } label: {
+        Button { withAnimation(Motion.animation(.snappy(duration: 0.15))) { isOn.toggle() } } label: {
             HStack(spacing: 6) {
                 Image(systemName: isOn ? "checkmark" : "plus").font(.system(size: 10, weight: .bold))
                 Text(verbatim: title).font(.system(size: 13, weight: .semibold, design: .monospaced))

@@ -936,6 +936,8 @@ private struct SyncStatusText: View {
     var body: some View {
         if model.isSyncing {
             Text("Syncing…")
+        } else if model.hasSyncError {
+            Text("Couldn't sync")
         } else if model.previewUnlocked {
             Text("Synced just now") // the demo vault (screenshots, UI tests): there's no server to be offline from
         } else if let date = model.lastSynced {
@@ -1094,8 +1096,7 @@ private struct FolderRow: View {
 
 // MARK: Search
 
-/// Centered toolbar search, ⌘F to focus.
-/// Looks like a search field; opens the command palette (⌘K / ⌘F).
+/// Toolbar command palette (⌘K); ⌘F focuses the separate vault-list filter.
 private struct PaletteTrigger: View {
     @Environment(AppModel.self) private var model
     /// Matches the + and the bell so the header controls share one height.
@@ -1109,7 +1110,7 @@ private struct PaletteTrigger: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").font(.system(size: 13, weight: .medium))
-            Text(compactLabel ? "Search" : "Search or run a command").font(.system(size: 13)).lineLimit(1)
+            Text(compactLabel ? "Commands" : "Find items or run commands").font(.system(size: 13)).lineLimit(1)
             Spacer()
             Text(verbatim: "⌘K")
                 .font(.system(size: 10, weight: .medium))
@@ -1605,7 +1606,7 @@ private enum Inbox {
                 symbol: "arrow.triangle.2.circlepath",
                 tint: Color(red: 0.95, green: 0.72, blue: 0.38),
                 title: String(localized: "Couldn't sync"),
-                subtitle: String(localized: "The vault on this Mac is unchanged."),
+                subtitle: model.sessions.filter { $0.lastSyncError != nil }.map { $0.account.email + ": " + ($0.lastSyncError ?? "") }.joined(separator: "\n"),
                 primaryTitle: "Retry",
                 primary: { model.scheduleSync() }
             ))
@@ -3065,7 +3066,7 @@ struct HeaderChrome: ViewModifier {
                 } else {
                     shape.fill(fill)
                         .background(.ultraThinMaterial, in: shape)
-                        .shadow(color: .black.opacity(hovering ? 0.10 : 0.07), radius: 6, y: 2)
+                        .shadow(color: .black.opacity(hovering ? 0.06 : 0.03), radius: 3, y: 1)
                 }
             }
             .overlay {

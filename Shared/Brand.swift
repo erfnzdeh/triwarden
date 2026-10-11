@@ -29,7 +29,7 @@ extension Color {
     /// The tail's sky blue as a fill (buttons, the vault mark, selection). Pair with `onBrandFill`.
     static let brandFill = Color(red: 0x80 / 255, green: 0xC5 / 255, blue: 0xEF / 255)
     /// Primary buttons with white labels: one flat, slightly deeper tail sky (no gradient, no glow).
-    static let brandButton = Color(red: 0x2E / 255, green: 0x8F / 255, blue: 0xD3 / 255)
+    static let brandButton = Color(red: 0x0F / 255, green: 0x74 / 255, blue: 0xB3 / 255)
 
     /// Navy text on `brandFill` (7.9:1).
     static let onBrandFill = Color(red: 0x0B / 255, green: 0x2A / 255, blue: 0x40 / 255)
