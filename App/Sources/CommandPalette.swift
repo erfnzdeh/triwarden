@@ -257,8 +257,8 @@ struct CommandPalette: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(width: 704)
-        .background(Color(nsColor: .windowBackgroundColor).opacity(0.94), in: .rect(cornerRadius: 22, style: .continuous))
         .background(.regularMaterial, in: .rect(cornerRadius: 22, style: .continuous))
+        .background((dark ? Color.black.opacity(0.15) : Color.white.opacity(0.55)), in: .rect(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.primary.opacity(dark ? 0.14 : 0.08), lineWidth: 0.5))
         .scaleEffect(x: appeared ? 1 : 0.92, y: appeared ? 1 : 0.94, anchor: .top) // a short way to grow: it feels instant
         .opacity(appeared ? 1 : 0)
