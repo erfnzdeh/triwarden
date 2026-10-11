@@ -29,5 +29,29 @@ Base: `main`; branch: `codex/audit-improvements`.
 ## Validation still requiring the appropriate environment
 
 - Real VoiceOver / Full Keyboard Access walkthrough, Reduce Motion and Increase Contrast interaction checks.
-- Full click-through UI tests and a large import interrupted by an actual network/proxy failure. API integration and app end-to-end self-tests have now passed; deterministic accepted-write/lost-response and expired-session regression cases are covered.
+- A large import interrupted by an actual network/proxy failure. API integration and app end-to-end self-tests have passed; deterministic accepted-write/lost-response and expired-session regression cases are covered.
 - Visual review of the generated snapshots; no visual pass is claimed by this change.
+
+## Real desktop UI validation (2026-10-11)
+
+Used the branch's signed Debug app through native UI automation with the disposable `usagi@chiikawarden.test` development account and the LAN HTTP endpoint (18880). This was a live account workflow, separate from demo snapshots and the isolated self-test runner.
+
+| Workflow | Observed result |
+| --- | --- |
+| Add existing development account and sign in | Successful; initial All Items count 12 |
+| Search and filter | `type:card` committed to a Cards chip and showed only Travel Visa; clearing filters restored the list |
+| Create login | Empty editor disabled Save; synthetic login saved with username, password, URI and notes; count 13 |
+| Edit login | Updated name and notes persisted in detail while other fields remained intact |
+| Command palette | Search found the synthetic item and opened its detail |
+| Manual sync | Sync Now showed a successful checkmark |
+| Lock and unlock | Development account unlocked again and retained the created item |
+| Import JSON | Native picker, preview of one login, Import and success summary completed; count 14 |
+| Trash and restore | Confirmation named the synthetic item; Trash count 1; Restore returned All Items to 14 and emptied Trash |
+| Cleanup and logout | Both synthetic items moved to recoverable Trash; normal list returned to 12; development account logged out and app returned to its original locked account screen |
+
+### Findings
+
+- **P2: Item toolbar accessibility labels inherit the first action's name.** With a login selected, Archive, Favorite, Edit and Move to Trash all expose Description `Reveal`, despite distinct Help text. With an identity selected, the same buttons expose `Archive`. In Trash, Delete Forever exposes `Restore`, with Help `Delete Forever`. Reproduced across three toolbar states; relevant construction is `HeroCard.actions` / `toolbarButton` in `App/Sources/VaultView.swift`. This can misidentify destructive actions to accessibility clients. Tooltips and click behavior were correct. No actual VoiceOver speech walkthrough is claimed, and this finding remains unresolved.
+- **Unconfirmed observation:** the sign-in server preflight briefly showed “Can't reach this server”, but the same endpoint then signed in successfully. A repeatable preflight failure has not been established.
+
+The two synthetic records (`UI audit 20261011 edited` and `UI audit import 20261011`) remain recoverable in the development account's Trash. No existing account was unlocked or logged out. This smoke test does not cover all settings, SSO/TOTP login UI, AutoFill/auto-type, a real interrupted-network import, or every visual/accessibility mode.
