@@ -6,7 +6,6 @@ import VaultwardenAPI
 @main
 struct TriwardenApp: App {
     @State private var model = AppModel()
-    @AppStorage(Pref.appearance) private var appearance = AppearanceSetting.system
     @AppStorage(Pref.showMenuBar) private var showMenuBar = true
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
 
@@ -57,7 +56,7 @@ struct TriwardenApp: App {
             RootView()
                 .environment(model)
                 .modifier(ReducedMotionPolicy())
-                .preferredColorScheme(appearance.scheme)
+                .modifier(LiveAppearance())
                 .onAppear { appDelegate.model = model; Bench.markAfterCommit("first-frame") }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                     model.appDidBecomeActive()
@@ -88,7 +87,7 @@ struct TriwardenApp: App {
             LicenseReminderView()
                 .environment(model)
                 .modifier(ReducedMotionPolicy())
-                .preferredColorScheme(appearance.scheme)
+                .modifier(LiveAppearance())
         }
         .windowResizability(.contentSize)
         .windowStyle(.hiddenTitleBar)
@@ -99,7 +98,7 @@ struct TriwardenApp: App {
             SettingsView()
                 .environment(model)
                 .modifier(ReducedMotionPolicy())
-                .preferredColorScheme(appearance.scheme)
+                .modifier(LiveAppearance())
         }
         .defaultSize(width: 820, height: 640)
         .windowResizability(.contentMinSize)
@@ -339,7 +338,17 @@ struct GateSplit: ViewModifier, Animatable {
 }
 
 
-/// Wrapper so @AppStorage can drive preferredColorScheme.
+/// Observe preferences inside each hosted view. Scene builders can retain a captured theme value
+/// while a Settings window is open; the view itself must invalidate when the preference changes.
+struct LiveAppearance: ViewModifier {
+    @AppStorage(Pref.appearance) private var appearance = AppearanceSetting.system
+
+    func body(content: Content) -> some View {
+        content.preferredColorScheme(appearance.scheme)
+    }
+}
+
+/// Shared typed values for the theme picker and every window.
 enum AppearanceSetting: String {
     case system, light, dark
     var scheme: ColorScheme? {

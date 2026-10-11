@@ -197,7 +197,7 @@ struct AccountDetailsSheet: View {
 
 private struct GeneralSettings: View {
     @Environment(AppModel.self) private var model
-    @AppStorage(Pref.appearance) private var appearance = "system"
+    @AppStorage(Pref.appearance) private var appearance = AppearanceSetting.system
     @AppStorage(Pref.fullDoorAnimation) private var fullDoorAnimation = false
     @State private var autoFillOn: Bool?
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -210,9 +210,9 @@ private struct GeneralSettings: View {
         Form {
             Section {
                 Picker("Appearance", selection: $appearance) {
-                    Text("System").tag("system")
-                    Text("Light").tag("light")
-                    Text("Dark").tag("dark")
+                    Text("System").tag(AppearanceSetting.system)
+                    Text("Light").tag(AppearanceSetting.light)
+                    Text("Dark").tag(AppearanceSetting.dark)
                 }
                 .pickerStyle(.segmented)
                 Toggle(isOn: $fullDoorAnimation) {

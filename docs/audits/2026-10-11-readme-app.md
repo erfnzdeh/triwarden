@@ -94,3 +94,8 @@ The two synthetic records (`UI audit 20261011 edited` and `UI audit import 20261
 - New Item, Filters and Sort share a custom toolbar popover with fixed symbol and checkmark columns, soft brand-tint hover, disabled actions, and keyboard navigation. Folder/vault choices use nested pages with Back; keyboard selection scrolls into view.
 - Live development-account checks: Filters opened and keyboard Down/Return applied Cards; the temporary filter was cleared. New Item opened and keyboard Down/Return launched an unsaved Secure Note editor, which was canceled. Sort displayed Title and A to Z as selected. Native capture remained distorted, so a complete visual pass and live Settings background confirmation are not claimed.
 - Debug build passed; no existing vault records were written during these checks.
+
+## Live theme updates
+
+- Main, Settings and license window content now observes the appearance preference in a hosted ViewModifier rather than capturing it from the App scene builder. General Settings uses the same typed AppearanceSetting values for its picker.
+- Debug build and whitespace validation passed. Live switching remains unverified because native menu automation did not successfully activate Settings; no immediate-switch pass is claimed.
