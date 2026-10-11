@@ -9,12 +9,15 @@ import VaultwardenAPI
 private struct AccountPicker: View {
     @Environment(AppModel.self) private var model
     @Binding var accountId: String
+    var allowedIDs: [String]? = nil
+    var allowEmpty = false
+    private var sessions: [AccountSession] { model.sessions.filter { allowedIDs?.contains($0.id) ?? true } }
 
     var body: some View {
-        if model.sessions.count > 1 {
+        if sessions.count > 1 {
             VStack(alignment: .leading, spacing: 6) {
                 SheetLabel("Account")
-                SoftMenu(options: model.sessions.map { ($0.id, $0.account.email) }, selection: $accountId,
+                SoftMenu(options: (allowEmpty ? [("", String(localized: "Choose an account…"))] : []) + sessions.map { ($0.id, $0.account.email) }, selection: $accountId,
                          accessibilityLabel: "Account")
             }
         }
@@ -220,7 +223,7 @@ struct ImportSheet: View {
     @State private var syncingImport = false
     @State private var deliveryReport: String?
 
-    private var session: AccountSession? { model.session(for: accountId) ?? model.sessions.first }
+    private var session: AccountSession? { model.session(for: accountId) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -258,7 +261,10 @@ struct ImportSheet: View {
         .padding(24)
         .frame(width: 520)
         .onAppear {
-            if accountId.isEmpty { accountId = model.sessions.first?.id ?? "" }
+            if accountId.isEmpty {
+                let ids = model.importAccountIDs ?? [model.defaultAccountId].compactMap { $0 }
+                accountId = ids.count == 1 ? ids[0] : ""
+            }
             if let initialFile { load(initialFile) }
         }
     }
@@ -267,7 +273,7 @@ struct ImportSheet: View {
 
     private var chooser: some View {
         VStack(alignment: .leading, spacing: 14) {
-            AccountPicker(accountId: $accountId)
+            AccountPicker(accountId: $accountId, allowedIDs: model.importAccountIDs, allowEmpty: true)
             if needsPassword, let file {
                 VStack(alignment: .leading, spacing: 8) {
                     SheetLabel("“\(file.lastPathComponent)” is password-protected")
@@ -323,7 +329,7 @@ struct ImportSheet: View {
                     Text(verbatim: "·").foregroundStyle(.tertiary)
                     Text(formatName(preview.format)).font(.system(size: 13)).foregroundStyle(.secondary)
                 }
-                AccountPicker(accountId: $accountId)
+                AccountPicker(accountId: $accountId, allowedIDs: model.importAccountIDs, allowEmpty: true)
                 VaultPicker(vaults: session?.transferVaults() ?? [], selection: $vaultId, label: "Import into")
 
                 let counts = Dictionary(grouping: included, by: \.type).mapValues(\.count)
@@ -415,7 +421,7 @@ struct ImportSheet: View {
             case .preview:
                 Button("Back") { reset() }.buttonStyle(.appSecondary)
                 Button("Import \(included.count) Items", action: runImport)
-                    .buttonStyle(.appPrimary).keyboardShortcut(.defaultAction).disabled(included.isEmpty)
+                    .buttonStyle(.appPrimary).keyboardShortcut(.defaultAction).disabled(included.isEmpty || session == nil)
             case .importing:
                 EmptyView()
             case .done, .interrupted:

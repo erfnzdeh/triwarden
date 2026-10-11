@@ -71,6 +71,30 @@ struct DevServerTests {
     }
 
     @Test(arguments: DevServer.ports)
+    func createInExistingCollection(port: Int) async throws {
+        let client = try DevServer.client(port: port)
+        let userKey = try await client.login(email: "usagi@chiikawarden.test", password: DevServer.password)
+        let sync = try await client.sync()
+        let collection = try #require(sync.collections?.first)
+        let orgKey = try #require(Keyring(userKey: userKey, profile: sync.profile).orgKeys[collection.organizationId])
+        var body = try #require(JSONSerialization.jsonObject(with: CipherEditor.newCipher(kind: .secureNote,
+            edit: CipherEdit(name: "Sidebar collection test", notes: "org encrypted"), key: orgKey)) as? [String: Any])
+        body["organizationId"] = collection.organizationId
+        let id = try await client.createOrganizationCipher(JSONSerialization.data(withJSONObject: body), collectionIds: [collection.id])
+        do {
+            let back = try #require(try await client.sync().ciphers.first { $0.id == id })
+            #expect(back.organizationId == collection.organizationId)
+            #expect(back.collectionIds?.contains(collection.id) == true)
+            #expect(try EncString(back.name).decryptString(with: orgKey) == "Sidebar collection test")
+            #expect(try EncString(try #require(back.notes)).decryptString(with: orgKey) == "org encrypted")
+        } catch {
+            try? await client.deleteCipher(id: id)
+            throw error
+        }
+        try await client.deleteCipher(id: id)
+    }
+
+    @Test(arguments: DevServer.ports)
     func offlineUnlockAndRefreshToken(port: Int) async throws {
         // Log in once, keep only what an app stores on disk…
         let first = try await DevServer.client(port: port).loginDetailed(email: "usagi@chiikawarden.test", password: DevServer.password)

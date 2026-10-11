@@ -243,9 +243,21 @@ final class AccountSession {
 
     enum WriteError: Error { case offline }
 
-    func create(_ kind: CipherEditor.Kind, edit: CipherEdit) async throws -> String {
+    func create(_ kind: CipherEditor.Kind, edit: CipherEdit, organizationId: String? = nil,
+                collectionIds: [String] = []) async throws -> String {
         guard let client else { throw WriteError.offline }
-        let id = try await client.createCipher(CipherEditor.newCipher(kind: kind, edit: edit, key: userKey))
+        let id: String
+        if let organizationId {
+            guard let org = organizations.first(where: { $0.id == organizationId }), !collectionIds.isEmpty,
+                  collectionIds.allSatisfy({ id in org.children.contains { $0.id == id && $0.canWrite } }),
+                  let key = keyring?.orgKeys[organizationId] else { throw WriteError.offline }
+            guard var cipher = try JSONSerialization.jsonObject(with: CipherEditor.newCipher(kind: kind, edit: edit, key: key)) as? [String: Any] else { throw WriteError.offline }
+            cipher["organizationId"] = organizationId
+            cipher["folderId"] = NSNull()
+            id = try await client.createOrganizationCipher(JSONSerialization.data(withJSONObject: cipher), collectionIds: collectionIds)
+        } else {
+            id = try await client.createCipher(CipherEditor.newCipher(kind: kind, edit: edit, key: userKey))
+        }
         try await reload([id])
         return id
     }

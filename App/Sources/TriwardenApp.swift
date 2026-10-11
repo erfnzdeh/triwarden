@@ -263,10 +263,14 @@ struct RootView: View {
                 Task { try? await Task.sleep(for: .seconds(1)); openWindow(id: LicenseReminderView.windowID) }
             }
         }
+        .alert("Some actions could not finish", isPresented: Binding(
+            get: { model.sidebarActionError != nil }, set: { if !$0 { model.sidebarActionError = nil } })) {
+                Button("OK") { model.sidebarActionError = nil }
+            } message: { Text(model.sidebarActionError ?? "") }
         // Every destructive action asks here first.
         .confirmationDialog(model.confirming?.title ?? "", isPresented: Binding(
             get: { model.confirming != nil }, set: { if !$0 { model.confirming = nil } }), presenting: model.confirming) { request in
-            Button(request.action, role: .destructive) { Task { await request.run() } }
+            Button(request.action, role: request.destructive ? .destructive : nil) { Task { await request.run() } }
             Button("Cancel", role: .cancel) {}
         } message: { request in
             Text(request.message)

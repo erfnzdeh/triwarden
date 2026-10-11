@@ -106,7 +106,7 @@ struct VaultView: View {
     private var sort: ItemSort { ItemSort(rawValue: sortRaw) ?? .title }
 
     private var filtered: [VaultItem] {
-        let matching = model.vaultItems
+        let matching = (model.sidebarSearchScope.map { scope in model.items.filter(scope.contains) } ?? model.vaultItems)
             .filter(section.includes)
             .filter(model.passesSearchFilters)
             .filter { AppModel.searchMatches($0, query) }
@@ -344,6 +344,7 @@ struct VaultView: View {
             let at = old.firstIndex(of: selected) ?? 0
             model.selectedID = new.isEmpty ? nil : new[min(at, new.count - 1)]
         }
+        .onChange(of: model.sidebarSearchRequest) { query = "" }
         .onChange(of: model.requestedSection) { _, requested in
             if let requested { section = requested; model.requestedSection = nil }
         }
@@ -429,6 +430,7 @@ struct VaultView: View {
 enum SidebarSelection: Hashable {
     case section(VaultSection)
     case folder(String)
+    case folders
     /// Your own items (not in any shared vault).
     case myVault
     case organization(String)
@@ -450,7 +452,9 @@ enum SidebarSelection: Hashable {
 
     func includes(_ item: VaultItem) -> Bool {
         switch self {
-        case .watchtower, .sends, .generator, .codes: false
+        case .folders: !item.isDeleted && !item.isArchived && item.folderName != nil
+        case .codes: !item.isDeleted && !item.isArchived && item.hasTOTP
+        case .watchtower, .sends, .generator: false
         case .account(let id): !item.isDeleted && !item.isArchived && item.accountId == id
         case .section(let s): s.includes(item)
         case .folder(let path): !item.isDeleted && !item.isArchived && (item.folderName == path || item.folderName?.hasPrefix(path + "/") == true)
@@ -513,15 +517,10 @@ private struct Sidebar: View {
 
     private func count(_ selection: SidebarSelection) -> Int { model.vaultItems.filter(selection.includes).count }
 
-    private var newFolderActions: [SidebarContextAction] {
-        [SidebarContextAction(title: String(localized: "New Folder…"), symbol: "folder.badge.plus") {
-            model.promptNewFolder()
-        }]
-    }
-
     private func row(_ s: VaultSection) -> some View {
         SidebarLabel(s.title, symbol: s.symbol, tag: .section(s), count: count(.section(s)))
             .tag(SidebarSelection.section(s))
+            .sidebarContextMenu(model.sidebarActions(for: .section(s)), selection: .section(s))
     }
 
     /// A row picked. A vault with ⌘ held joins (or leaves) the vaults shown everywhere instead of opening; opening a
@@ -534,6 +533,9 @@ private struct Sidebar: View {
             }
             if !model.vaultShown(key) { withAnimation(.snappy(duration: 0.25)) { model.toggleVault(key) } }
         }
+        model.sidebarSearchScope = nil
+        model.watchtowerIssueFilter = nil
+        model.expiredSendsOnly = false
         section = new
     }
 
@@ -557,6 +559,7 @@ private struct Sidebar: View {
                 Section("Vaults") {
                     SidebarLabel("My vault", symbol: "person", tag: .myVault, count: count(.myVault))
                         .tag(SidebarSelection.myVault)
+                        .sidebarContextMenu(model.sidebarActions(for: .myVault), selection: .myVault)
                         .opacity(model.vaultShown(AppModel.VaultFilter.personalKey) ? 1 : 0.45)
                     ForEach(model.visibleOrganizations) { org in
                         SharedVaultRow(org: org, count: count)
@@ -568,19 +571,24 @@ private struct Sidebar: View {
             Section("Tools") {
                 SidebarLabel("Send", symbol: "paperplane", tag: .sends, count: model.sends.count)
                     .tag(SidebarSelection.sends)
+                    .sidebarContextMenu(model.sidebarActions(for: .sends), selection: .sends)
                 SidebarLabel("One-Time Codes", symbol: "clock.badge.checkmark", tag: .codes,
                              count: model.vaultItems.filter { !$0.isDeleted && !$0.isArchived && $0.totp != nil }.count)
                     .tag(SidebarSelection.codes)
+                    .sidebarContextMenu(model.sidebarActions(for: .codes), selection: .codes)
                 SidebarLabel("Generator", symbol: "dice", tag: .generator)
                     .tag(SidebarSelection.generator)
+                    .sidebarContextMenu(model.sidebarActions(for: .generator), selection: .generator)
                 SidebarLabel("Watchtower", symbol: "checkmark.shield", tag: .watchtower, count: model.watchtowerIssueCount)
                     .tag(SidebarSelection.watchtower)
+                    .sidebarContextMenu(model.sidebarActions(for: .watchtower), selection: .watchtower)
             }
             // Your own ways of sorting items, and items set aside: kept (Archive) or on their way out (Trash).
             Section("Manage") {
                 if model.folders.isEmpty {
                     SidebarLabel("My Folders", symbol: "folder")
-                        .sidebarContextMenu(newFolderActions)
+                        .tag(SidebarSelection.folders)
+                        .sidebarContextMenu(model.sidebarActions(for: .folders), selection: .folders)
                 } else {
                     DisclosureGroup(isExpanded: $foldersExpanded) {
                         ForEach(FolderNode.tree(model.folders)) { node in
@@ -588,7 +596,8 @@ private struct Sidebar: View {
                         }
                     } label: {
                         SidebarLabel("My Folders", symbol: "folder")
-                            .sidebarContextMenu(newFolderActions)
+                            .tag(SidebarSelection.folders)
+                            .sidebarContextMenu(model.sidebarActions(for: .folders), selection: .folders)
                     }
                 }
                 row(.archive)
@@ -604,7 +613,7 @@ private struct Sidebar: View {
         .listItemTint(.monochrome) // icons in the text's own colour, not the brand blue
         // Selection: a calm sky (deep in dark mode) that white text reads well on, not the bright accent.
         .tint(Color.sidebarSelection)
-        .background(SidebarCalmSelection()) // always the soft selection, never the focused (solid) one
+        .background(SidebarCalmSelection()) // preserve keyboard focus while keeping row emphasis quiet
         .safeAreaInset(edge: .bottom) { SidebarAccountCard().padding(10) }
     }
 }
@@ -1002,15 +1011,7 @@ private struct SharedVaultRow: View {
     private var label: some View {
         SidebarLabel(verbatim: org.name, symbol: "building.2", tag: .organization(org.id), count: count(.organization(org.id)))
             .tag(SidebarSelection.organization(org.id))
-            .sidebarContextMenu([
-                SidebarContextAction(title: String(localized: "Event Log…"), symbol: "list.bullet.rectangle") {
-                    model.eventLogFor = org.id
-                },
-                SidebarContextAction(title: String(localized: "Leave Shared Vault…"),
-                                     symbol: "rectangle.portrait.and.arrow.right", destructive: true) {
-                    model.leaveOrganization(org.id)
-                }
-            ])
+            .sidebarContextMenu(model.sidebarActions(for: .organization(org.id), name: org.name, organization: org), selection: .organization(org.id))
     }
 
     var body: some View {
@@ -1019,7 +1020,7 @@ private struct SharedVaultRow: View {
             label
         } else {
             DisclosureGroup(isExpanded: $expanded) {
-                ForEach(tree) { SharedFolderRow(node: $0, count: count) }
+                ForEach(tree) { SharedFolderRow(node: $0, org: org, count: count) }
             } label: { label }
         }
     }
@@ -1028,7 +1029,9 @@ private struct SharedVaultRow: View {
 /// A shared folder (collection) in the sidebar, with the ones nested under it. A level that's only part of others'
 /// names ("Engineering" for "Engineering/Backend") is a heading, not something to select.
 private struct SharedFolderRow: View {
+    @Environment(AppModel.self) private var model
     let node: FolderNode
+    let org: Grouping
     let count: (SidebarSelection) -> Int
     @State private var expanded = true
 
@@ -1036,6 +1039,7 @@ private struct SharedFolderRow: View {
         if let id = node.folderIds.first {
             SidebarLabel(verbatim: node.name, symbol: "rectangle.stack", tag: .collection(id), count: count(.collection(id)))
                 .tag(SidebarSelection.collection(id))
+                .sidebarContextMenu(model.sidebarActions(for: .collection(id), name: node.name, organization: org, collection: org.children.first { $0.id == id }), selection: .collection(id))
         } else {
             SidebarLabel(verbatim: node.name, symbol: "rectangle.stack")
         }
@@ -1046,7 +1050,7 @@ private struct SharedFolderRow: View {
             label
         } else {
             DisclosureGroup(isExpanded: $expanded) {
-                ForEach(node.children) { SharedFolderRow(node: $0, count: count) }
+                ForEach(node.children) { SharedFolderRow(node: $0, org: org, count: count) }
             } label: { label }
         }
     }
@@ -1059,24 +1063,6 @@ private struct FolderRow: View {
     @State private var expanded = true
     @State private var targeted = false
 
-    private var folderActions: [SidebarContextAction] {
-        var actions = [
-            SidebarContextAction(title: String(localized: "New Subfolder…"), symbol: "folder.badge.plus") {
-                model.promptNewFolder(in: node.path)
-            },
-            SidebarContextAction(title: String(localized: "Rename…"), symbol: "pencil") {
-                model.renamingFolder = node.path
-            }
-        ]
-        if !node.folderIds.isEmpty {
-            actions.append(SidebarContextAction(title: String(localized: "Delete Folder…"),
-                                                symbol: "folder.badge.minus", destructive: true, separatorBefore: true) {
-                model.confirmDeleteFolder(name: node.name, ids: node.folderIds)
-            })
-        }
-        return actions
-    }
-
     var body: some View {
         let label = SidebarLabel(verbatim: node.name, symbol: node.folderIds.isEmpty ? "folder.badge.questionmark" : "folder",
                                  tag: .folder(node.path), count: count(.folder(node.path)))
@@ -1087,7 +1073,7 @@ private struct FolderRow: View {
                 Task { await model.move(itemIDs: ids, toFolderIn: node.folderIds) }
                 return true
             } isTargeted: { targeted = $0 }
-            .sidebarContextMenu(folderActions)
+            .sidebarContextMenu(model.sidebarActions(for: .folder(node.path)), selection: .folder(node.path))
         if node.children.isEmpty {
             label
         } else {
@@ -3160,6 +3146,7 @@ struct NewFolderSheet: View {
     @State private var saving = false
     @FocusState private var focused: Bool
 
+    private var destinationSessions: [AccountSession] { model.sessions.filter { model.folderContextAccountIDs?.contains($0.id) ?? true } }
     private var trimmed: String { name.trimmingCharacters(in: .whitespaces) }
     /// The whole path to create: the parent's, then what was typed.
     private var fullName: String { parent.map { $0 + "/" + trimmed } ?? trimmed }
@@ -3173,9 +3160,9 @@ struct NewFolderSheet: View {
                     FormHeader(symbol: "folder.badge.plus", title: "New Folder", subtitle: "Group items; folders can nest.")
                 }
                 FormCard {
-                    if model.sessions.count > 1 && parent == nil {
+                    if destinationSessions.count > 1 {
                         FormField(label: "Account") {
-                            SoftMenu(options: model.sessions.map { (String?.some($0.id), $0.account.email) }, selection: $accountId,
+                            SoftMenu(options: [(nil, String(localized: "Choose an account…"))] + destinationSessions.map { (String?.some($0.id), $0.account.email) }, selection: $accountId,
                                      accessibilityLabel: "Account")
                         }
                     }
@@ -3188,21 +3175,21 @@ struct NewFolderSheet: View {
                 }
             }
             .padding(20)
-            FormFooter(action: "Create", busy: saving, disabled: trimmed.isEmpty, cancel: { dismiss() }, submit: create)
+            FormFooter(action: "Create", busy: saving, disabled: trimmed.isEmpty || accountId == nil, cancel: { dismiss() }, submit: create)
         }
         .frame(width: 440)
         .background(Color.windowBase)
         .onAppear {
-            // Inside a folder: the account that folder belongs to.
-            accountId = parent.flatMap { path in
+            if let ids = model.folderContextAccountIDs { accountId = ids.count == 1 ? ids.first : nil }
+            else { accountId = parent.flatMap { path in
                 model.sessions.first { $0.folders.contains { $0.name == path || $0.name.hasPrefix(path + "/") } }?.id
-            } ?? model.defaultAccountId
+            } ?? model.defaultAccountId }
             focused = true
         }
     }
 
     private func create() {
-        guard !trimmed.isEmpty, !saving else { return }
+        guard !trimmed.isEmpty, accountId != nil, !saving else { return }
         saving = true
         Task {
             if await model.createFolder(name: fullName, accountId: accountId) != nil { dismiss() }
@@ -3719,9 +3706,11 @@ struct SidebarCalmSelection: NSViewRepresentable {
 
         func apply() {
             guard let root = window?.contentView else { return }
-            for outline in Self.outlines(in: root) where !outline.refusesFirstResponder {
-                outline.refusesFirstResponder = true
-                if window?.firstResponder === outline { window?.makeFirstResponder(nil) }
+            for outline in Self.outlines(in: root) {
+                outline.refusesFirstResponder = false
+                for row in 0..<outline.numberOfRows {
+                    outline.rowView(atRow: row, makeIfNecessary: false)?.isEmphasized = false
+                }
             }
         }
 

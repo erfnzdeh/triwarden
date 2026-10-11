@@ -1,6 +1,1434 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+  "New Favorite": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "New Favorite"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新增喜愛項目"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新增喜愛項目"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新建收藏项目"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "お気に入りを追加"
+        }
+      }
+    }
+  },
+  "Some actions could not finish": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Some actions could not finish"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "部分操作未能完成"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "部分操作未能完成"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "部分操作未能完成"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "一部の操作を完了できませんでした"
+        }
+      }
+    }
+  },
+  "Sync and inspect your vault before trying failed actions again.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Sync and inspect your vault before trying failed actions again."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "重試失敗的操作前，請先同步並檢查保管庫。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "重試失敗的操作前，請先同步並檢查保管庫。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "重试失败的操作前，请先同步并检查密码库。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "失敗した操作を再試行する前に同期して保管庫を確認してください。"
+        }
+      }
+    }
+  },
+  "Search Here": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Search Here"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "在此搜尋"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "在此搜尋"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "在此搜索"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "ここを検索"
+        }
+      }
+    }
+  },
+  "Sync Accounts in This Scope": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Sync Accounts in This Scope"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "同步此範圍的帳號"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "同步此範圍的帳戶"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "同步此范围的账号"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "この範囲のアカウントを同期"
+        }
+      }
+    }
+  },
+  "Account is locked": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Account is locked"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "帳號已鎖定"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "帳戶已鎖定"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "账号已锁定"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "アカウントはロックされています"
+        }
+      }
+    }
+  },
+  "Sync complete": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Sync complete"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "同步完成"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "同步完成"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "同步完成"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "同期完了"
+        }
+      }
+    }
+  },
+  "New Item Here": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "New Item Here"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "在此新增項目"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "在此新增項目"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "在此新建项目"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "ここに項目を追加"
+        }
+      }
+    }
+  },
+  "Import SSH Key…": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Import SSH Key…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "匯入 SSH 金鑰⋯"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "匯入 SSH 金鑰⋯"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "导入 SSH 密钥…"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "SSHキーを読み込む…"
+        }
+      }
+    }
+  },
+  "SSH Agent Settings…": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "SSH Agent Settings…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "SSH 代理程式設定⋯"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "SSH 代理程式設定⋯"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "SSH 代理设置…"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "SSHエージェント設定…"
+        }
+      }
+    }
+  },
+  "AutoFill Settings…": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "AutoFill Settings…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "自動填寫設定⋯"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "自動填寫設定⋯"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "自动填充设置…"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "自動入力設定…"
+        }
+      }
+    }
+  },
+  "Create passkeys on their website or app": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Create passkeys on their website or app"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "請在網站或 App 中建立通行密鑰"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "請在網站或 App 中建立通行密鑰"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "请在网站或 App 中创建通行密钥"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "パスキーはウェブサイトやアプリで作成します"
+        }
+      }
+    }
+  },
+  "Import Here…": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Import Here…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "匯入至此⋯"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "匯入至此⋯"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "导入到此处…"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "ここに読み込む…"
+        }
+      }
+    }
+  },
+  "Copy Name": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Copy Name"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "拷貝名稱"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "複製名稱"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "复制名称"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "名前をコピー"
+        }
+      }
+    }
+  },
+  "Open Organization Web Vault": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Open Organization Web Vault"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "開啟組織網頁保管庫"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "開啟機構網頁保管庫"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "打开组织网页密码库"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "組織のウェブ保管庫を開く"
+        }
+      }
+    }
+  },
+  "This collection is read-only": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "This collection is read-only"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "此集合為唯讀"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "此集合只供讀取"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "此集合为只读"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "このコレクションは読み取り専用です"
+        }
+      }
+    }
+  },
+  "Manage in Web Vault…": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Manage in Web Vault…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "在網頁保管庫管理⋯"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "在網頁保管庫管理⋯"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "在网页密码库中管理…"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "ウェブ保管庫で管理…"
+        }
+      }
+    }
+  },
+  "New Text Send": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "New Text Send"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新增文字 Send"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新增文字 Send"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新建文本 Send"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "テキストSendを作成"
+        }
+      }
+    }
+  },
+  "New File Send": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "New File Send"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新增檔案 Send"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新增檔案 Send"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新建文件 Send"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "ファイルSendを作成"
+        }
+      }
+    }
+  },
+  "Show Expired Sends": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Show Expired Sends"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "顯示已到期的 Send"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "顯示已到期的 Send"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "显示已过期的 Send"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "期限切れのSendを表示"
+        }
+      }
+    }
+  },
+  "Show All Sends": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Show All Sends"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "顯示所有 Send"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "顯示所有 Send"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "显示所有 Send"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "すべてのSendを表示"
+        }
+      }
+    }
+  },
+  "New Login with TOTP": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "New Login with TOTP"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新增含 TOTP 的登入項目"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新增含 TOTP 的登入項目"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "新建含 TOTP 的登录项目"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "TOTP付きログインを追加"
+        }
+      }
+    }
+  },
+  "Generate Passphrase": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Generate Passphrase"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "產生通關密語"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "產生通關密語"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "生成密码短语"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "パスフレーズを生成"
+        }
+      }
+    }
+  },
+  "Generator Settings…": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Generator Settings…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "產生器設定⋯"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "產生器設定⋯"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "生成器设置…"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "生成ツールの設定…"
+        }
+      }
+    }
+  },
+  "Run Checks": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Run Checks"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "執行檢查"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "執行檢查"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "运行检查"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "チェックを実行"
+        }
+      }
+    }
+  },
+  "View Weak Passwords": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "View Weak Passwords"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "檢視弱密碼"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "檢視弱密碼"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "查看弱密码"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "弱いパスワードを表示"
+        }
+      }
+    }
+  },
+  "View Reused Passwords": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "View Reused Passwords"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "檢視重複使用的密碼"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "檢視重複使用的密碼"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "查看重复使用的密码"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "使い回しのパスワードを表示"
+        }
+      }
+    }
+  },
+  "View Breached Passwords": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "View Breached Passwords"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "檢視已外洩的密碼"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "檢視已外洩的密碼"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "查看已泄露的密码"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "漏洩したパスワードを表示"
+        }
+      }
+    }
+  },
+  "Restore Scoped Items…": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Restore Scoped Items…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "還原此範圍的項目⋯"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "還原此範圍的項目⋯"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "恢复此范围的项目…"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "この範囲の項目を復元…"
+        }
+      }
+    }
+  },
+  "Empty Scoped Trash…": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Empty Scoped Trash…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "清空此範圍的垃圾桶⋯"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "清空此範圍的垃圾桶⋯"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "清空此范围的回收站…"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "この範囲のゴミ箱を空にする…"
+        }
+      }
+    }
+  },
+  "Only the items counted above will be restored.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Only the items counted above will be restored."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "只會還原上述已計數的項目。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "只會還原上述已計數的項目。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "只会恢复上述已计数的项目。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "上記に数えた項目のみ復元します。"
+        }
+      }
+    }
+  },
+  "Some items changed; they were skipped.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Some items changed; they were skipped."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "部分項目已變更，已略過。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "部分項目已變更，已略過。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "部分项目已更改，已跳过。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "変更された項目はスキップしました。"
+        }
+      }
+    }
+  },
+  "Choose an account…": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Choose an account…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "選擇帳號⋯"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "選擇帳戶⋯"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "选择账号…"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "アカウントを選択…"
+        }
+      }
+    }
+  },
+  "Choose a vault…": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Choose a vault…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "選擇保管庫⋯"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "選擇保管庫⋯"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "选择密码库…"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "保管庫を選択…"
+        }
+      }
+    }
+  },
+  "Choose a collection…": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Choose a collection…"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "選擇集合⋯"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "選擇集合⋯"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "选择集合…"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "コレクションを選択…"
+        }
+      }
+    }
+  },
+  "Import SSH Key": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Import SSH Key"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "匯入 SSH 金鑰"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "匯入 SSH 金鑰"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "导入 SSH 密钥"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "SSHキーを読み込む"
+        }
+      }
+    }
+  },
+  "Choose a UTF-8, unencrypted private key smaller than 1 MB.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Choose a UTF-8, unencrypted private key smaller than 1 MB."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "請選擇小於 1 MB、UTF-8 編碼且未加密的私密金鑰。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "請選擇小於 1 MB、UTF-8 編碼且未加密的私密金鑰。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "请选择小于 1 MB、UTF-8 编码且未加密的私钥。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "1 MB未満のUTF-8形式の暗号化されていない秘密鍵を選択してください。"
+        }
+      }
+    }
+  },
+  "This private key is encrypted or unsupported.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "This private key is encrypted or unsupported."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "此私密金鑰已加密或不受支援。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "此私密金鑰已加密或不受支援。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "此私钥已加密或不受支持。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "この秘密鍵は暗号化されているか、未対応です。"
+        }
+      }
+    }
+  },
+  "Show All": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Show All"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "顯示全部"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "顯示全部"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "显示全部"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "すべて表示"
+        }
+      }
+    }
+  },
+  "Run Checks to check for breached passwords.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Run Checks to check for breached passwords."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "執行檢查以查詢外洩密碼。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "執行檢查以查詢外洩密碼。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "运行检查以查询泄露密码。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "漏洩したパスワードを調べるにはチェックを実行してください。"
+        }
+      }
+    }
+  },
+  "Restore %lld item(s)?": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Restore %lld item(s)?"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "還原 %lld 個項目？"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "還原 %lld 個項目？"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "恢复 %lld 个项目？"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "%lld件の項目を復元しますか？"
+        }
+      }
+    }
+  },
+  "Completed for %lld item(s)": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Completed for %lld item(s)"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已完成 %lld 個項目"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已完成 %lld 個項目"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "已完成 %lld 个项目"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "%lld件の項目を処理しました"
+        }
+      }
+    }
+  },
   "Find items or run commands": {
     "localizations": {
       "en": {

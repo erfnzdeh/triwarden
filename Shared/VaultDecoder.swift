@@ -153,16 +153,16 @@ enum VaultDecoder {
             if let pw = items[i].password { items[i].reuseCount = (counts[pw] ?? 1) - 1 }
         }
         let folders = (sync.folders ?? []).compactMap { f in
-            (try? EncString(f.name).decryptString(with: userKey)).map { Grouping(id: f.id, name: $0) }
+            (try? EncString(f.name).decryptString(with: userKey)).map { Grouping(id: f.id, name: $0, accountId: accountId, canWrite: true) }
         }
         .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         let organizations: [Grouping] = (sync.profile.organizations ?? []).compactMap { org -> Grouping? in
             guard let orgKey = keyring.orgKeys[org.id] else { return nil }
             let collections = (sync.collections ?? []).filter { $0.organizationId == org.id }.compactMap { c in
-                (try? EncString(c.name).decryptString(with: orgKey)).map { Grouping(id: c.id, name: $0) }
+                (try? EncString(c.name).decryptString(with: orgKey)).map { Grouping(id: c.id, name: $0, accountId: accountId, canWrite: c.readOnly == false || (c.readOnly == nil && (org.type == 0 || org.type == 1)), canManage: c.manage == true || org.type == 0 || org.type == 1) }
             }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-            return Grouping(id: org.id, name: org.name ?? String(localized: "Shared vault"), children: collections)
+            return Grouping(id: org.id, name: org.name ?? String(localized: "Shared vault"), children: collections, accountId: accountId, canManage: org.type == 0 || org.type == 1)
         }
         let folderNames = Dictionary(folders.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
         for i in items.indices { items[i].folderName = items[i].folderId.flatMap { folderNames[$0] } }

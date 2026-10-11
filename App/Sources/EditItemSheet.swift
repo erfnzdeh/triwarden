@@ -1,3 +1,5 @@
+import SSHAgent
+import UniformTypeIdentifiers
 import TriCrypto
 import SwiftUI
 import VaultwardenAPI
@@ -27,6 +29,14 @@ struct EditItemSheet: View {
         var name = ""
         var uri = ""
         var password = ""
+        var accountIDs: [String]? = nil
+        var folderPath: String? = nil
+        var favorite = false
+        var vaultKeys: [String]? = nil
+        var organizationId: String? = nil
+        var collectionIds: [String] = []
+        var focusTOTP = false
+        var importSSH = false
     }
 
     @Environment(AppModel.self) private var model
@@ -45,6 +55,8 @@ struct EditItemSheet: View {
     @State private var notes = ""
     @State private var folderId: String?
     @State private var accountId: String?
+    @State private var destinationVault: String?
+    @State private var destinationCollection: String?
     /// Naming a new folder from the Folder field: the path it goes inside, nil when not.
     @State private var newFolderIn: String?
     /// Card / identity / SSH-key properties by API name.
@@ -58,6 +70,8 @@ struct EditItemSheet: View {
     /// The form as it was opened, to tell whether closing it would lose anything.
     @State private var original: Draft?
     @State private var confirmingDiscard = false
+    @State private var choosingSSHKey = false
+    @State private var sshImportError: String?
     @State private var scanning = false
     @State private var scanProblem: String?
     /// The website row under the pointer, its travel, and where that drag began.
@@ -88,13 +102,16 @@ struct EditItemSheet: View {
         var name, username, password, totp, notes: String
         var uris: [String]
         var folderId: String?
+        var accountId: String?
+        var destinationVault: String?
+        var destinationCollection: String?
         var props: [String: String]
         var customFields: [CustomField]
         var reprompt: Bool
     }
 
     private var draft: Draft {
-        Draft(name: name, username: username, password: password, totp: totp, notes: notes, uris: websiteValues, folderId: folderId,
+        Draft(name: name, username: username, password: password, totp: totp, notes: notes, uris: websiteValues, folderId: folderId, accountId: accountId, destinationVault: destinationVault, destinationCollection: destinationCollection,
               props: props.filter { !$0.value.isEmpty }, customFields: customFields, reprompt: reprompt)
     }
 
@@ -116,9 +133,22 @@ struct EditItemSheet: View {
     }
 
     /// Not while naming a folder, so Return there makes the folder rather than saving the item.
-    private var saveDisabled: Bool { name.trimmingCharacters(in: .whitespaces).isEmpty || newFolderIn != nil }
+    private var saveDisabled: Bool { name.trimmingCharacters(in: .whitespaces).isEmpty || newFolderIn != nil || (!mode.isEdit && accountId == nil) || (selectsVault && destinationVault == nil) || (creationOrganizationID != nil && creationCollectionIDs.isEmpty) }
 
-    enum Field { case name }
+    private var selectsVault: Bool { prefill?.vaultKeys != nil && prefill?.organizationId == nil }
+    private var creationOrganizationID: String? {
+        prefill?.organizationId ?? (destinationVault == AppModel.VaultFilter.personalKey ? nil : destinationVault)
+    }
+    private var creationCollectionIDs: [String] {
+        if let fixed = prefill?.collectionIds, !fixed.isEmpty { return fixed }
+        return destinationCollection.map { [$0] } ?? []
+    }
+    private var chosenSession: AccountSession? { accountId.flatMap { model.session(for: $0) } }
+    private var writableCollections: [Grouping] {
+        chosenSession?.organizations.first { $0.id == creationOrganizationID }?.children.filter(\.canWrite) ?? []
+    }
+
+    enum Field { case name, totp }
 
     private var kind: VaultItem.Kind {
         switch mode {
@@ -130,6 +160,11 @@ struct EditItemSheet: View {
     /// Folders belong to one account; only offer the item's (or the chosen) account's folders.
     private var folderAccountId: String? {
         switch mode { case .edit(let item), .clone(let item): item.accountId; case .create: accountId }
+    }
+
+    private var destinationSessions: [AccountSession] {
+        guard let ids = prefill?.accountIDs else { return model.sessions }
+        return model.sessions.filter { ids.contains($0.id) }
     }
 
     private var accountFolders: [Grouping] {
@@ -249,23 +284,51 @@ struct EditItemSheet: View {
 
     @ViewBuilder private var fields: some View {
             FormCard {
-                if case .create = mode, model.sessions.count > 1 {
+                if case .create = mode, destinationSessions.count > 1 {
                     FormField(label: "Account") {
-                        SoftMenu(options: model.sessions.map { (String?.some($0.id), "\($0.account.email) · \($0.account.serverSummary)") },
+                        SoftMenu(options: [(String?.none, String(localized: "Choose an account…"))] + destinationSessions.map { (String?.some($0.id), "\($0.account.email) · \($0.account.serverSummary)") },
                                  selection: $accountId, accessibilityLabel: "Account")
                     }
-                    .onChange(of: accountId) { folderId = nil; newFolderIn = nil }
+                    .onChange(of: accountId) {
+                        folderId = prefill?.folderPath.flatMap { path in model.session(for: accountId ?? "")?.folders.first { $0.name == path }?.id }
+                        newFolderIn = nil
+                        destinationCollection = nil
+                    }
                 }
                 FormField(label: "Name") {
                     TextField("Name", text: $name, prompt: Text("e.g. GitHub"))
                         .textFieldStyle(SoftFieldStyle())
                         .focused($focus, equals: .name)
                 }
-                FormField(label: "Folder") {
-                    FolderCascader(folders: accountFolders, selection: $folderId, create: { path in
+                if selectsVault {
+                    FormField(label: "Vault") {
+                        SoftMenu(options: [(String?.none, String(localized: "Choose a vault…"))]
+                            + ((prefill?.vaultKeys?.contains(AppModel.VaultFilter.personalKey) == true) ? [(String?.some(AppModel.VaultFilter.personalKey), String(localized: "My vault"))] : [])
+                            + (chosenSession?.organizations.filter { prefill?.vaultKeys?.contains($0.id) == true }.map { (String?.some($0.id), $0.name) } ?? []),
+                            selection: $destinationVault, accessibilityLabel: "Vault")
+                            .onChange(of: destinationVault) { destinationCollection = nil; folderId = nil; newFolderIn = nil }
+                    }
+                }
+                if creationOrganizationID != nil && prefill?.collectionIds.isEmpty != false {
+                    FormField(label: "Shared Folders") {
+                        SoftMenu(options: [(String?.none, String(localized: "Choose a collection…"))] + writableCollections.map { (String?.some($0.id), $0.name) },
+                            selection: $destinationCollection, accessibilityLabel: "Shared Folders")
+                    }
+                }
+                if let organizationId = prefill?.organizationId,
+                   let org = destinationSessions.first?.organizations.first(where: { $0.id == organizationId }) {
+                    LabeledContent("Shared vault", value: org.name)
+                    ForEach(org.children.filter { prefill?.collectionIds.contains($0.id) == true }) { collection in
+                        LabeledContent("Shared Folders", value: collection.name)
+                    }
+                }
+                if let path = prefill?.folderPath {
+                    LabeledContent("Folder", value: path)
+                } else if creationOrganizationID == nil { FormField(label: "Folder") {
+                    FolderCascader(folders: prefill?.organizationId == nil ? accountFolders : [], selection: $folderId, create: { path in
                         await model.createFolder(name: path, accountId: folderAccountId)
                     }, newFolderIn: $newFolderIn)
-                }
+                } }
             }
 
             switch kind {
@@ -330,6 +393,7 @@ struct EditItemSheet: View {
             FormField(label: "One-time code secret", note: "From the site's two-factor setup: scan its QR code, or paste the otpauth:// link or the key under it.") {
                 HStack(spacing: 8) {
                     TextField("One-time code secret", text: $totp, prompt: Text("otpauth://… or base32 key"))
+                        .focused($focus, equals: .totp)
                         .textFieldStyle(SoftFieldStyle())
                         .font(.system(size: 13, design: .monospaced))
                     Button { Task { await scanQRCode() } } label: {
@@ -570,6 +634,27 @@ struct EditItemSheet: View {
                         .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 9, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
                 }
+                Button("Import SSH Key…", systemImage: "square.and.arrow.down") { choosingSSHKey = true }
+                    .buttonStyle(.appSecondary)
+                    .fileImporter(isPresented: $choosingSSHKey, allowedContentTypes: [.item]) { result in
+                        guard case .success(let url) = result else { return }
+                        let access = url.startAccessingSecurityScopedResource()
+                        defer { if access { url.stopAccessingSecurityScopedResource() } }
+                        do {
+                            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                            guard size <= 1_048_576 else { throw SSHPrivateKey.Failure.malformed }
+                            let data = try Data(contentsOf: url)
+                            guard data.count <= 1_048_576, let pem = String(data: data, encoding: .utf8) else {
+                                throw SSHPrivateKey.Failure.malformed
+                            }
+                            let key = try SSHPrivateKey(pem: pem)
+                            props["privateKey"] = pem
+                            props["publicKey"] = "\(key.type) \(key.publicBlob.base64EncodedString()) \(key.comment)"
+                            props["keyFingerprint"] = key.fingerprint
+                            sshImportError = nil
+                        } catch { sshImportError = String(localized: "Choose a UTF-8, unencrypted private key smaller than 1 MB.") }
+                    }
+                if let sshImportError { Text(sshImportError).font(.caption).foregroundStyle(.red) }
                 Button("Generate Ed25519 Key", systemImage: "wand.and.stars") {
                     let pair = SSHKeyPair.generateEd25519(comment: name.isEmpty ? "" : name)
                     props["privateKey"] = pair.privateKey
@@ -673,8 +758,14 @@ struct EditItemSheet: View {
             // After the fields have settled (pickers tidy their values on appear).
             DispatchQueue.main.async { original = draft }
         }
-        focus = .name
-        accountId = model.defaultAccountId
+        focus = prefill?.focusTOTP == true ? .totp : .name
+        if let ids = prefill?.accountIDs {
+            accountId = ids.count == 1 ? ids.first : nil
+        } else { accountId = model.defaultAccountId }
+        if let keys = prefill?.vaultKeys, keys.count == 1 { destinationVault = keys.first }
+        if let path = prefill?.folderPath, let accountId {
+            folderId = model.session(for: accountId)?.folders.first { $0.name == path }?.id
+        }
         let source: VaultItem
         switch mode {
         case .create:
@@ -682,6 +773,7 @@ struct EditItemSheet: View {
                 name = prefill.name
                 password = prefill.password
                 if !prefill.uri.isEmpty { websites = [WebsiteRow(text: prefill.uri)] }
+                if prefill.importSSH { DispatchQueue.main.async { choosingSSHKey = true } }
             }
             return
         case .edit(let item): source = item
@@ -706,22 +798,29 @@ struct EditItemSheet: View {
     }
 
     private func save() async {
+        guard !saveDisabled else { return }
         saving = true
         defer { saving = false }
         let cleanFields = customFields.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
         let ok: Bool
         switch mode {
         case .create, .clone:
+            if let path = prefill?.folderPath, let accountId,
+               chosenSession?.folders.contains(where: { $0.name == path }) != true {
+                guard let createdFolder = await model.createFolder(name: path, accountId: accountId) else { return }
+                folderId = createdFolder
+            }
             let newKind: AppModel.NewItemKind = if case .create(let k) = mode { k } else { AppModel.NewItemKind(kind) }
             var edit = CipherEdit(name: name, notes: notes, folderId: .some(folderId))
             edit.reprompt = reprompt
+            edit.favorite = prefill?.favorite ?? false
             if newKind == .login {
                 (edit.username, edit.password, edit.totp) = (username, password, totp)
                 edit.uris = websiteValues
             }
             edit.properties = props.filter { !$0.value.isEmpty }
             if !cleanFields.isEmpty { edit.customFields = cleanFields }
-            ok = await model.createItem(newKind, edit: edit, accountId: accountId)
+            ok = await model.createItem(newKind, edit: edit, accountId: accountId, organizationId: creationOrganizationID, collectionIds: creationCollectionIDs)
         case .edit(let item):
             // Send only what changed.
             var edit = CipherEdit()

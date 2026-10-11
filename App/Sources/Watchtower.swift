@@ -188,12 +188,23 @@ struct WatchtowerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header(report)
-                ForEach(WatchtowerReport.Issue.allCases, id: \.self) { issue in
+                ForEach(WatchtowerReport.Issue.allCases.filter { model.watchtowerIssueFilter == nil || $0 == model.watchtowerIssueFilter }, id: \.self) { issue in
                     if let items = report.issues[issue], !items.isEmpty {
                         IssueCard(issue: issue, items: items, directory: directory, highlighted: highlighted, onOpen: onOpen)
                     }
                 }
-                if report.problemCount == 0 {
+                if let filter = model.watchtowerIssueFilter {
+                    HStack {
+                        Text(filter.title).font(.headline)
+                        Spacer()
+                        Button("Show All") { model.watchtowerIssueFilter = nil }
+                    }
+                    if report.issues[filter, default: []].isEmpty {
+                        Text(filter == .breached && model.breachCounts == nil ? "Run Checks to check for breached passwords." : "No issues found.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if report.problemCount == 0 && model.watchtowerIssueFilter == nil {
                     ContentUnavailableView {
                         Label("Looking good", systemImage: "checkmark.shield")
                             .symbolEffect(.bounce.up, options: .speed(0.9), value: allClear)

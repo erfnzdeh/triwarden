@@ -117,6 +117,9 @@ struct Grouping: Identifiable, Hashable {
     let id: String
     let name: String
     var children: [Grouping] = []
+    var accountId: String? = nil
+    var canWrite = false
+    var canManage = false
 }
 
 struct ItemField: Hashable, Identifiable {

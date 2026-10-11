@@ -43,6 +43,7 @@ struct GeneratorView: View {
             .onChange(of: passphrase) { save(); regenerate() }
             .onChange(of: username) { save(); regenerate() }
             .onChange(of: storedMode) { regenerate() }
+            .onChange(of: model.generatorRequest) { regenerate() }
     }
 
     private var modePicker: some View {
