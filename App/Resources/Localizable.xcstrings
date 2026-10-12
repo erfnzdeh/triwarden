@@ -7022,6 +7022,7 @@
     },
     "Caps Lock is on" : {
       "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Caps Lock is on" } },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -16208,6 +16209,7 @@
     },
     "Hide password" : {
       "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Hide password" } },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -19081,6 +19083,7 @@
     },
     "Master password" : {
       "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Master password" } },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -25977,6 +25980,7 @@
     },
     "Reveal (⌥⌘R, or hold ⌥)" : {
       "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reveal (⌥⌘R, or hold ⌥)" } },
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "表示（⌥⌘R、または ⌥ を押したまま）" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "显示（⌥⌘R，或按住 ⌥）" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "顯示（⌥⌘R，或按住 ⌥）" } },
@@ -28532,6 +28536,7 @@
     },
     "Show password" : {
       "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show password" } },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",

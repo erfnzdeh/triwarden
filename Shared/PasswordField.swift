@@ -29,10 +29,13 @@ struct SoftFieldStyle: TextFieldStyle {
 struct PasswordField: View {
     enum Look { case soft, rounded, plain }
 
-    let title: LocalizedStringKey
+    /// Catalog key ("Master password"). Resolved before it reaches the field, so the help tag
+    /// doesn't look it up again and show "localized string not found".
+    let title: String
     @Binding var text: String
     var look: Look = .soft
-    var prompt: Text? = Text(verbatim: "")
+    /// Catalog key for the placeholder. Empty shows no placeholder.
+    var prompt: String? = nil
     /// Optional link to the caller's focus state.
     var isFocused: Binding<Bool>?
     var onSubmit: () -> Void = {}
@@ -58,10 +61,11 @@ struct PasswordField: View {
             // still-secure field leaves the caret on the bullet widths, which are wider than the letters,
             // so it sits in a gap. Swapping fields drops focus; the next turn puts it back.
             styled(Group {
+                // Plain strings: the help tag must not look these keys up a second time.
                 if revealed {
-                    TextField(title, text: $text, prompt: prompt)
+                    TextField(spokenTitle, text: $text, prompt: Text(verbatim: spokenPrompt))
                 } else {
-                    SecureField(title, text: $text, prompt: prompt)
+                    SecureField(spokenTitle, text: $text, prompt: Text(verbatim: spokenPrompt))
                 }
             }
             .textContentType(.password)
@@ -75,8 +79,8 @@ struct PasswordField: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 22, height: 26)
-                        .help(Text("Caps Lock is on"))
-                        .accessibilityLabel(Text("Caps Lock is on"))
+                        .help(Self.localize("Caps Lock is on"))
+                        .accessibilityLabel(Self.localize("Caps Lock is on"))
                         .transition(.opacity.combined(with: .scale(scale: 0.6)))
                 }
                 Button {
@@ -96,8 +100,8 @@ struct PasswordField: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .help(revealed ? Text("Hide password") : Text("Reveal (⌥⌘R, or hold ⌥)"))
-                .accessibilityLabel(revealed ? Text("Hide password") : Text("Show password"))
+                .help(revealHelp)
+                .accessibilityLabel(revealLabel)
             }
             .zIndex(1)
             .padding(.trailing, look == .plain ? 0 : 6)
@@ -143,6 +147,32 @@ struct PasswordField: View {
             if wanted == true, optionDown { setOptionPeek(true) }
         }
         .onAppear { if isFocused?.wrappedValue == true { focused = true } }
+    }
+
+    /// The field's name, already translated. A second lookup from the help tag fails.
+    private var spokenTitle: String { Self.localize(title) }
+    /// Placeholder. No prompt means an empty one, so a labelled field doesn't repeat its name inside.
+    private var spokenPrompt: String { prompt.map(Self.localize) ?? "" }
+
+    private var revealHelp: String {
+        if revealed {
+            String(localized: "Hide password")
+        } else {
+            String(localized: "Reveal (⌥⌘R, or hold ⌥)")
+        }
+    }
+
+    private var revealLabel: String {
+        if revealed {
+            String(localized: "Hide password")
+        } else {
+            String(localized: "Show password")
+        }
+    }
+
+    /// Looks the catalog key up once, here, where the app's language is known.
+    private static func localize(_ key: String) -> String {
+        String(localized: String.LocalizationValue(stringLiteral: key))
     }
 
     /// Show or hide. ⌥⌘R toggles; holding ⌥ peeks and lets go of it hides again.

@@ -411,7 +411,7 @@ struct SendComposer: View {
                     FormCard(title: "Protection") {
                         FormField(label: "Password") {
                             PasswordField(title: "Password", text: $password,
-                                          prompt: editing?.hasPassword == true ? Text("Leave blank to keep the current one") : Text("Optional"))
+                                          prompt: editing?.hasPassword == true ? "Leave blank to keep the current one" : "Optional")
                                 .disabled(removePassword)
                         }
                         if editing?.hasPassword == true {

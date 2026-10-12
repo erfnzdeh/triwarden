@@ -314,11 +314,11 @@ private struct EmergencyTakeoverSheet: View {
                            subtitle: "Set a new master password for their account, then sign in to it with that password.")
                 FormCard {
                     FormField(label: "New master password", note: "At least 12 characters.") {
-                        PasswordField(title: "New master password", text: $password, prompt: Text("New master password"))
+                        PasswordField(title: "New master password", text: $password, prompt: "New master password")
                         if !password.isEmpty { StrengthMeter(password: password) }
                     }
                     FormField(label: "Confirm") {
-                        PasswordField(title: "Confirm", text: $confirm, prompt: Text("New master password again"))
+                        PasswordField(title: "Confirm", text: $confirm, prompt: "New master password again")
                     }
                 }
                 if let error { Label(error, systemImage: "exclamationmark.circle.fill").font(.system(size: 12)).foregroundStyle(.red) }

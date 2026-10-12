@@ -109,7 +109,7 @@ struct ExportSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 SheetLabel("File password")
                 PasswordField(title: "File password", text: $filePassword)
-                PasswordField(title: "Confirm file password", text: $confirmPassword, prompt: Text("Confirm file password"))
+                PasswordField(title: "Confirm file password", text: $confirmPassword, prompt: "Confirm file password")
                 Text("The passwords don't match.").font(.system(size: 12)).foregroundStyle(.red)
                     .opacity(!confirmPassword.isEmpty && filePassword != confirmPassword ? 1 : 0)
             }
@@ -137,7 +137,7 @@ struct ExportSheet: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 SheetLabel("Master password")
-                PasswordField(title: "Master password", text: $masterPassword, prompt: Text("Confirm it's you"), onSubmit: export)
+                PasswordField(title: "Master password", text: $masterPassword, prompt: "Confirm it's you", onSubmit: export)
             }
 
             if let error {

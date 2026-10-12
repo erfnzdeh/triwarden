@@ -3442,7 +3442,7 @@ private struct RepromptSheet: View {
                 FormHeader(symbol: "lock.shield", title: "Confirm it's you",
                            subtitle: "“\(request.item.name)” asks for your master password.")
                 FormCard {
-                    PasswordField(title: "Master password", text: $password, prompt: Text("Master password"),
+                    PasswordField(title: "Master password", text: $password, prompt: "Master password",
                                   isFocused: $focused.wrappedBinding, onSubmit: submit)
                     if wrong {
                         Label("That's not your master password.", systemImage: "exclamationmark.circle.fill")
