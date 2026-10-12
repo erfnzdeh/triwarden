@@ -160,6 +160,8 @@ final class AppModel {
     private static let keepsSearchFilters = !CommandLine.arguments.contains { $0 == "--snapshot" || $0.hasPrefix("--demo") }
     /// Set by ⌘F: the vault list's search field takes focus (and clears it).
     var wantsSearchFocus = false
+    /// Focus the OTP page's own search field after navigation.
+    var wantsCodesSearchFocus = false
 
     /// Whether an item passes the search filters (the vault itself is `vaultFilter`'s).
     func passesSearchFilters(_ item: VaultItem) -> Bool {

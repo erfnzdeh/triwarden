@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import VaultwardenAPI
 
 /// Captured when the menu opens. Later navigation cannot widen a pending action.
 struct SidebarScope {
@@ -37,12 +38,15 @@ extension AppModel {
         func search() -> SidebarContextAction {
             action(String(localized: "Search Here"), "magnifyingglass") {
                 self.leaveNewItemForm {
+                    if let key = destination.vaultKey {
+                        self.vaultFilter = key == VaultFilter.personalKey ? .personal : .organization(key)
+                    }
                     self.sidebarSearchScope = scope
                     self.sidebarSearchRequest = UUID()
-                    self.searchFilters = .init()
-                    self.requestedSection = destination == .codes ? .section(.all) : destination
-                    if destination == .codes { self.searchFilters.hasCode = true }
-                    self.wantsSearchFocus = true
+                    self.searchFilters = destination.searchFilters
+                    self.requestedSection = destination
+                    self.wantsCodesSearchFocus = destination == .codes
+                    self.wantsSearchFocus = destination != .codes
                 }
             }
         }
@@ -219,5 +223,24 @@ extension AppModel {
                 self.flash(String(localized: "Completed for \(completed) item(s)"))
                 if !errors.isEmpty { self.sidebarActionError = String(localized: "Completed for \(completed) item(s)") + "\n\n" + errors.joined(separator: "\n") + "\n\n" + String(localized: "Sync and inspect your vault before trying failed actions again.") }
             }
+    }
+}
+
+// Reflect the sidebar's scope in the existing filter menu and chips, too.
+extension SidebarSelection {
+    var searchFilters: SearchFilters {
+        var filters = SearchFilters()
+        switch self {
+        case .section(.logins): filters.type = .login
+        case .section(.cards): filters.type = .card
+        case .section(.identities): filters.type = .identity
+        case .section(.notes): filters.type = .note
+        case .section(.sshKeys): filters.type = .sshKey
+        case .section(.favorites): filters.favorites = true
+        case .section(.passkeys): filters.hasPasskey = true
+        case .folder(let path): filters.folder = path
+        default: break
+        }
+        return filters
     }
 }
