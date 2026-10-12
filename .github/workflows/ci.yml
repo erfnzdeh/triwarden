@@ -150,8 +150,11 @@ jobs:
       - name: UI smoke tests (ad-hoc signing, no release credentials)
         run: |
           test -f UITests/CISmokeTests.swift
+          # Codesigning changes do not always invalidate Xcode's copied extension bundles.
+          # Remove only generated embedded copies; reuse compiled objects for the UI build.
+          python3 -c 'from pathlib import Path; import shutil; [shutil.rmtree(p) for p in Path("build/Build/Products/Debug/Triwarden.app/Contents/PlugIns").glob("*.appex")]'
           xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug \
-            -derivedDataPath build/ci-ui CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGN_STYLE=Manual \
+            -derivedDataPath build CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGN_STYLE=Manual \
             CODE_SIGN_ENTITLEMENTS="" DEVELOPMENT_TEAM="" ENABLE_HARDENED_RUNTIME=NO \
             -resultBundlePath build/ci/ui-smoke.xcresult \
             -only-testing:TriwardenUITests/CISmokeTests test 2>&1 | tee build/ci/ui-smoke.log | tail -30
