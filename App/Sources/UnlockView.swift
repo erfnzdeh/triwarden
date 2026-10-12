@@ -201,7 +201,7 @@ struct UnlockCapsuleField: View {
         let dark = scheme == .dark
         HStack(spacing: 4) {
             PasswordField(title: pinMode ? "PIN" : "Master password", text: $password, look: .plain,
-                          prompt: pinMode ? Text("PIN") : Text("Master password"),
+                          prompt: pinMode ? "PIN" : "Master password",
                           isFocused: focused, onSubmit: submit)
                 .font(.system(size: 13))
             Button(action: submit) {

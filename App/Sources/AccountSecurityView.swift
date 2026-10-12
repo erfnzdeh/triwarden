@@ -403,7 +403,7 @@ private struct AuthenticatorSetupSheet: View {
                 }
             } else {
                 FormField(label: "Master password") {
-                    PasswordField(title: "Master password", text: $password, prompt: Text("Master password"), onSubmit: submit)
+                    PasswordField(title: "Master password", text: $password, prompt: "Master password", onSubmit: submit)
                 }
             }
         }
@@ -443,7 +443,7 @@ private struct EmailTwoFactorSheet: View {
                       action: sent ? "Turn On" : "Send Code", busy: busy,
                       disabled: password.isEmpty || email.isEmpty || (sent && code.isEmpty), error: error, submit: submit) {
             FormField(label: "Master password") {
-                PasswordField(title: "Master password", text: $password, prompt: Text("Master password"))
+                PasswordField(title: "Master password", text: $password, prompt: "Master password")
             }
             FormField(label: "Email") {
                 TextField("Email", text: $email).textFieldStyle(SoftFieldStyle()).disabled(sent)
@@ -490,7 +490,7 @@ private struct RecoveryCodeSheet: View {
                 Text(verbatim: code.chunked(4)).font(.system(size: 16, weight: .semibold, design: .monospaced)).textSelection(.enabled)
             } else {
                 FormField(label: "Master password") {
-                    PasswordField(title: "Master password", text: $password, prompt: Text("Master password"), onSubmit: submit)
+                    PasswordField(title: "Master password", text: $password, prompt: "Master password", onSubmit: submit)
                 }
             }
         }
@@ -520,7 +520,7 @@ private struct DisableTwoFactorSheet: View {
                       subtitle: "Signing in will no longer ask for this step.",
                       action: "Turn Off", busy: busy, disabled: password.isEmpty, error: error, submit: submit) {
             FormField(label: "Master password") {
-                PasswordField(title: "Master password", text: $password, prompt: Text("Master password"), onSubmit: submit)
+                PasswordField(title: "Master password", text: $password, prompt: "Master password", onSubmit: submit)
             }
         }
     }
@@ -566,7 +566,7 @@ private struct ChangePasswordSheet: View {
                                           : "Your other devices sign out; this Mac stays signed in.",
                       action: "Change", busy: busy, disabled: !ready, error: error, submit: submit) {
             FormField(label: "Current master password") {
-                PasswordField(title: "Current master password", text: $current, prompt: Text("Current master password"))
+                PasswordField(title: "Current master password", text: $current, prompt: "Current master password")
             }
             if changeKDF {
                 AppSegmented(options: [(false, LocalizedStringKey("PBKDF2")), (true, "Argon2id")], selection: $argon)
@@ -579,11 +579,11 @@ private struct ChangePasswordSheet: View {
                 }
             } else {
                 FormField(label: "New master password", note: "At least 12 characters. A long passphrase is easiest to remember.") {
-                    PasswordField(title: "New master password", text: $new, prompt: Text("New master password"))
+                    PasswordField(title: "New master password", text: $new, prompt: "New master password")
                     if !new.isEmpty { StrengthMeter(password: new) }
                 }
                 FormField(label: "Confirm") {
-                    PasswordField(title: "Confirm", text: $confirm, prompt: Text("New master password again"))
+                    PasswordField(title: "Confirm", text: $confirm, prompt: "New master password again")
                 }
                 FormField(label: "Hint") {
                     TextField("Hint", text: $hint, prompt: Text("Optional; never the password itself")).textFieldStyle(SoftFieldStyle())
@@ -629,7 +629,7 @@ private struct SignOutEverywhereSheet: View {
                       subtitle: "Every device signs out within the hour; this Mac signs back in.",
                       action: "Sign Out Everywhere", busy: busy, disabled: password.isEmpty, error: error, submit: submit) {
             FormField(label: "Master password") {
-                PasswordField(title: "Master password", text: $password, prompt: Text("Master password"), onSubmit: submit)
+                PasswordField(title: "Master password", text: $password, prompt: "Master password", onSubmit: submit)
             }
         }
     }

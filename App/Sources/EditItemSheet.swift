@@ -369,7 +369,7 @@ struct EditItemSheet: View {
             }
             FormField(label: "Password") {
                 HStack(spacing: 8) {
-                    PasswordField(title: "Password", text: $password, prompt: Text("Password"))
+                    PasswordField(title: "Password", text: $password, prompt: "Password")
                         .font(.system(size: 13, design: .monospaced))
                     Button { showGenerator = true } label: {
                         Image(systemName: "dice").font(.system(size: 14, weight: .medium))

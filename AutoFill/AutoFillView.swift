@@ -487,7 +487,7 @@ private struct UnlockPane: View {
                     } else {
                         Text(verbatim: state.email).font(.system(size: 12)).foregroundStyle(.primary)
                     }
-                    PasswordField(title: "Master password", text: $password, prompt: Text("Master password"),
+                    PasswordField(title: "Master password", text: $password, prompt: "Master password",
                                   isFocused: $focused.wrappedBinding) {
                         Task { await state.unlock(password: password) }
                     }

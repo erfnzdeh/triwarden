@@ -919,7 +919,7 @@ private struct ServerSettings: View {
                 ForEach($headers) { $header in
                     HStack {
                         TextField("Name", text: $header.name, prompt: Text(verbatim: "CF-Access-Client-Id"))
-                        PasswordField(title: "Value", text: $header.value, look: .plain, prompt: Text("Value"))
+                        PasswordField(title: "Value", text: $header.value, look: .plain, prompt: "Value")
                         Button(role: .destructive) {
                             // A blank row just goes; one with something in it asks first.
                             if header.name.isEmpty && header.value.isEmpty { headers.removeAll { $0.id == header.id } } else { removingHeader = header.id }
