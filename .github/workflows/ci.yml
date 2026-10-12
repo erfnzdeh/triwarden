@@ -140,6 +140,8 @@ jobs:
             build/ModuleCache.noindex
             build/SourcePackages
           key: app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-${{ hashFiles('project.yml', 'Packages/VaultCore/Package.resolved', 'App/**', 'Shared/**', 'AutoFill/**', 'BrowserExtension/**', 'CLI/**', 'Helpers/**', 'UITests/**', 'Packages/VaultCore/Sources/**') }}
+          restore-keys: |
+            app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate project
