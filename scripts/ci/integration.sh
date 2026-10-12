@@ -17,9 +17,19 @@ cleanup() {
 }
 trap cleanup EXIT
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \
-  -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' \
   -addext 'basicConstraints=critical,CA:TRUE' \
-  -keyout "$state/key.pem" -out "$state/ca.pem" >/dev/null 2>&1
+  -addext 'keyUsage=critical,keyCertSign,cRLSign' \
+  -keyout "$state/ca-key.pem" -out "$state/ca.pem" >/dev/null 2>&1
+openssl req -newkey rsa:2048 -nodes -subj /CN=localhost \
+  -keyout "$state/key.pem" -out "$state/server.csr" >/dev/null 2>&1
+cat > "$state/server.ext" <<'EXT'
+subjectAltName=DNS:localhost,IP:127.0.0.1
+basicConstraints=critical,CA:FALSE
+keyUsage=critical,digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+EXT
+openssl x509 -req -in "$state/server.csr" -CA "$state/ca.pem" -CAkey "$state/ca-key.pem" \
+  -CAcreateserial -days 1 -sha256 -extfile "$state/server.ext" -out "$state/server.pem" >/dev/null 2>&1
 DATA_FOLDER="$state/data" ROCKET_ADDRESS=127.0.0.1 ROCKET_PORT=18880 \
   DOMAIN="https://localhost:$port" WEB_VAULT_ENABLED=false SIGNUPS_ALLOWED=true \
   SIGNUPS_VERIFY=false LOGIN_RATELIMIT_MAX_BURST=1000 LOGIN_RATELIMIT_SECONDS=1 \
@@ -32,16 +42,16 @@ cat > "$state/Caddyfile" <<CADDY
 }
 https://localhost:$port {
   bind 127.0.0.1
-  tls $state/ca.pem $state/key.pem
+  tls $state/server.pem $state/key.pem
   reverse_proxy 127.0.0.1:18880
 }
 CADDY
 caddy run --config "$state/Caddyfile" --adapter caddyfile >build/ci-integration/proxy.log 2>&1 &
 proxy_pid=$!
 ready=0
-for attempt in {1..60}; do
+for _ in {1..60}; do
   if curl --fail --silent --cacert "$state/ca.pem" "https://localhost:$port/alive" >/dev/null; then ready=1; break; fi
-  kill -0 "$server_pid" && kill -0 "$proxy_pid" || break
+  if ! kill -0 "$server_pid" || ! kill -0 "$proxy_pid"; then break; fi
   sleep 1
 done
 [[ $ready == 1 ]] || { echo 'Disposable server did not become ready' >&2; exit 1; }

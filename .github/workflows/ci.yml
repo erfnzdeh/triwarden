@@ -74,6 +74,7 @@ jobs:
         env:
           RUST_VERSION: ${{ matrix.rust }}
       - uses: actions/cache@v4
+        id: server-cache
         with:
           path: |
             ~/.cargo/registry
@@ -88,11 +89,23 @@ jobs:
           OPENSSL_DIR=$(brew --prefix openssl@3)
           export OPENSSL_DIR
           cargo +"$RUST_VERSION" build --locked --features sqlite
+      - name: Save compiled server before integration tests
+        if: steps.server-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .ci-vaultwarden/target
+          key: vaultwarden-${{ runner.os }}-${{ runner.arch }}-${{ matrix.revision }}-${{ matrix.rust }}
       - name: Seed and test over HTTPS
         env:
           CI_SERVER_PORT: ${{ matrix.port }}
           CI_SEED_PYTHON: ${{ runner.temp }}/seed-venv/bin/python
-        run: scripts/ci/integration.sh "$GITHUB_WORKSPACE/.ci-vaultwarden/target/debug/vaultwarden"
+        run: |
+          openssl_prefix=$(brew --prefix openssl@3)
+          export PATH="$openssl_prefix/bin:$PATH"
+          scripts/ci/integration.sh "$GITHUB_WORKSPACE/.ci-vaultwarden/target/debug/vaultwarden"
       - name: Upload failure logs
         if: failure()
         uses: actions/upload-artifact@v4
@@ -138,10 +151,12 @@ jobs:
         run: |
           test -f UITests/CISmokeTests.swift
           xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug \
-            -derivedDataPath build CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_ENTITLEMENTS="" DEVELOPMENT_TEAM="" \
+            -derivedDataPath build/ci-ui CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_ENTITLEMENTS="" DEVELOPMENT_TEAM="" ENABLE_HARDENED_RUNTIME=NO \
             -resultBundlePath build/ci/ui-smoke.xcresult \
             -only-testing:TriwardenUITests/CISmokeTests test 2>&1 | tee build/ci/ui-smoke.log | tail -30
+          xcrun xcresulttool get test-results summary --path build/ci/ui-smoke.xcresult > build/ci/ui-summary.json
+          python3 -c 'import json; s=json.load(open("build/ci/ui-summary.json")); assert s["passedTests"] == 2 and s["failedTests"] == 0, s'
       - name: Verify local command failure reporting
         run: python3 scripts/test-make-exit-codes.py
       - name: JavaScript syntax
