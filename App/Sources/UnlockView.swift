@@ -157,7 +157,7 @@ private struct DoorCore: View {
                 } else if model.isBusy {
                     Text("Turning the tumblers…").foregroundStyle(.secondary)
                 } else {
-                    Text("Press Return to unlock").foregroundStyle(.tertiary)
+                    UnlockReturnHint(hasInput: !password.isEmpty)
                 }
             }
             .font(.system(size: 11, weight: .medium))
@@ -185,6 +185,20 @@ private struct DoorCore: View {
             .font(.system(size: 11))
             .padding(.top, -4)
         }
+    }
+}
+
+/// "Press return to unlock", once the field has something to submit. Empty, the line stays so the door doesn't jump.
+struct UnlockReturnHint: View {
+    var hasInput: Bool
+
+    var body: some View {
+        Text("Press ↵ to unlock")
+            .foregroundStyle(.tertiary)
+            .opacity(hasInput ? 1 : 0)
+            .accessibilityLabel(Text("Press Return to unlock"))
+            .accessibilityHidden(!hasInput)
+            .animation(.easeOut(duration: 0.2), value: hasInput)
     }
 }
 

@@ -2900,7 +2900,7 @@ struct AccountUnlockPane: View {
         } else if model.isBusy {
             Text("Unlocking…").foregroundStyle(.secondary)
         } else {
-            Text("Press Return to unlock").foregroundStyle(.tertiary)
+            UnlockReturnHint(hasInput: !password.isEmpty)
         }
     }
 
