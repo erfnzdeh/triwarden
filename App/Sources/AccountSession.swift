@@ -262,7 +262,16 @@ final class AccountSession {
         return id
     }
 
+    /// Check every ID before any request, so mixed batches cannot partially modify a vault.
+    func requireWritableItems(_ ids: [String]) throws {
+        for id in ids {
+            guard let cipher = cipherIndex[id] else { throw WriteError.offline }
+            try CipherEditor.requireSupportedType(cipher.type)
+        }
+    }
+
     func update(_ id: String, edit: CipherEdit) async throws {
+        try requireWritableItems([id])
         guard let client, let raw = rawCiphers[id], let key = itemKey(id) else { throw WriteError.offline }
         try await client.updateCipher(id: id, CipherEditor.updatedCipher(raw: raw, edit: edit, key: key))
         try await reload([id])
@@ -361,6 +370,7 @@ final class AccountSession {
     }
 
     func addAttachment(_ itemId: String, name: String, contents: Data) async throws {
+        try requireWritableItems([itemId])
         guard let client, let key = itemKey(itemId) else { throw WriteError.offline }
         let sealed = try SealedAttachment(name: name, contents: contents, itemKey: key)
         try await client.uploadAttachment(cipherId: itemId, fileName: sealed.fileName, key: sealed.key, encrypted: sealed.encrypted)
@@ -368,6 +378,7 @@ final class AccountSession {
     }
 
     func deleteAttachment(_ itemId: String, _ attachmentId: String) async throws {
+        try requireWritableItems([itemId])
         guard let client else { throw WriteError.offline }
         try await client.deleteAttachment(cipherId: itemId, attachmentId: attachmentId)
         try await reload([itemId])
@@ -396,30 +407,35 @@ final class AccountSession {
     }
 
     func trash(_ id: String) async throws {
+        try requireWritableItems([id])
         guard let client else { throw WriteError.offline }
         try await client.trashCipher(id: id)
         try await reload([id])
     }
 
     func archive(_ id: String) async throws {
+        try requireWritableItems([id])
         guard let client else { throw WriteError.offline }
         try await client.archiveCipher(id: id)
         try await reload([id])
     }
 
     func unarchive(_ id: String) async throws {
+        try requireWritableItems([id])
         guard let client else { throw WriteError.offline }
         try await client.unarchiveCipher(id: id)
         try await reload([id])
     }
 
     func restore(_ id: String) async throws {
+        try requireWritableItems([id])
         guard let client else { throw WriteError.offline }
         try await client.restoreCipher(id: id)
         try await reload([id])
     }
 
     func deleteForever(_ id: String) async throws {
+        try requireWritableItems([id])
         guard let client else { throw WriteError.offline }
         try await client.deleteCipher(id: id)
         try await reload([], removed: [id])
@@ -429,6 +445,7 @@ final class AccountSession {
 
     /// Moves a personal item into an organization and its collections.
     func share(_ id: String, organizationId: String, collectionIds: [String]) async throws {
+        try requireWritableItems([id])
         guard let client, let raw = rawCiphers[id], let key = itemKey(id), let orgKey = keyring?.orgKeys[organizationId] else {
             throw WriteError.offline
         }
@@ -438,6 +455,7 @@ final class AccountSession {
     }
 
     func setCollections(_ id: String, collectionIds: [String]) async throws {
+        try requireWritableItems([id])
         guard let client else { throw WriteError.offline }
         try await client.setCollections(cipherId: id, collectionIds: collectionIds)
         try await reload([id])
@@ -447,6 +465,7 @@ final class AccountSession {
     enum Bulk { case trash, restore, delete, archive, move(folderId: String?) }
 
     func bulk(_ action: Bulk, ids: [String]) async throws {
+        try requireWritableItems(ids)
         guard let client else { throw WriteError.offline }
         guard !ids.isEmpty else { return }
         switch action {

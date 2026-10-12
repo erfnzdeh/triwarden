@@ -1,6 +1,142 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+  "Unsupported item": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Unsupported item"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "不支援的項目"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "不支援的項目"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "不支持的项目"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "未対応の項目"
+        }
+      }
+    }
+  },
+  "Item type: %lld": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Item type: %lld"
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "項目類型：%lld"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "項目類型：%lld"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "项目类型：%lld"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "項目の種類：%lld"
+        }
+      }
+    }
+  },
+  "This item type is not supported yet. Use an updated Bitwarden client to make changes.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "This item type is not supported yet. Use an updated Bitwarden client to make changes."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "目前尚未支援此項目類型。請使用已更新的 Bitwarden 用戶端進行變更。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "暫時未支援這種項目類型。請用已更新的 Bitwarden 用戶端修改。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "目前尚不支持此项目类型。请使用已更新的 Bitwarden 客户端进行修改。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "この種類の項目にはまだ対応していません。変更するには、更新済みの Bitwarden クライアントを使用してください。"
+        }
+      }
+    }
+  },
+  "This vault contains an unsupported item type. Export it with an updated Bitwarden client to preserve all data.": {
+    "localizations": {
+      "en": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "This vault contains an unsupported item type. Export it with an updated Bitwarden client to preserve all data."
+        }
+      },
+      "zh-Hant": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "此保管庫包含不支援的項目類型。請使用已更新的 Bitwarden 用戶端匯出，以保留所有資料。"
+        }
+      },
+      "zh-HK": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "這個保管庫有不支援的項目類型。請用已更新的 Bitwarden 用戶端匯出，保留所有資料。"
+        }
+      },
+      "zh-Hans": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "此密码库包含不支持的项目类型。请使用已更新的 Bitwarden 客户端导出，以保留所有数据。"
+        }
+      },
+      "ja": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "この保管庫には未対応の種類の項目があります。すべてのデータを保持するには、更新済みの Bitwarden クライアントでエクスポートしてください。"
+        }
+      }
+    }
+  },
   "New Favorite": {
     "localizations": {
       "en": {

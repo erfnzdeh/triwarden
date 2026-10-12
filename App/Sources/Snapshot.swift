@@ -127,6 +127,23 @@ enum Snapshot {
                    to: dir.appending(path: "unlock-multi-\(name).png"))
         }
 
+        let unsupportedModel = AppModel()
+        unsupportedModel.phase = .vault
+        unsupportedModel.previewUnlocked = true
+        unsupportedModel.setPreviewAccounts([SavedAccount(id: "demo", email: "alex@example.com", serverKind: "selfHosted",
+                                                         serverURL: "https://vault.example.com", kdf: .pbkdf2(iterations: 600_000),
+                                                         protectedUserKey: "")])
+        let unsupported = VaultItem(id: "future", accountId: "demo", kind: .unsupported, unsupportedType: 99,
+                                    name: "Future item", username: nil, host: nil, password: nil, totp: nil, notes: nil,
+                                    favorite: false)
+        unsupportedModel.items = [unsupported]
+        unsupportedModel.selectedID = unsupported.id
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            render(desktop(VaultView().environment(unsupportedModel).tint(.brand), dark: name == "dark"),
+                   size: CGSize(width: 1180, height: 760), appearance: appearance,
+                   to: dir.appending(path: "unsupported-\(name).png"))
+        }
+
         let vault = AppModel()
         vault.phase = .vault
         vault.items = demoItems.map { item in
@@ -712,7 +729,14 @@ enum Snapshot {
         let frame = host.superview ?? host
         guard let rep = frame.bitmapImageRepForCachingDisplay(in: frame.bounds) else { return }
         frame.cacheDisplay(in: frame.bounds, to: rep)
-        try? rep.representation(using: .png, properties: [:])?.write(to: url)
+        if let png = rep.representation(using: .png, properties: [:]) {
+            // Synthetic renders can be streamed directly to a test runner without reading the app container.
+            if ProcessInfo.processInfo.environment["TRIWARDEN_SNAPSHOT_STDOUT"] == "1" {
+                print("SNAPSHOT \(url.lastPathComponent) \(png.base64EncodedString())")
+            } else {
+                try? png.write(to: url)
+            }
+        }
         window.orderOut(nil)
     }
 }

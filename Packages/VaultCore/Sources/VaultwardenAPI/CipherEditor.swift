@@ -56,6 +56,12 @@ public struct CustomField: Sendable, Equatable, Hashable, Identifiable {
 /// passkeys (`fido2Credentials`), custom fields, attachments — survive an edit untouched.
 public enum CipherEditor {
     public enum Kind: Int, Sendable { case login = 1, secureNote = 2, card = 3, identity = 4, sshKey = 5 }
+    public enum CompatibilityError: Error, Equatable, Sendable { case unsupportedType(Int) }
+
+    /// Unknown cipher types are read-only until their schema is understood, including metadata-only writes.
+    public static func requireSupportedType(_ type: Int) throws {
+        guard Kind(rawValue: type) != nil else { throw CompatibilityError.unsupportedType(type) }
+    }
 
     /// The JSON object holding each kind's properties.
     static func propertyObject(for type: Int) -> String? {
@@ -77,6 +83,7 @@ public enum CipherEditor {
         guard var dict = normalize(try JSONSerialization.jsonObject(with: raw)) as? [String: Any] else {
             throw APIError.http(status: -1, message: "Malformed cipher")
         }
+        try requireSupportedType(dict["type"] as? Int ?? 0)
         // Optimistic concurrency: the server rejects the edit if someone changed it meanwhile.
         if let revision = dict["revisionDate"] { dict["lastKnownRevisionDate"] = revision }
         try apply(edit, to: &dict, key: key, now: now)
@@ -91,6 +98,7 @@ public enum CipherEditor {
         guard let dict = normalize(try JSONSerialization.jsonObject(with: raw)) as? [String: Any] else {
             throw APIError.http(status: -1, message: "Malformed cipher")
         }
+        try requireSupportedType(dict["type"] as? Int ?? 0)
         // Attachments keep their files: each one's own key is unwrapped and wrapped again with the organization key
         // (`attachments2`). Very old attachments have no key of their own (the file is encrypted with the item's key);
         // those would need re-uploading, so the move is refused.
@@ -122,11 +130,15 @@ public enum CipherEditor {
 
     /// Extracts each cipher's raw JSON from a sync payload, keyed by id.
     public static func rawCiphers(fromSync data: Data) -> [String: Data] {
-        guard let root = normalize(try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let ciphers = root["ciphers"] as? [[String: Any]] else { return [:] }
+        guard let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let ciphers = (root["ciphers"] ?? root["Ciphers"]) as? [[String: Any]] else { return [:] }
         var out: [String: Data] = [:]
         for c in ciphers {
-            if let id = c["id"] as? String, let d = try? JSONSerialization.data(withJSONObject: c) { out[id] = d }
+            let type = (c["type"] ?? c["Type"]) as? Int
+            // Unknown schemas are opaque: even changing the casing of a nested key can corrupt them.
+            let raw = type.flatMap(Kind.init(rawValue:)) == nil ? c : (normalize(c) as? [String: Any] ?? c)
+            if let id = (c["id"] ?? c["Id"]) as? String,
+               let d = try? JSONSerialization.data(withJSONObject: raw) { out[id] = d }
         }
         return out
     }

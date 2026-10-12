@@ -4,6 +4,9 @@ import SwiftUI
 extension AppModel {
     /// Shared actions for vault, code and menu-bar rows; existing guards and confirmations stay at execution.
     func itemContextActions(_ item: VaultItem) -> [ActionMenuEntry] {
+        guard item.isSupported else {
+            return [ActionMenuEntry(title: String(localized: "Unsupported item"), symbol: "lock", enabled: false) {}]
+        }
         var rows: [ActionMenuEntry] = []
         if let username = item.username, !username.isEmpty {
             rows.append(ActionMenuEntry(title: String(localized: "Copy Username"), symbol: "person") { self.copy(username, label: String(localized: "Username")) })

@@ -39,7 +39,23 @@ enum VaultDecoder {
             func dec(_ s: String?) -> String? {
                 s.flatMap { try? EncString($0).decryptString(with: key) }.flatMap { $0.isEmpty ? nil : $0 }
             }
-            let kind = VaultItem.Kind(rawValue: cipher.type) ?? .login
+            let kind = VaultItem.Kind(rawValue: cipher.type) ?? .unsupported
+            if kind == .unsupported {
+                // Only interpret shared metadata. Unknown payloads must never become login credentials,
+                // custom fields, attachments or editable forms. The encrypted sync/raw cipher stays intact.
+                var item = VaultItem(id: cipher.id, accountId: accountId, kind: .unsupported,
+                                     unsupportedType: cipher.type, name: dec(cipher.name) ?? "—",
+                                     username: nil, host: nil, password: nil, totp: nil, notes: nil,
+                                     favorite: cipher.favorite ?? false, folderId: cipher.folderId,
+                                     isDeleted: cipher.deletedDate != nil, organizationId: cipher.organizationId,
+                                     collectionIds: cipher.collectionIds ?? [])
+                item.revised = Self.date(cipher.revisionDate)
+                item.created = Self.date(cipher.creationDate)
+                item.deleted = Self.date(cipher.deletedDate)
+                item.archived = Self.date(cipher.archivedDate)
+                item.reprompt = cipher.reprompt == 1
+                return item
+            }
             let uris = (cipher.login?.uris ?? []).compactMap { dec($0.uri) }
             let fullURI = uris.first
             let totpSecret = dec(cipher.login?.totp)
@@ -77,6 +93,7 @@ enum VaultDecoder {
                 Dictionary(pairs.compactMap { k, v in dec(v).map { (k, $0) } }, uniquingKeysWith: { a, _ in a })
             }
             switch kind {
+            case .unsupported: break
             case .card:
                 let c = cipher.card
                 item.properties = raw([("cardholderName", c?.cardholderName), ("brand", c?.brand), ("number", c?.number),
