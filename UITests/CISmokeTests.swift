@@ -34,11 +34,13 @@ final class CISmokeTests: XCTestCase {
         XCTAssertTrue(item.waitForExistence(timeout: 5))
         item.click()
         app.typeKey("e", modifierFlags: .command)
-        let editor = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Edit Item")).firstMatch
-        XCTAssertTrue(editor.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.textFields.matching(NSPredicate(format: "value == %@", "GitHub")).firstMatch.exists)
-        app.windows.firstMatch.buttons["Cancel"].firstMatch.click()
-        XCTAssertFalse(editor.waitForExistence(timeout: 1))
-        XCTAssertFalse(app.windows.firstMatch.buttons["Cancel"].firstMatch.exists)
+        let editorName = app.textFields.matching(NSPredicate(format: "value == %@", "GitHub")).firstMatch
+        let cancel = app.windows.firstMatch.buttons["Cancel"].firstMatch
+        XCTAssertTrue(editorName.waitForExistence(timeout: 5))
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.windows.firstMatch.buttons["Save"].firstMatch.exists)
+        cancel.click()
+        XCTAssertTrue(cancel.waitForNonExistence(timeout: 5))
+        XCTAssertFalse(editorName.exists)
     }
 }
