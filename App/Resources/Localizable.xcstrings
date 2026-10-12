@@ -24370,6 +24370,34 @@
         }
       }
     },
+    "Press ↵ to unlock" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "↵ キーで解錠"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 ↵ 键解锁"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 ↵ 鍵解鎖"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按 ↵ 鍵解鎖"
+          }
+        }
+      }
+    },
     "Press Return to unlock" : {
       "localizations" : {
         "ja" : {
