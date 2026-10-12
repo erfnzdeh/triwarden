@@ -3,10 +3,21 @@ import XCTest
 /// Small, deterministic checks of the actual app process using synthetic data.
 @MainActor
 final class CISmokeTests: XCTestCase {
-    func testDemoVaultOpensAndLocks() {
+    private func launchDemo() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["--demo", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launchArguments = ["--demo", "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
+                               "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
+        app.activate()
+        // macOS can launch the process with its SwiftUI window ordered behind the test runner.
+        // Bring the actual vault window forward through the app's standard Window menu.
+        app.menuBars.menuBarItems["Window"].click()
+        app.menuItems["Triwarden"].firstMatch.click()
+        return app
+    }
+
+    func testDemoVaultOpensAndLocks() {
+        let app = launchDemo()
         defer { app.terminate() }
         XCTAssertTrue(app.staticTexts["GitHub"].firstMatch.waitForExistence(timeout: 15))
         app.typeKey("l", modifierFlags: [.command, .shift])
@@ -16,9 +27,7 @@ final class CISmokeTests: XCTestCase {
     }
 
     func testDemoItemEditorOpensAndCancels() {
-        let app = XCUIApplication()
-        app.launchArguments = ["--demo", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
-        app.launch()
+        let app = launchDemo()
         defer { app.terminate() }
         XCTAssertTrue(app.staticTexts["GitHub"].firstMatch.waitForExistence(timeout: 15))
         let item = app.windows.firstMatch.buttons.matching(NSPredicate(format: "label CONTAINS %@", "GitHub")).firstMatch
