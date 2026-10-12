@@ -332,71 +332,42 @@ struct SearchSuggestionList: View {
 struct SearchFilterMenu: View {
     @Environment(AppModel.self) private var model
 
-    /// A filter that turns on and off; its token as the subtitle, so the menu teaches how to type it.
-    private func toggle(_ title: LocalizedStringKey, _ symbol: String, token: SearchToken, _ on: Bool,
-                        _ set: @escaping (Bool) -> Void) -> some View {
-        Button {
-            withAnimation(.snappy(duration: 0.25)) { set(!on) }
-        } label: {
-            Label { Text(title); Text(verbatim: token.text) } icon: { Image(systemName: on ? "checkmark" : symbol) }
+    private var entries: [ActionMenuEntry] {
+        var rows: [ActionMenuEntry] = [.heading(String(localized: "Type")),
+            ActionMenuEntry(title: String(localized: "Any type"), symbol: "square.grid.2x2", checked: model.searchFilters.type == nil) { model.searchFilters.type = nil }]
+        rows += SearchFilters.ItemType.allCases.map { type in
+            let kind = VaultItem.Kind(type)
+            return ActionMenuEntry(title: kind.paletteLabel, symbol: kind.paletteSymbol, checked: model.searchFilters.type == type) { model.searchFilters.type = type }
         }
+        rows += [
+            .heading(String(localized: "Show only")),
+            ActionMenuEntry(title: String(localized: "Favorites"), symbol: "star", checked: model.searchFilters.favorites) { model.searchFilters.favorites.toggle() },
+            ActionMenuEntry(title: String(localized: "Has a one-time code"), symbol: "clock.badge.checkmark", checked: model.searchFilters.hasCode) { model.searchFilters.hasCode.toggle() },
+            ActionMenuEntry(title: String(localized: "Has a passkey"), symbol: "person.badge.key", checked: model.searchFilters.hasPasskey) { model.searchFilters.hasPasskey.toggle() },
+            ActionMenuEntry(title: String(localized: "Watchtower issues"), symbol: "exclamationmark.shield", checked: model.searchFilters.hasIssue) { model.searchFilters.hasIssue.toggle() }
+        ]
+        if !model.folders.isEmpty {
+            let folders = [ActionMenuEntry(title: String(localized: "Any folder"), symbol: "folder", checked: model.searchFilters.folder == nil) { model.searchFilters.folder = nil }] +
+                model.folders.map(\.name).sorted { $0.localizedStandardCompare($1) == .orderedAscending }.map { path in
+                    ActionMenuEntry(title: path, symbol: "folder", checked: model.searchFilters.folder == path) { model.searchFilters.folder = path }
+                }
+            rows.append(ActionMenuEntry(title: String(localized: "My Folders"), symbol: "folder", children: folders))
+        }
+        if !model.visibleOrganizations.isEmpty {
+            var vaults = [ActionMenuEntry(title: String(localized: "All vaults"), symbol: "square.stack.3d.up", checked: model.vaultFilter == .all) { model.vaultFilter = .all },
+                ActionMenuEntry(title: String(localized: "My vault"), symbol: "person", checked: model.vaultShown(AppModel.VaultFilter.personalKey)) { model.toggleVault(AppModel.VaultFilter.personalKey) }]
+            vaults += model.visibleOrganizations.map { org in
+                ActionMenuEntry(title: org.name, symbol: "building.2", checked: model.vaultShown(org.id)) { model.toggleVault(org.id) }
+            }
+            rows.append(ActionMenuEntry(title: String(localized: "Vault"), symbol: "square.stack.3d.up", children: vaults))
+        }
+        rows.append(ActionMenuEntry(title: String(localized: "Clear Filters"), symbol: "xmark.circle", enabled: model.hasSearchFilters) { model.clearSearchFilters() })
+        return rows
     }
 
     var body: some View {
-        @Bindable var model = model
         let active = model.hasSearchFilters
-        Menu {
-            Section("Type") {
-                Button { withAnimation(.snappy(duration: 0.25)) { model.searchFilters.type = nil } } label: {
-                    Label("Any type", systemImage: model.searchFilters.type == nil ? "checkmark" : "square.grid.2x2")
-                }
-                ForEach(SearchFilters.ItemType.allCases, id: \.self) { type in
-                    let kind = VaultItem.Kind(type)
-                    Button { withAnimation(.snappy(duration: 0.25)) { model.searchFilters.type = type } } label: {
-                        Label { Text(verbatim: kind.paletteLabel); Text(verbatim: SearchToken.type(type).text) } icon: {
-                            Image(systemName: model.searchFilters.type == type ? "checkmark" : kind.paletteSymbol)
-                        }
-                    }
-                }
-            }
-            Section("Show only") {
-                toggle("Favorites", "star", token: .favorites, model.searchFilters.favorites) { model.searchFilters.favorites = $0 }
-                toggle("Has a one-time code", "clock.badge.checkmark", token: .hasCode, model.searchFilters.hasCode) { model.searchFilters.hasCode = $0 }
-                toggle("Has a passkey", "person.badge.key", token: .hasPasskey, model.searchFilters.hasPasskey) { model.searchFilters.hasPasskey = $0 }
-                toggle("Watchtower issues", "exclamationmark.shield", token: .hasIssue, model.searchFilters.hasIssue) { model.searchFilters.hasIssue = $0 }
-            }
-            if !model.folders.isEmpty {
-                Menu {
-                    Button { withAnimation(.snappy(duration: 0.25)) { model.searchFilters.folder = nil } } label: {
-                        Label("Any folder", systemImage: model.searchFilters.folder == nil ? "checkmark" : "folder")
-                    }
-                    Divider()
-                    ForEach(model.folders.map(\.name).sorted { $0.localizedStandardCompare($1) == .orderedAscending }, id: \.self) { path in
-                        Button { withAnimation(.snappy(duration: 0.25)) { model.searchFilters.folder = path } } label: {
-                            Label { Text(verbatim: path); Text(verbatim: SearchToken.folder(path).text) } icon: {
-                                Image(systemName: model.searchFilters.folder == path ? "checkmark" : "folder")
-                            }
-                        }
-                    }
-                } label: {
-                    Label("My Folders", systemImage: "folder")
-                }
-            }
-            if !model.visibleOrganizations.isEmpty {
-                Menu {
-                    vaultChoice(.all, String(localized: "All vaults"), "square.stack.3d.up")
-                    Divider()
-                    VaultToggles()
-                } label: {
-                    Label("Vault", systemImage: "square.stack.3d.up")
-                }
-            }
-            Divider()
-            Button("Clear Filters", systemImage: "xmark.circle") {
-                withAnimation(.snappy(duration: 0.25)) { model.clearSearchFilters() }
-            }
-            .disabled(!active)
-        } label: {
+        ActionMenu(entries: entries) {
             Image(systemName: active ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease")
                 .font(.system(size: 13, weight: .semibold))
                 .contentTransition(.symbolEffect(.replace))
@@ -404,22 +375,13 @@ struct SearchFilterMenu: View {
                 .modifier(HeaderChrome(shape: .circle))
                 .contentShape(.circle)
         }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
         .fixedSize()
         .help(Text("Filters"))
         .accessibilityLabel(Text("Filters"))
         .accessibilityValue(active ? Text("\(model.searchChips.count) on") : Text("Off"))
     }
 
-    private func vaultChoice(_ filter: AppModel.VaultFilter, _ title: String, _ symbol: String) -> some View {
-        Button {
-            withAnimation(.snappy(duration: 0.25)) { model.vaultFilter = filter }
-        } label: {
-            Label { Text(verbatim: title) } icon: { Image(systemName: model.vaultFilter == filter ? "checkmark" : symbol) }
-        }
-    }
+
 }
 
 /// The filters that are on, as chips under the search field; each one's ✕ takes it off, Clear takes them all off.

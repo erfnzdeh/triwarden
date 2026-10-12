@@ -93,10 +93,14 @@ struct MenuBarContent: View {
 
     private var footer: some View {
         HStack(spacing: 6) {
-            Circle().fill(model.isOnline ? Color.green : Color.secondary).frame(width: 7, height: 7)
+            TimelineView(.periodic(from: .now, by: 30)) { _ in
+                Circle().fill(model.isOnline ? Color.green : Color.secondary).frame(width: 7, height: 7)
+            }.accessibilityHidden(true)
             Group {
                 if model.isSyncing {
                     Text("Syncing…")
+                } else if model.hasSyncError {
+                    Text("Couldn't sync")
                 } else if let synced = model.lastSynced {
                     Text("Synced \(synced.formatted(.relative(presentation: .named)))")
                 } else {
@@ -389,7 +393,7 @@ private struct QuickRow: View {
             }
         }
         .onHover { inside in withAnimation(.snappy(duration: 0.15)) { hovering = inside } }
-        .contextMenu { ItemContextMenu(item: item) }
+        .appContextMenu(model.itemContextActions(item))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(verbatim: item.name))
     }

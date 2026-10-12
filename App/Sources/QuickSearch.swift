@@ -188,10 +188,16 @@ final class QuickSearchController {
     private var resignWatch: Task<Void, Never>?
     /// The palette stays up under that sheet, then takes the keyboard back when the sheet goes.
     private var holdingForFill = false
+    private var fillWatch: Task<Void, Never>?
+    private var preferredSize: CGSize?
+    /// Shrink and grow share one ease. `animator().setFrame` only visibly grows a clear panel.
+    private var frameTarget: NSRect?
+    private var frameTimer: Timer?
 
     init(model: AppModel) { self.model = model }
 
     func toggle() {
+        if passwordFillOnScreen() { return }
         if let panel, panel.isVisible, closing == nil { close() } else { show() }
     }
 
@@ -211,19 +217,8 @@ final class QuickSearchController {
         let panel = self.panel ?? makePanel()
         self.panel = panel
         // Follow the app's Appearance setting, not just the system's.
-        panel.appearance = switch Pref.colorScheme {
-        case .light: NSAppearance(named: .aqua)
-        case .dark: NSAppearance(named: .darkAqua)
-        default: nil
-        }
-        // Over the vault window when it's in front, else high on the screen.
-        if NSApp.isActive, let window = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain && $0 != panel }) {
-            let f = window.frame
-            panel.setFrameTopLeftPoint(NSPoint(x: f.midX - panel.frame.width / 2, y: f.maxY - 40))
-        } else if let screen = NSScreen.main {
-            let f = screen.visibleFrame
-            panel.setFrameTopLeftPoint(NSPoint(x: f.midX - panel.frame.width / 2, y: f.maxY - f.height * 0.14))
-        }
+        panel.appearance = AppearanceSetting.current.nsAppearance
+        center(panel)
         closing?.cancel(); closing = nil
         panel.ignoresMouseEvents = false
         // Over another app the panel takes the keyboard without activating Triwarden (it's a non-activating panel,
@@ -239,6 +234,10 @@ final class QuickSearchController {
     /// The palette shrinks back to the top and fades (see CommandPalette), then the panel hides.
     func close() {
         guard let panel, panel.isVisible, closing == nil else { return }
+        resignWatch?.cancel(); resignWatch = nil
+        fillWatch?.cancel(); fillWatch = nil
+        holdingForFill = false
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
         panel.ignoresMouseEvents = true
         model.quickSearchDismissNonce += 1
         closing = Task { [weak self] in
@@ -250,7 +249,7 @@ final class QuickSearchController {
     }
 
     private func makePanel() -> QuickSearchPanel {
-        let panel = QuickSearchPanel(contentRect: NSRect(x: 0, y: 0, width: 760, height: 660),
+        let panel = QuickSearchPanel(contentRect: NSRect(x: 0, y: 0, width: 704, height: 660),
                                      styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
                                      backing: .buffered, defer: false)
         panel.isFloatingPanel = true
@@ -259,7 +258,7 @@ final class QuickSearchController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.backgroundColor = .clear
         panel.isOpaque = false
-        panel.hasShadow = false // the palette draws its own soft shadow
+        panel.hasShadow = true // the native shadow follows the tightly fitted, rounded content
         panel.isMovableByWindowBackground = true
         // Not hidesOnDeactivate: that hides it at once. Losing key to another window, the desktop, or another app
         // closes it through close(), so it plays its way out. The system Fill a password sheet is the exception:
@@ -269,62 +268,144 @@ final class QuickSearchController {
                                                                 queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.notePaletteResignKey() }
         }
-        panel.contentView = NSHostingView(rootView: CommandPalette(close: { [weak self] in self?.close() })
-            .environment(model))
+        let hosting = NSHostingView(rootView: CommandPalette(close: { [weak self] in self?.close() },
+            sizeChanged: { [weak self] size in self?.resizePanel(to: size) })
+            .environment(model)
+            .modifier(LiveAppearance()))
+        hosting.wantsLayer = true
+        hosting.layer?.cornerRadius = 22
+        hosting.layer?.masksToBounds = true
+        panel.contentView = hosting
         return panel
     }
 
-    /// The palette lost the keyboard. Close, unless the system password sheet is what took it.
-    private func notePaletteResignKey() {
-        guard let panel, panel.isVisible, !panel.isKeyWindow, closing == nil, !holdingForFill else { return }
-        if let key = NSApp.keyWindow, key != panel {
-            close()
-            return
+    /// Fit the window to the visible card. A fixed transparent canvas also gets dimmed by AppKit sheets.
+    private func resizePanel(to size: CGSize) {
+        guard size.width > 0, size.height > 0 else { return }
+        let firstFit = preferredSize == nil
+        preferredSize = size
+        guard let panel, panel.attachedSheet == nil, !holdingForFill else { return }
+        let frame = panel.frame
+        guard abs(frame.width - size.width) > 0.5 || abs(frame.height - size.height) > 0.5 else { return }
+        // Keep the card where the user put it; growth stays around that center.
+        var rect = NSRect(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2,
+                          width: size.width, height: size.height)
+        if let bounds = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame {
+            rect.origin.x = min(max(rect.origin.x, bounds.minX), bounds.maxX - rect.width)
+            rect.origin.y = min(max(rect.origin.y, bounds.minY), bounds.maxY - rect.height)
         }
-        if Self.passwordFillOnScreen() {
-            holdWhilePasswordFillIsUp()
-            return
-        }
-        if Self.anotherAppTookFocus() {
-            close()
-            return
-        }
-        resignWatch?.cancel()
-        resignWatch = Task { @MainActor in
-            for _ in 0..<8 {
-                try? await Task.sleep(for: .milliseconds(80))
-                guard !Task.isCancelled else { return }
-                guard let panel = self.panel, panel.isVisible, !panel.isKeyWindow, closing == nil else { return }
-                if Self.passwordFillOnScreen() {
-                    holdWhilePasswordFillIsUp()
-                    return
-                }
-                if Self.anotherAppTookFocus() {
-                    close()
-                    return
-                }
-            }
-            guard let panel = self.panel, panel.isVisible, !panel.isKeyWindow, closing == nil, !holdingForFill else { return }
-            close()
+        // The first measurement just replaces the placeholder. Later changes ease in both directions.
+        let ease = panel.isVisible && !firstFit && Motion.plays && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if ease {
+            easeFrame(of: panel, to: rect)
+        } else {
+            frameTimer?.invalidate()
+            frameTimer = nil
+            frameTarget = nil
+            panel.setFrame(rect, display: true)
+            panel.invalidateShadow()
         }
     }
 
-    /// Stay visible under Fill a password. When that sheet closes, take the keyboard back.
+    /// Step toward the latest size. A clear panel shows a shrink only when the frame itself moves each tick.
+    private func easeFrame(of panel: NSPanel, to target: NSRect) {
+        frameTarget = target
+        guard frameTimer == nil else { return }
+        frameTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            let done = MainActor.assumeIsolated { () -> Bool in
+                guard let self, let panel = self.panel, let target = self.frameTarget else { return true }
+                let current = panel.frame
+                let dx = target.minX - current.minX
+                let dy = target.minY - current.minY
+                let dw = target.width - current.width
+                let dh = target.height - current.height
+                if abs(dw) < 0.5, abs(dh) < 0.5, abs(dx) < 0.5, abs(dy) < 0.5 {
+                    panel.setFrame(target, display: true)
+                    panel.invalidateShadow()
+                    self.frameTimer = nil
+                    self.frameTarget = nil
+                    return true
+                }
+                panel.setFrame(NSRect(x: current.minX + dx * 0.28,
+                                      y: current.minY + dy * 0.28,
+                                      width: current.width + dw * 0.28,
+                                      height: current.height + dh * 0.28), display: true)
+                return false
+            }
+            if done { timer.invalidate() }
+        }
+    }
+
+    /// Centered in the vault window when that window is in front, otherwise on the screen under the pointer.
+    private func center(_ panel: NSPanel) {
+        let size = preferredSize ?? panel.frame.size
+        let area: NSRect
+        if NSApp.isActive, let window = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain && $0 != panel }) {
+            area = window.frame
+        } else {
+            let mouse = NSEvent.mouseLocation
+            area = (NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main)?.visibleFrame
+                ?? panel.frame
+        }
+        var rect = NSRect(x: area.midX - size.width / 2, y: area.midY - size.height / 2, width: size.width, height: size.height)
+        if let bounds = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame {
+            rect.origin.x = min(max(rect.origin.x, bounds.minX), max(bounds.minX, bounds.maxX - rect.width))
+            rect.origin.y = min(max(rect.origin.y, bounds.minY), max(bounds.minY, bounds.maxY - rect.height))
+        }
+        panel.setFrame(rect, display: false)
+    }
+
+    /// AppKit can attach the password sheet before its service has an on-screen window.
+    private func passwordFillOnScreen() -> Bool {
+        panel?.attachedSheet != nil || Self.passwordFillServiceOnScreen()
+    }
+
+    /// Give the system sheet time to attach before treating focus loss as dismissal.
+    private func notePaletteResignKey() {
+        guard let panel, panel.isVisible, !panel.isKeyWindow, closing == nil, !holdingForFill else { return }
+        if passwordFillOnScreen() {
+            holdWhilePasswordFillIsUp()
+            return
+        }
+        resignWatch?.cancel()
+        resignWatch = Task { @MainActor [weak self] in
+            guard let self else { return }
+            for _ in 0..<8 {
+                try? await Task.sleep(for: .milliseconds(80))
+                guard !Task.isCancelled,
+                      let panel = self.panel, panel.isVisible, !panel.isKeyWindow, self.closing == nil else { return }
+                if self.passwordFillOnScreen() {
+                    self.holdWhilePasswordFillIsUp()
+                    return
+                }
+            }
+            self.close()
+        }
+    }
+
+    /// Keep the parent visible while the sheet owns focus, then restore the same palette without resetting its query.
     private func holdWhilePasswordFillIsUp() {
         guard !holdingForFill else { return }
         holdingForFill = true
         resignWatch?.cancel()
-        // This panel sits above the menu bar. Drop it so the system sheet can cover it instead of the other way around.
         panel?.level = .normal
-        Task { @MainActor in
-            while Self.passwordFillOnScreen() {
-                try? await Task.sleep(for: .milliseconds(200))
+        fillWatch?.cancel()
+        fillWatch = Task { @MainActor [weak self] in
+            guard let self else { return }
+            while self.passwordFillOnScreen() {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard !Task.isCancelled else { return }
             }
-            holdingForFill = false
-            guard let panel, panel.isVisible, closing == nil else { return }
+            self.holdingForFill = false
+            guard let panel = self.panel, panel.isVisible, self.closing == nil else { return }
             panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
-            if Self.anotherAppTookFocus() {
-                close()
+            if let size = self.preferredSize { self.resizePanel(to: size) }
+            // A nonactivating panel returns to its original foreground app when the sheet closes.
+            // That return is expected; only a different app should dismiss the palette.
+            let front = NSWorkspace.shared.frontmostApplication
+            let returnedToContext = front?.processIdentifier == self.model.foreground?.pid
+            if Self.anotherAppTookFocus() && !returnedToContext {
+                self.close()
             } else {
                 panel.makeKeyAndOrderFront(nil)
             }
@@ -344,7 +425,7 @@ final class QuickSearchController {
     ]
 
     /// The Fill a password sheet is on screen. The service process stays running with no window, so a live window counts.
-    private static func passwordFillOnScreen() -> Bool {
+    private static func passwordFillServiceOnScreen() -> Bool {
         let pids = Set(passwordFillBundles.flatMap {
             NSRunningApplication.runningApplications(withBundleIdentifier: $0).map(\.processIdentifier)
         })

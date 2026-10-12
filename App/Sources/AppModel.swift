@@ -148,7 +148,7 @@ final class AppModel {
         return names.count <= 2 ? names.joined(separator: " + ") : String(localized: "\(names.count) vaults")
     }
     var vaultFilter = AppModel.keepsSearchFilters ? VaultFilter(raw: UserDefaults.standard.string(forKey: "vaultFilter")) : .all {
-        didSet { if Self.keepsSearchFilters { UserDefaults.standard.set(vaultFilter.raw, forKey: "vaultFilter") } }
+        didSet { sidebarSearchScope = nil; if Self.keepsSearchFilters { UserDefaults.standard.set(vaultFilter.raw, forKey: "vaultFilter") } }
     }
 
     /// The vault list's search filters (type, folder, favorites, codes, passkeys, Watchtower issues), kept between
@@ -160,6 +160,8 @@ final class AppModel {
     private static let keepsSearchFilters = !CommandLine.arguments.contains { $0 == "--snapshot" || $0.hasPrefix("--demo") }
     /// Set by ⌘F: the vault list's search field takes focus (and clears it).
     var wantsSearchFocus = false
+    /// Focus the OTP page's own search field after navigation.
+    var wantsCodesSearchFocus = false
 
     /// Whether an item passes the search filters (the vault itself is `vaultFilter`'s).
     func passesSearchFilters(_ item: VaultItem) -> Bool {
@@ -198,6 +200,7 @@ final class AppModel {
     /// One account in focus (picked in the sidebar's account switcher), or nil for every open account together.
     var accountFocus: String? = UserDefaults.standard.string(forKey: "accountFocus") {
         didSet {
+            sidebarSearchScope = nil
             UserDefaults.standard.set(accountFocus, forKey: "accountFocus")
             updateAccountDoor()
         }
@@ -285,7 +288,8 @@ final class AppModel {
     var newFolderParent: String?
 
     /// The New Folder prompt, for a folder inside `parent` (a path like "Work/Servers"), or at the top.
-    func promptNewFolder(in parent: String? = nil) {
+    func promptNewFolder(in parent: String? = nil, accountIDs: [String]? = nil) {
+        folderContextAccountIDs = accountIDs
         newFolderParent = parent
         promptingNewFolder = true
     }
@@ -342,6 +346,7 @@ final class AppModel {
     }
     /// The import or export sheet; an import may start with a file (dropped on the window).
     var transfer: Transfer?
+    var importAccountIDs: [String]? = nil
 
     enum Transfer: Identifiable {
         case export(accountId: String?)
@@ -355,7 +360,7 @@ final class AppModel {
     }
 
     func beginExport(accountId: String? = nil) { bringToFront(); transfer = .export(accountId: accountId) }
-    func beginImport(_ url: URL? = nil) { bringToFront(); transfer = .importFile(url) }
+    func beginImport(_ url: URL? = nil, accountIDs: [String]? = nil) { importAccountIDs = accountIDs; bringToFront(); transfer = .importFile(url) }
 
     /// Checks a master password offline (re-entry before an export).
     /// An item that asks for the master password, waiting for it before `action` runs.
@@ -393,7 +398,12 @@ final class AppModel {
     }
     /// True while ⌥ is held: reveals masked fields.
     var optionHeld = false
-    var isOnline: Bool { sessions.contains { $0.lastSynced != nil } }
+    var hasSyncError: Bool { sessions.contains { $0.lastSyncError != nil } }
+    var isOnline: Bool {
+        !sessions.isEmpty && sessions.allSatisfy {
+            $0.lastSyncError == nil && ($0.lastSynced.map { Date.now.timeIntervalSince($0) < 330 } ?? false)
+        }
+    }
     var folders: [Grouping] = []
     var sends: [SendItem] = []
     var selectedSendID: SendItem.ID?
@@ -467,7 +477,8 @@ final class AppModel {
     private func refreshAccounts() {
         accounts = AccountStore.accounts()
         if unlockTargetID == nil || !accounts.contains(where: { $0.id == unlockTargetID }) {
-            unlockTargetID = accounts.first { a in !sessions.contains { $0.id == a.id } }?.id ?? accounts.first?.id
+            unlockTargetID = accounts.first { a in a.id == accountFocus && !sessions.contains { $0.id == a.id } }?.id
+                ?? accounts.first { a in !sessions.contains { $0.id == a.id } }?.id ?? accounts.first?.id
         }
         touchIDEnabled = accounts.contains { a in AccountStore.isTouchIDEnabled(a.id) && !sessions.contains { $0.id == a.id } }
     }
@@ -670,12 +681,22 @@ final class AppModel {
 
     /// Brings the app forward and opens Settings (from the menu bar, the palette, the account menu).
     func showSettings(_ pane: SettingsView.Pane? = nil) {
-        if let pane { UserDefaults.standard.set(pane.rawValue, forKey: SettingsView.paneKey) }
+        UserDefaults.standard.set((pane ?? .general).rawValue, forKey: SettingsView.paneKey)
         if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
         NSApp.activate()
         openSettingsAction()
     }
     /// Sidebar destination asked for from outside the vault view (palette commands).
+    var sidebarActionError: String?
+    var sidebarSearchRequest = UUID()
+    var sidebarSearchScope: SidebarScope?
+    var folderContextAccountIDs: [String]?
+    var sendContextAccountIDs: [String]?
+    var newSendKind = SendComposer.Kind.text
+    var newSendNonce = UUID()
+    var expiredSendsOnly = false
+    var generatorRequest = UUID()
+    var watchtowerIssueFilter: WatchtowerReport.Issue?
     var requestedSection: SidebarSelection?
     /// An item to point out on the Watchtower page (from its detail): the page scrolls to it and highlights it.
     var watchtowerFocus: String?
@@ -695,12 +716,13 @@ final class AppModel {
         let title: String
         let message: String
         let action: String
+        var destructive = true
         let run: @MainActor () async -> Void
     }
     var confirming: ConfirmRequest?
 
-    func confirm(_ title: String, message: String, action: String, run: @escaping @MainActor () async -> Void) {
-        confirming = ConfirmRequest(title: title, message: message, action: action, run: run)
+    func confirm(_ title: String, message: String, action: String, destructive: Bool = true, run: @escaping @MainActor () async -> Void) {
+        confirming = ConfirmRequest(title: title, message: message, action: action, destructive: destructive, run: run)
     }
 
     /// Asks, then moves the item to Trash (the toast and ⌘Z can still take it back). Every delete asks first.
@@ -1344,7 +1366,7 @@ final class AppModel {
 
     /// Syncs every unlocked account now.
     func refresh() async throws {
-        for session in sessions { try await session.refresh() }
+        try await SyncBatch.run(sessions) { try await $0.refresh() }
     }
 
     // MARK: Unlock
@@ -1381,7 +1403,7 @@ final class AppModel {
             errorMessage = String(localized: "Wrong master password.")
             return
         }
-        finishUnlock([target.id: derived])
+        finishUnlock([target.id: derived], preferredAccountID: target.id)
     }
 
     /// One Touch ID prompt unlocks every locked account that has it turned on.
@@ -1395,11 +1417,18 @@ final class AppModel {
         if !keys.isEmpty { Bench.begin("unlock-touchid-open"); finishUnlock(keys) }
     }
 
-    private func finishUnlock(_ keys: [String: SymmetricKeyPair]) {
+    private func finishUnlock(_ keys: [String: SymmetricKeyPair], preferredAccountID: String? = nil) {
         for (id, key) in keys {
             guard let account = accounts.first(where: { $0.id == id }) else { continue }
             let session = open(account, key: key)
             Task { await session.resume() }
+        }
+        // A successful explicit unlock opens that account, regardless of a persisted focus on a locked account.
+        // Touch ID can open several accounts: retain an already-open focus or prefer the displayed target.
+        if let id = preferredAccountID ?? [accountFocus, unlockTargetID].compactMap({ $0 }).first(where: { isUnlocked($0) })
+            ?? accounts.first(where: { isUnlocked($0.id) })?.id {
+            unlockTargetID = id
+            accountFocus = id
         }
         noteActivity()
         enterVault()
@@ -1407,7 +1436,21 @@ final class AppModel {
 
     /// From the lock or login screen: the gate's plates part over the vault (with the full door animation, the vault
     /// door opens first). Instant for tooling and when already in the vault; a fade with Reduce Motion.
+    @ObservationIgnored private var gateGeneration = UUID()
+
+    /// Supersede pending animations so an old lock cannot relock a newly opened vault.
+    private func beginGateTransition() -> UUID {
+        gateGeneration = UUID()
+        unlockOpening = false
+        unlockOpenedAt = nil
+        lockClosing = false
+        lockClosedAt = nil
+        gate = nil
+        return gateGeneration
+    }
+
     private func enterVault() {
+        let transition = beginGateTransition()
         let tooling = CommandLine.arguments.contains { $0.hasPrefix("--selftest") || $0 == "--snapshot" }
         // An account's own door, over the open vault: it opens the same way, then lifts instead of changing phase.
         let fromAccountDoor = phase.id == Phase.vault.id && accountDoor != nil
@@ -1419,7 +1462,7 @@ final class AppModel {
             Bench.endAfterCommit(["unlock-password-open", "unlock-touchid-open"])
             return
         }
-        guard Self.doorAnimates else { return openGate(fromAccountDoor: fromAccountDoor) }
+        guard Self.doorAnimates else { return openGate(fromAccountDoor: fromAccountDoor, transition: transition) }
         unlockOpenedAt = .now
         withAnimation(.spring(duration: DoorMotion.release, bounce: 0.3)) { unlockOpening = true }
         let fromLock = phase.id == Phase.locked.id || fromAccountDoor
@@ -1428,22 +1471,27 @@ final class AppModel {
             // ratchet to their stops, the bolts snap back, then the pieces cascade out inside-out into the light.
             // The gate starts while the outer rings are still flying out (they finish at 1.05 / openSpeed s): no pause between.
             try? await Task.sleep(for: .seconds(DoorMotion.gateDelay))
+            guard gateGeneration == transition else { return }
             if fromLock {
                 // Then the gate: plates that look exactly like the lock screen go on top, the lock screen leaves
                 // under them, and the plates part over the vault (GatePlates).
                 gateApart = false
                 gate = .opening
                 try? await Task.sleep(for: .milliseconds(30))
+                guard gateGeneration == transition else { return }
                 if fromAccountDoor { accountDoor = nil } else { phase = .vault }
                 await Task.yield()
+                guard gateGeneration == transition else { return }
                 // Leaves with the door's momentum (already moving, then a long glide), not from a standstill.
                 withAnimation(.timingCurve(0.22, 0.5, 0.12, 1, duration: DoorMotion.gateParting)) { gateApart = true }
                 try? await Task.sleep(for: .seconds(DoorMotion.gateParting))
+                guard gateGeneration == transition else { return }
                 gate = nil
             } else {
                 // Login: its screen parts like a gate (RootView's transition).
                 phase = .vault
                 try? await Task.sleep(for: .seconds(0.85))
+                guard gateGeneration == transition else { return }
             }
             unlockOpening = false
             unlockOpenedAt = nil
@@ -1454,7 +1502,7 @@ final class AppModel {
 
     /// The calm unlock (the default): the door stays put; the hub's field and Touch ID fade, then the gate's plates part
     /// top and bottom over the vault. From login, its screen parts the same way (RootView's transition).
-    private func openGate(fromAccountDoor: Bool) {
+    private func openGate(fromAccountDoor: Bool, transition: UUID) {
         let fromLock = phase.id == Phase.locked.id || fromAccountDoor
         guard fromLock else {
             phase = .vault
@@ -1465,13 +1513,17 @@ final class AppModel {
         Task {
             // The plates carry the door but not the hub's controls: those leave first, so nothing pops off.
             try? await Task.sleep(for: .seconds(Self.gateFade))
+            guard gateGeneration == transition else { return }
             gateApart = false
             gate = .opening
             try? await Task.sleep(for: .milliseconds(30)) // the plates draw over the lock screen before it goes
+            guard gateGeneration == transition else { return }
             if fromAccountDoor { accountDoor = nil } else { phase = .vault }
             await Task.yield()
+            guard gateGeneration == transition else { return }
             withAnimation(.timingCurve(0.45, 0, 0.15, 1, duration: Self.gateOpen)) { gateApart = true }
             try? await Task.sleep(for: .seconds(Self.gateOpen))
+            guard gateGeneration == transition else { return }
             gate = nil
             unlockOpening = false
             updateAccountDoor()
@@ -1535,7 +1587,7 @@ final class AppModel {
         defer { isBusy = false }
         let result = await Task.detached(priority: .userInitiated) { AccountStore.unlockWithPIN(id, pin: pin) }.value
         switch result {
-        case .unlocked(let key)?: finishUnlock([id: key])
+        case .unlocked(let key)?: finishUnlock([id: key], preferredAccountID: id)
         case .wrong(let left)?:
             errorMessage = String(localized: "Wrong PIN. ^[\(left) try](inflect: true) left.")
         case .erased?:
@@ -1591,13 +1643,13 @@ final class AppModel {
     }
 
     /// Where new items go: the filtered account, else the first unlocked one.
-    var defaultAccountId: String? { accountFilter ?? sessions.first?.id }
+    var defaultAccountId: String? { focusedAccountID ?? accountFilter ?? sessions.first?.id }
 
     @discardableResult
-    func createItem(_ kind: NewItemKind, edit: CipherEdit, accountId: String? = nil) async -> Bool {
+    func createItem(_ kind: NewItemKind, edit: CipherEdit, accountId: String? = nil, organizationId: String? = nil, collectionIds: [String] = []) async -> Bool {
         guard let session = (accountId ?? defaultAccountId).flatMap(session(for:)) else { return offline() }
         do {
-            let id = try await session.create(kind.editorKind, edit: edit)
+            let id = try await session.create(kind.editorKind, edit: edit, organizationId: organizationId, collectionIds: collectionIds)
             selectedID = id
             arrivedID = id
             Task {
@@ -1644,7 +1696,7 @@ final class AppModel {
         let newPath = parent.isEmpty ? name : parent + "/" + name
         guard newPath != path else { return true }
         do {
-            for session in sessions {
+            for session in sessions where folderContextAccountIDs?.contains(session.id) ?? true {
                 var names: [String: String] = [:]
                 for folder in session.folders where folder.name == path || folder.name.hasPrefix(path + "/") {
                     names[folder.id] = newPath + folder.name.dropFirst(path.count)
@@ -2154,6 +2206,7 @@ final class AppModel {
     /// Locks every account. `animated` (a lock the user asked for): the keys go at once, but the vault's contents stay
     /// on screen a moment longer, so the door can close over them before they're cleared.
     func lock(animated: Bool = false) {
+        let transition = beginGateTransition()
         accountDoor = nil
         previewURL = nil
         forgetUndo()
@@ -2186,13 +2239,17 @@ final class AppModel {
         gate = .closing
         Task {
             await Task.yield() // the plates are drawn apart first, then close
+            guard gateGeneration == transition else { return }
             withAnimation(.easeInOut(duration: Self.gateClose)) { gateApart = false }
             try? await Task.sleep(for: .seconds(Self.gateClose))
+            guard gateGeneration == transition else { return }
             phase = .locked
             try? await Task.sleep(for: .milliseconds(60)) // the lock screen draws under the plates before they go
+            guard gateGeneration == transition else { return }
             gate = nil
             if sessions.isEmpty { clearVaultContents() } // covered now; unless Touch ID already opened it again
             try? await Task.sleep(for: .seconds(assembles ? 1.3 : 0.3))
+            guard gateGeneration == transition else { return }
             lockClosing = false
             lockClosedAt = nil
         }

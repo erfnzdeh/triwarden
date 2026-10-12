@@ -120,10 +120,10 @@ struct CopyTick: ViewModifier {
             .onChange(of: model.copyCount) { _, now in
                 guard let armed, now > armed else { return }
                 self.armed = nil
-                withAnimation(.snappy(duration: 0.25)) { copied = true }
+                withAnimation(Motion.animation(.snappy(duration: 0.25))) { copied = true }
                 Task {
                     try? await Task.sleep(for: .seconds(1.4))
-                    if model.copyCount == now { withAnimation(.snappy(duration: 0.3)) { copied = false } }
+                    if model.copyCount == now { withAnimation(Motion.animation(.snappy(duration: 0.3))) { copied = false } }
                 }
             }
             .sensoryFeedback(.alignment, trigger: copied) { _, new in new }
@@ -171,6 +171,9 @@ struct SideOverflowClip: ViewModifier {
 
 /// Off for snapshots and self-tests, which render one frame and must show everything in place.
 enum Motion {
+    @MainActor static func animation(_ animation: Animation) -> Animation? {
+        plays && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? animation : nil
+    }
     static let plays = !CommandLine.arguments.contains { $0 == "--snapshot" || $0.hasPrefix("--selftest") }
 }
 
@@ -285,3 +288,16 @@ struct Burst<Trigger: Equatable>: View {
     }
 }
 
+/// Stop inherited and implicit animations at each app surface when Reduce Motion is enabled.
+struct ReducedMotionPolicy: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content.transaction { transaction in
+            if reduceMotion {
+                transaction.animation = nil
+                transaction.disablesAnimations = true
+            }
+        }
+    }
+}

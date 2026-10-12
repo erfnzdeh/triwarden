@@ -24,6 +24,33 @@
 > **Status:** early releases (0.x). It works with real Vaultwarden and Bitwarden accounts and is tested against both,
 > but keep your usual client around until 1.0. Screenshots show the built-in demo vault, not a real account.
 
+## Install
+
+Requires macOS 26 (Tahoe) or later.
+
+```bash
+brew install --cask sinhong2011/tap/triwarden
+```
+
+Or download the signed, notarized DMG from the [latest release](https://github.com/sinhong2011/triwarden/releases/latest).
+Triwarden updates itself (Settings › About), and Homebrew keeps the cask current.
+
+## Start here
+
+1. Open Triwarden and choose your Vaultwarden server, Bitwarden US or Bitwarden EU. Sign in with your existing account.
+2. Enable Triwarden in **System Settings › General › AutoFill & Passwords** to fill passwords, passkeys and verification codes.
+3. Use **⌘F** to filter the vault list, **⌘K** to find items or run commands, or **⇧⌘Space** to open the palette from another app.
+   Auto-type needs Accessibility permission for **Triwarden Auto-Type**; configure it in **Settings › Shortcuts**.
+   The browser extension is optional; its integration controls are in Settings.
+
+**Offline:** you can unlock and read the encrypted vault saved on this Mac. Creating, editing, importing and deleting
+items require a connection to the account's server; changes are not queued for later.
+
+**Official builds and payment:** personal use can continue without a paid key, with all features available and no time limit.
+After about 30 days, an unregistered official build may show a purchase reminder at launch, at most once a week.
+A one-time paid key removes the reminder and covers one person on all their Macs. The official-build terms require a paid
+key for commercial use. See [paid license terms](docs/LICENSE-TERMS.md). Source builds retain the GPL rights described below.
+
 ## Features
 
 **Your vault, natively**
@@ -41,7 +68,7 @@
 - One search over every vault (⌘F), with filters that stay on between launches: type, folder, vault, favorites,
   one-time code, passkey and Watchtower issue. Pick them from the filter menu or type them — `type:card`, `has:otp`,
   `#Work` — with suggestions as you type; ⌫ takes the last one off. See [Search](docs/search.md).
-- Every shortcut on one page: Help › Keyboard Shortcuts (⌘/).
+- Every shortcut on one page: Help › Keyboard Shortcuts (⌃⇧/).
 - A command palette from anywhere (⇧⌘Space, or a shortcut you choose; ⌘K in the window) to find any item or run any
   command. Called over a browser or an app, it puts that page's (or app's) logins first, and ↵ types the username
   and password in, like KeePass auto-type (⌃↵ username, ⌥↵ password, ⇧ also submits). The menu bar panel shows the
@@ -120,17 +147,6 @@ only then does the door take itself apart, and the screen parts like a vault's i
 <p align="center"><img src="docs/images/door-sequence.jpg" width="820" alt="The vault door: typing, the rings turning, the notches lined up into a keyway, unlatching, coming apart"></p>
 <p align="center"><img src="docs/images/gate.jpg" width="820" alt="The lock screen in light and dark"></p>
 
-## Install
-
-Requires macOS 26 (Tahoe) or later.
-
-```bash
-brew install --cask sinhong2011/tap/triwarden
-```
-
-Or download the signed, notarized DMG from the [latest release](https://github.com/sinhong2011/triwarden/releases/latest).
-Triwarden updates itself (Settings › About), and Homebrew keeps the cask current.
-
 ## Build from source
 
 Requirements: macOS 26 and Xcode 26, plus [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
@@ -172,7 +188,8 @@ to report a vulnerability privately.
 
 ## Accessibility and languages
 
-VoiceOver labels, full keyboard control, Increase Contrast and Reduce Motion are supported; see
+The app provides VoiceOver labels, keyboard shortcuts, Increase Contrast and Reduce Motion support.
+Validation limits and remaining gaps are documented in
 [ACCESSIBILITY.md](ACCESSIBILITY.md). The app speaks English, 繁體中文 (台灣), 繁體中文 (香港), 简体中文 and 日本語.
 
 ## Support

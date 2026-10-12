@@ -6,37 +6,43 @@ import VaultwardenAPI
 struct SendsPane: View {
     @Environment(AppModel.self) private var model
 
+    private var scopedSends: [SendItem] {
+        model.sends.filter { send in
+            (model.focusedAccountID == nil || send.accountId == model.focusedAccountID) && (!model.expiredSendsOnly || send.isExpired)
+        }
+    }
+
+    private func sendActions(_ send: SendItem) -> [ActionMenuEntry] {
+        var rows: [ActionMenuEntry] = []
+        if let link = model.sendLink(send) {
+            rows.append(ActionMenuEntry(title: String(localized: "Copy Link"), symbol: "link") { model.copyPlain(link.absoluteString) })
+            rows.append(ActionMenuEntry(title: String(localized: "Open Link"), symbol: "safari") { NSWorkspace.shared.open(link) })
+        }
+        rows.append(ActionMenuEntry(title: String(localized: "Edit…"), symbol: "pencil", separatorBefore: !rows.isEmpty) { model.editingSend = send })
+        rows.append(ActionMenuEntry(title: String(localized: "Delete…"), symbol: "trash", destructive: true) { model.confirmDeleteSend(send) })
+        return rows
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             VStack(spacing: 10) {
                 // Like the item list: a count (new Sends come from the header's + menu).
                 HStack {
-                    Text("\(model.sends.count) sends").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                    Text("\(scopedSends.count) sends").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
                     Spacer()
                 }
                 .padding(.leading, 6)
                 .frame(height: 32)
                 ScrollView {
                     LazyVStack(spacing: 2) {
-                        ForEach(model.sends) { send in
+                        ForEach(scopedSends) { send in
                             SendRow(send: send, selected: send.id == model.selectedSendID && !model.composingSend && model.editingSend == nil)
                                 .onTapGesture { model.composingSend = false; model.editingSend = nil; model.selectedSendID = send.id }
                                 .accessibilityElement(children: .combine)
                                 .accessibilityAddTraits(send.id == model.selectedSendID ? [.isButton, .isSelected] : .isButton)
                                 .accessibilityAction { model.composingSend = false; model.selectedSendID = send.id }
                                 .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                                .contextMenu {
-                                    Group {
-                                        if let link = model.sendLink(send) {
-                                            Button("Copy Link", systemImage: "link") { model.copyPlain(link.absoluteString) }
-                                            Button("Open Link", systemImage: "safari") { NSWorkspace.shared.open(link) }
-                                            Divider()
-                                        }
-                                        Button("Edit…", systemImage: "pencil") { model.editingSend = send }
-                                        Button("Delete…", systemImage: "trash", role: .destructive) { model.confirmDeleteSend(send) }
-                                    }
-                                    .labelStyle(.titleAndIcon)
-                                }
+                                .appContextMenu(sendActions(send))
                         }
                     }
                     .padding(6)
@@ -44,7 +50,7 @@ struct SendsPane: View {
                 .thinScroller()
                 .background(Color.panel, in: .rect(cornerRadius: 18, style: .continuous))
                 .overlay {
-                    if model.sends.isEmpty {
+                    if scopedSends.isEmpty {
                         Text("Your Sends appear here.").font(.system(size: 12)).foregroundStyle(.tertiary)
                     }
                 }
@@ -55,7 +61,7 @@ struct SendsPane: View {
             Group {
                 if model.composingSend || model.editingSend != nil {
                     SendComposer(editing: model.editingSend)
-                        .id(model.editingSend?.id ?? "new")
+                        .id(model.editingSend?.id ?? model.newSendNonce.uuidString)
                         .transition(.opacity.combined(with: .offset(y: 8)))
                 } else if let send = model.sends.first(where: { $0.id == model.selectedSendID }) {
                     SendDetail(send: send).id(send.id)
@@ -296,8 +302,10 @@ struct SendComposer: View {
     @State private var saving = false
     @State private var dropTargeted = false
 
+    private var destinationSessions: [AccountSession] { model.sessions.filter { model.sendContextAccountIDs?.contains($0.id) ?? true } }
+
     private var ready: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty && (kind == .text ? !text.isEmpty : (file != nil || editing != nil))
+        accountId != nil && !name.trimmingCharacters(in: .whitespaces).isEmpty && (kind == .text ? !text.isEmpty : (file != nil || editing != nil))
     }
 
     private func dismiss() {
@@ -308,7 +316,12 @@ struct SendComposer: View {
     }
 
     private func prefill() {
-        guard let send = editing else { accountId = model.defaultAccountId; return }
+        guard let send = editing else {
+            kind = model.newSendKind
+            if let ids = model.sendContextAccountIDs { accountId = ids.count == 1 ? ids.first : nil }
+            else { accountId = model.defaultAccountId }
+            return
+        }
         kind = send.kind == .file ? .file : .text
         name = send.name
         text = send.text ?? ""
@@ -335,8 +348,8 @@ struct SendComposer: View {
                                      selection: $kind)
                             .frame(maxWidth: 260)
                         Spacer()
-                        if model.sessions.count > 1 {
-                            SoftMenu(options: model.sessions.map { (String?.some($0.id), $0.account.email) }, selection: $accountId,
+                        if editing == nil && destinationSessions.count > 1 {
+                            SoftMenu(options: [(nil, String(localized: "Choose an account…"))] + destinationSessions.map { (String?.some($0.id), $0.account.email) }, selection: $accountId,
                                      accessibilityLabel: "Account")
                                 .frame(maxWidth: 240)
                         }

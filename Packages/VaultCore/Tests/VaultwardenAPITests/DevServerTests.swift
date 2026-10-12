@@ -71,6 +71,30 @@ struct DevServerTests {
     }
 
     @Test(arguments: DevServer.ports)
+    func createInExistingCollection(port: Int) async throws {
+        let client = try DevServer.client(port: port)
+        let userKey = try await client.login(email: "usagi@chiikawarden.test", password: DevServer.password)
+        let sync = try await client.sync()
+        let collection = try #require(sync.collections?.first)
+        let orgKey = try #require(Keyring(userKey: userKey, profile: sync.profile).orgKeys[collection.organizationId])
+        var body = try #require(JSONSerialization.jsonObject(with: CipherEditor.newCipher(kind: .secureNote,
+            edit: CipherEdit(name: "Sidebar collection test", notes: "org encrypted"), key: orgKey)) as? [String: Any])
+        body["organizationId"] = collection.organizationId
+        let id = try await client.createOrganizationCipher(JSONSerialization.data(withJSONObject: body), collectionIds: [collection.id])
+        do {
+            let back = try #require(try await client.sync().ciphers.first { $0.id == id })
+            #expect(back.organizationId == collection.organizationId)
+            #expect(back.collectionIds?.contains(collection.id) == true)
+            #expect(try EncString(back.name).decryptString(with: orgKey) == "Sidebar collection test")
+            #expect(try EncString(try #require(back.notes)).decryptString(with: orgKey) == "org encrypted")
+        } catch {
+            try? await client.deleteCipher(id: id)
+            throw error
+        }
+        try await client.deleteCipher(id: id)
+    }
+
+    @Test(arguments: DevServer.ports)
     func offlineUnlockAndRefreshToken(port: Int) async throws {
         // Log in once, keep only what an app stores on disk…
         let first = try await DevServer.client(port: port).loginDetailed(email: "usagi@chiikawarden.test", password: DevServer.password)
@@ -279,6 +303,60 @@ struct DevServerTests {
         try await client.deleteSend(id: created.id)
         try await client.deleteSend(id: fileSend.id)
         #expect(SyncResponse.sends(try await client.syncData()).allSatisfy { $0.id != created.id && $0.id != fileSend.id })
+    }
+
+    /// The server commits a request, but the caller loses its response. Delivery must not resend it or send later batches.
+    @MainActor @Test(arguments: DevServer.ports)
+    func acceptedImportWithLostResponseIsNotResent(port: Int) async throws {
+        let client = try DevServer.client(port: port)
+        let key = try await client.login(email: "hachiware@chiikawarden.test", password: DevServer.password)
+        let marker = "import-delivery-" + UUID().uuidString
+        let bodies = try (0..<3).map { index in
+            let item = ImportedItem(json: ["type": 1, "name": marker + "-\(index)",
+                                           "login": ["username": "delivery-test", "password": "test-only"]], folder: nil)
+            return (body: try VaultImport.requestBody(items: [item], folders: [], key: key), count: 1)
+        }
+        var requests = 0
+        do {
+            try await ImportDelivery.send(bodies) { body in
+                requests += 1
+                try await client.importCiphers(body)
+                if requests == 2 { throw URLError(.networkConnectionLost) }
+            }
+            Issue.record("Expected ambiguous delivery failure")
+        } catch let error as ImportDeliveryError {
+            #expect(error.confirmed == 1)
+            #expect(error.uncertain == 1)
+            #expect(error.notSent == 1)
+        }
+        let imported = try await client.sync().ciphers.filter { cipher in
+            (try? EncString(cipher.name).decryptString(with: key))?.hasPrefix(marker) == true
+        }
+        // Clean up before assertions so failed expectations leave no imported test items.
+        for cipher in imported { try await client.deleteCipher(id: cipher.id) }
+        #expect(requests == 2)
+        #expect(imported.count == 2)
+        let names = try imported.map { try EncString($0.name).decryptString(with: key) }
+        #expect(Set(names) == [marker + "-0", marker + "-1"])
+    }
+
+    @MainActor @Test(arguments: DevServer.ports)
+    func expiredAccountDoesNotBlockHealthyAccount(port: Int) async throws {
+        let expired = try DevServer.client(port: port)
+        await expired.restore(refreshToken: "expired-integration-test-token")
+        let healthy = try DevServer.client(port: port)
+        _ = try await healthy.login(email: "usagi@chiikawarden.test", password: DevServer.password)
+        var healthySynced = false
+        do {
+            try await SyncBatch.run([expired, healthy]) { client in
+                if client === expired { try await client.refreshAccessToken() }
+                else { healthySynced = !(try await client.sync().ciphers).isEmpty }
+            }
+            Issue.record("Expected expired account to fail")
+        } catch {
+            #expect(error is APIError)
+        }
+        #expect(healthySynced)
     }
 
     @Test(arguments: DevServer.ports)

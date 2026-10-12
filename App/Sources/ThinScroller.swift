@@ -36,6 +36,7 @@ struct ThinScroller: ViewModifier {
             Capsule()
                 .fill(Color.primary.opacity(thumbHover || dragStart != nil ? (scheme == .dark ? 0.45 : 0.35) : (scheme == .dark ? 0.28 : 0.22)))
                 .frame(width: thumbHover || dragStart != nil ? 7 : 5, height: height)
+                .frame(width: 7, alignment: .trailing) // keep the hover target stable as the thumb expands
                 .padding(.trailing, 3)
                 .offset(y: 6 + (track - height) * progress)
                 .contentShape(.rect.inset(by: -6))

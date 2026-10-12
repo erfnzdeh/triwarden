@@ -736,6 +736,12 @@ enum SelfTest {
             var failures = 0
             func check(_ ok: Bool, _ what: String) { print(ok ? "PASS" : "FAIL", what); if !ok { failures += 1 } }
 
+            let savedFocus = UserDefaults.standard.object(forKey: "accountFocus")
+            let savedVaultFilter = UserDefaults.standard.object(forKey: "vaultFilter")
+            defer {
+                UserDefaults.standard.set(savedFocus, forKey: "accountFocus")
+                UserDefaults.standard.set(savedVaultFilter, forKey: "vaultFilter")
+            }
             let model = AppModel()
             for account in model.accounts { model.logOut(account.id) }
             model.serverKind = .selfHosted
@@ -748,6 +754,7 @@ enum SelfTest {
                   "account, encrypted cache and refresh token persisted")
             check(Keychain.isShared(service: "io.github.sinhong2011.triwarden.SelfTestAccounts.refresh.\(firstID)"),
                   "refresh token in the App Group keychain (AutoFill can save passkeys)")
+            for stale in model.items.filter({ ["Sidebar bulk A", "Sidebar bulk late arrival"].contains($0.name) }) { await model.deleteForever(stale) }
             let count = model.items.count
             let org = model.organizations.first
             let collection = org?.children.first
@@ -756,6 +763,24 @@ enum SelfTest {
                 check(model.items.contains { SidebarSelection.organization(org.id).includes($0) }
                       && model.items.contains { SidebarSelection.collection(collection.id).includes($0) },
                       "org and collection filters match their items")
+            }
+
+            // Every selectable sidebar destination has purpose-specific actions, scoped to its owner.
+            let sidebarDestinations: [SidebarSelection] = VaultSection.allCases.map { .section($0) }
+                + [.myVault, .folders, .folder("Selftest"), .sends, .codes, .generator, .watchtower]
+            check(sidebarDestinations.allSatisfy { !model.sidebarActions(for: $0).isEmpty }, "context actions cover every sidebar destination")
+            if let org, let collection {
+                var readOnly = collection
+                readOnly.canWrite = false
+                let actions = model.sidebarActions(for: .collection(collection.id), organization: org, collection: readOnly)
+                check(actions.first?.enabled == false && actions.first?.children.isEmpty == true,
+                      "read-only collection cannot offer creation")
+                let created = await model.createItem(.secureNote, edit: CipherEdit(name: "Selftest collection creation", notes: "scoped"),
+                    accountId: firstID, organizationId: org.id, collectionIds: [collection.id])
+                let shared = model.items.first { $0.name == "Selftest collection creation" }
+                check(created && shared?.organizationId == org.id && shared?.collectionIds.contains(collection.id) == true && shared?.notes == "scoped",
+                      "create directly in writable collection using organization key")
+                if let shared { await model.deleteForever(shared) }
             }
 
             // Watchtower on the seeded vault.
@@ -1183,6 +1208,7 @@ enum SelfTest {
                 model.email = email2
                 await model.login(password: password2)
                 let id2 = SavedAccount.makeID(serverKind: "selfHosted", serverURL: server, email: email2)
+                for stale in model.items.filter({ $0.accountId == id2 && $0.name == "Sidebar bulk B" }) { await model.deleteForever(stale) }
                 secondID = id2
                 let fromFirst = model.items.filter { $0.accountId == firstID }.count
                 let fromSecond = model.items.filter { $0.accountId == id2 }.count
@@ -1192,6 +1218,49 @@ enum SelfTest {
                 let note = model.items.first { $0.name == "Second-account note" }
                 check(created2 && note?.accountId == id2, "new item goes to the chosen account")
                 if let note { await model.deleteForever(note) }
+
+                let oldFocus = model.accountFocus
+                model.accountFocus = nil
+                let favorites = model.sidebarActions(for: .section(.favorites))
+                favorites.first?.children.first?.run()
+                for _ in 0..<20 where model.newItemForm == nil { try? await Task.sleep(for: .milliseconds(10)) }
+                check(model.newItemForm?.prefill?.accountIDs?.count == 2 && model.newItemForm?.prefill?.favorite == true,
+                      "favorite creation captures both accounts for an explicit destination choice")
+                model.closeNewItemForm(restoringSelection: false)
+                model.accountFocus = oldFocus
+
+                let a = await model.createItem(.secureNote, edit: CipherEdit(name: "Sidebar bulk A"), accountId: firstID)
+                let b = await model.createItem(.secureNote, edit: CipherEdit(name: "Sidebar bulk B"), accountId: id2)
+                let targets = model.items.filter { ["Sidebar bulk A", "Sidebar bulk B"].contains($0.name) }
+                for item in targets { await model.trash(item) }
+                let frozen = model.items.filter { targets.map(\.id).contains($0.id) }
+                let frozenScope = SidebarScope(accountIDs: [firstID, id2], vaultFilter: .personal, destination: .section(.trash))
+                model.confirmSidebarBulk(frozen, scope: frozenScope, delete: false)
+                let pending = model.confirming
+                model.confirming = nil
+                _ = await model.createItem(.secureNote, edit: CipherEdit(name: "Sidebar bulk late arrival"), accountId: firstID)
+                if let late = model.items.first(where: { $0.name == "Sidebar bulk late arrival" }) { await model.trash(late) }
+                // Lock one account and change the visible scope after confirmation was built.
+                model.lock(id2)
+                model.accountFocus = firstID
+                model.vaultFilter = .all
+                await pending?.run()
+                let restored = model.items.first { $0.name == "Sidebar bulk A" }
+                check(a && b && restored?.isDeleted == false && model.sidebarActionError != nil,
+                      "scoped restore continues past locked account and reports partial failure")
+                let late = model.items.first { $0.name == "Sidebar bulk late arrival" }
+                check(late?.isDeleted == true, "bulk restore excludes items arriving after confirmation")
+                if let late { await model.deleteForever(late) }
+                if let restored { await model.deleteForever(restored) }
+                await model.unlock(password: password2, accountId: id2)
+                for _ in 0..<100 where model.session(for: id2)?.lastSynced == nil {
+                    try? await Task.sleep(for: .milliseconds(50))
+                }
+                check(model.session(for: id2)?.lastSynced != nil, "reopened account reconnects before online writes")
+                if let cleanup = model.items.first(where: { $0.name == "Sidebar bulk B" }) { await model.deleteForever(cleanup) }
+                model.sidebarActionError = nil
+                model.errorMessage = nil
+                model.accountFocus = oldFocus
 
                 // Account security, on the second account (everything put back afterwards).
                 if let s2 = model.session(for: id2) {
@@ -1477,10 +1546,18 @@ enum SelfTest {
             let fresh = AppModel() // simulates relaunch
             check(fresh.phase.id == AppModel.Phase.locked.id && fresh.accounts.count == (second == nil ? 1 : 2),
                   "relaunch starts locked with \(fresh.accounts.count) saved account(s)")
+            // Regression: the previously focused account is locked, but the user unlocks another target.
+            check(fresh.unlockTargetID == (fresh.focusedAccountID ?? fresh.accounts.first?.id), "relaunch unlock chooser follows the saved account focus")
+            fresh.accountFocus = secondID
             fresh.unlockTargetID = firstID
             await fresh.unlock(password: "definitely-wrong")
             check(!fresh.isUnlocked && fresh.errorMessage != nil, "wrong password rejected offline")
             await fresh.unlock(password: password)
+            check(fresh.accountFocus == firstID && fresh.accountDoor == nil && fresh.unlockTargetID == firstID,
+                  "explicit unlock replaces stale locked account focus")
+            fresh.updateAccountDoor()
+            check(fresh.phase.id == AppModel.Phase.vault.id && fresh.accountDoor == nil,
+                  "unlock stays in vault after account door recomputes")
             check(fresh.isUnlocked && fresh.items.count == count, "offline unlock restores \(fresh.items.count) items from cache")
             try? await Task.sleep(for: .seconds(3))
             check(fresh.lastSynced != nil, "session resumed with refresh token and re-synced")
@@ -1518,6 +1595,8 @@ enum SelfTest {
             check(AccountStore.load(firstID) == nil && AccountStore.refreshToken(firstID) == nil && fresh.phase.id == AppModel.Phase.login.id,
                   "log out erases account and token")
             print(failures == 0 ? "SELFTEST OK" : "SELFTEST FAILED (\(failures))")
+            UserDefaults.standard.set(savedFocus, forKey: "accountFocus")
+            UserDefaults.standard.set(savedVaultFilter, forKey: "vaultFilter")
             exit(failures == 0 ? 0 : 1)
         }
     }

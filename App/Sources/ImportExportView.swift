@@ -9,12 +9,15 @@ import VaultwardenAPI
 private struct AccountPicker: View {
     @Environment(AppModel.self) private var model
     @Binding var accountId: String
+    var allowedIDs: [String]? = nil
+    var allowEmpty = false
+    private var sessions: [AccountSession] { model.sessions.filter { allowedIDs?.contains($0.id) ?? true } }
 
     var body: some View {
-        if model.sessions.count > 1 {
+        if sessions.count > 1 {
             VStack(alignment: .leading, spacing: 6) {
                 SheetLabel("Account")
-                SoftMenu(options: model.sessions.map { ($0.id, $0.account.email) }, selection: $accountId,
+                SoftMenu(options: (allowEmpty ? [("", String(localized: "Choose an account…"))] : []) + sessions.map { ($0.id, $0.account.email) }, selection: $accountId,
                          accessibilityLabel: "Account")
             }
         }
@@ -216,9 +219,11 @@ struct ImportSheet: View {
     @State private var phase = Phase.choose
     @State private var dropTargeted = false
 
-    enum Phase { case choose, preview, importing, done(Int) }
+    enum Phase { case choose, preview, importing, done(Int), interrupted }
+    @State private var syncingImport = false
+    @State private var deliveryReport: String?
 
-    private var session: AccountSession? { model.session(for: accountId) ?? model.sessions.first }
+    private var session: AccountSession? { model.session(for: accountId) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -233,12 +238,19 @@ struct ImportSheet: View {
                     Text("Encrypting and importing…").font(.system(size: 13)).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, minHeight: 120)
+            case .interrupted:
+                Text("Import stopped. Sync and inspect your vault before importing again.")
+                    .font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
             case .done(let count):
                 VStack(spacing: 10) {
                     Image(systemName: "checkmark.circle.fill").font(.system(size: 30)).foregroundStyle(.green)
                     Text("Imported \(count) items").font(.system(size: 15, weight: .semibold))
                 }
                 .frame(maxWidth: .infinity, minHeight: 120)
+            }
+            if let deliveryReport {
+                Text(deliveryReport).font(.system(size: 12)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let error {
                 Label(error, systemImage: "exclamationmark.circle.fill").font(.system(size: 12)).foregroundStyle(.red)
@@ -249,7 +261,10 @@ struct ImportSheet: View {
         .padding(24)
         .frame(width: 520)
         .onAppear {
-            if accountId.isEmpty { accountId = model.sessions.first?.id ?? "" }
+            if accountId.isEmpty {
+                let ids = model.importAccountIDs ?? [model.defaultAccountId].compactMap { $0 }
+                accountId = ids.count == 1 ? ids[0] : ""
+            }
             if let initialFile { load(initialFile) }
         }
     }
@@ -258,7 +273,7 @@ struct ImportSheet: View {
 
     private var chooser: some View {
         VStack(alignment: .leading, spacing: 14) {
-            AccountPicker(accountId: $accountId)
+            AccountPicker(accountId: $accountId, allowedIDs: model.importAccountIDs, allowEmpty: true)
             if needsPassword, let file {
                 VStack(alignment: .leading, spacing: 8) {
                     SheetLabel("“\(file.lastPathComponent)” is password-protected")
@@ -314,7 +329,7 @@ struct ImportSheet: View {
                     Text(verbatim: "·").foregroundStyle(.tertiary)
                     Text(formatName(preview.format)).font(.system(size: 13)).foregroundStyle(.secondary)
                 }
-                AccountPicker(accountId: $accountId)
+                AccountPicker(accountId: $accountId, allowedIDs: model.importAccountIDs, allowEmpty: true)
                 VaultPicker(vaults: session?.transferVaults() ?? [], selection: $vaultId, label: "Import into")
 
                 let counts = Dictionary(grouping: included, by: \.type).mapValues(\.count)
@@ -406,10 +421,23 @@ struct ImportSheet: View {
             case .preview:
                 Button("Back") { reset() }.buttonStyle(.appSecondary)
                 Button("Import \(included.count) Items", action: runImport)
-                    .buttonStyle(.appPrimary).keyboardShortcut(.defaultAction).disabled(included.isEmpty)
+                    .buttonStyle(.appPrimary).keyboardShortcut(.defaultAction).disabled(included.isEmpty || session == nil)
             case .importing:
                 EmptyView()
-            case .done:
+            case .done, .interrupted:
+                if error != nil || deliveryReport != nil {
+                    Button("Sync Now") {
+                        syncingImport = true
+                        Task {
+                            defer { syncingImport = false }
+                            do {
+                                guard let session else { throw AccountSession.WriteError.offline }
+                                try await session.refresh(); error = nil
+                            }
+                            catch { self.error = String(localized: "Couldn't sync. The vault on this Mac is unchanged.") }
+                        }
+                    }.buttonStyle(.appSecondary).disabled(syncingImport)
+                }
                 Button("Done") { dismiss() }.buttonStyle(.appPrimary).keyboardShortcut(.defaultAction)
             }
         }
@@ -465,11 +493,17 @@ struct ImportSheet: View {
     private func runImport() {
         guard let preview, let session else { return }
         let items = included
+        deliveryReport = nil
+        error = nil
         withAnimation(.snappy) { phase = .importing }
         Task {
             do {
-                try await session.importItems(items, folders: preview.folders, organizationId: vaultId)
+                let synced = try await session.importItems(items, folders: preview.folders, organizationId: vaultId)
+                if !synced { error = String(localized: "Import saved. Sync failed; do not import the file again.") }
                 withAnimation(.snappy) { phase = .done(items.count) }
+            } catch let delivery as ImportDeliveryError {
+                self.deliveryReport = String(localized: "Confirmed: \(delivery.confirmed). Unconfirmed: \(delivery.uncertain). Not sent: \(delivery.notSent).")
+                withAnimation(.snappy) { phase = .interrupted }
             } catch {
                 self.error = String(localized: "The import didn't go through: \(error.localizedDescription)")
                 withAnimation(.snappy) { phase = .preview }

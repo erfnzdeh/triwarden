@@ -293,7 +293,7 @@ struct AutoFillView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 440, height: 520)
+        .frame(width: 440, height: 480)
         .background { AutoFillGlass() }
         .tint(Color(nsColor: .triwardenBrand))
     }
@@ -305,7 +305,7 @@ private enum Palette {
     static let brand = Color(nsColor: .triwardenBrand)
     static let window = adaptive(light: NSColor(red: 0.945, green: 0.947, blue: 0.965, alpha: 1),
                                  dark: NSColor(red: 0.105, green: 0.108, blue: 0.125, alpha: 1))
-    static let card = adaptive(light: NSColor.white.withAlphaComponent(0.85), dark: NSColor.white.withAlphaComponent(0.07))
+    static let card = adaptive(light: NSColor.white.withAlphaComponent(0.40), dark: NSColor.white.withAlphaComponent(0.07))
     static let edge = adaptive(light: NSColor.white, dark: NSColor.white.withAlphaComponent(0.08))
     static let selected = adaptive(light: NSColor.triwardenBrand.withAlphaComponent(0.1), dark: NSColor.triwardenBrand.withAlphaComponent(0.2))
 
@@ -336,17 +336,17 @@ private struct AppIconMark: View {
     }()
 }
 
-private struct AutoFillGlass: View {
-    @Environment(\.colorScheme) private var scheme
-
-    var body: some View {
-        let dark = scheme == .dark
-        Rectangle()
-            .fill(.regularMaterial)
-            .background(dark ? Color.black.opacity(0.15) : Color.white.opacity(0.55))
-            .overlay(Rectangle().strokeBorder(Color.primary.opacity(dark ? 0.14 : 0.08), lineWidth: 0.5))
-            .ignoresSafeArea()
+/// Native glass samples behind the extension window without an opaque color backing.
+private struct AutoFillGlass: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .hudWindow
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
     }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }
 
 private struct IconTile: View {

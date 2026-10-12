@@ -31,7 +31,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
         host.layer?.isOpaque = false
         host.layer?.backgroundColor = NSColor.clear.cgColor
         view = host
-        preferredContentSize = NSSize(width: 440, height: 500)
+        preferredContentSize = NSSize(width: 440, height: 480)
     }
 
     override func viewWillAppear() {

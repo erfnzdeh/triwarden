@@ -1,4 +1,5 @@
 # Triwarden — everyday commands. `make` lists them.
+SHELL := /bin/bash
 # Machine-specific values (dev box address) go in local.mk, which git ignores.
 -include local.mk
 
@@ -7,9 +8,11 @@ DEV_IP   ?= 192.168.1.50
 DEV_PASSWORD ?= chiikawa-dev-password
 REGION   ?= us
 
-APP     := build/Build/Products/Debug/Triwarden.app
+# Always the local Debug product — never /Applications/Triwarden.app (same bundle id).
+APP     := $(CURDIR)/build/Build/Products/Debug/Triwarden.app
 BIN     := $(APP)/Contents/MacOS/Triwarden
-XCB     := xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -derivedDataPath build -allowProvisioningUpdates
+XCB     := xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug \
+	-derivedDataPath $(CURDIR)/build -allowProvisioningUpdates
 DEV_CA  := $(CURDIR)/DevServer/data/root.crt
 
 .DEFAULT_GOAL := help
@@ -21,29 +24,34 @@ help: ## Show this list
 project: ## Regenerate the Xcode project from project.yml
 	@xcodegen generate -q
 
-build: project ## Build the app (Debug)
-	@$(XCB) build 2>&1 | grep -E "error:|warning: .*deprecated|BUILD (SUCCEEDED|FAILED)" ; test -x "$(BIN)"
+build: project ## Build the Debug app into build/
+	@mkdir -p build
+	@set -o pipefail; $(XCB) build 2>&1 | tee build/build.log && test -x "$(BIN)"
 
-run: build ## Build and open the app
-	@open "$(APP)"
+run: build ## Build and open the Debug app (quits any other Triwarden first)
+	@# Launch Services resolves by bundle id; an already-running /Applications copy wins over this path.
+	@pkill -x Triwarden 2>/dev/null || true
+	@sleep 0.2
+	@echo "Opening Debug: $(APP)"
+	@open -n "$(APP)"
 
 site: ## Run the website development server
 	@pnpm --dir site dev --port 4321
 
 test: ## VaultCore unit tests (dev-server tests skip themselves)
-	@cd Packages/VaultCore && swift test 2>&1 | grep -E "✘|Test run"
+	@cd Packages/VaultCore && swift test
 
 test-dev: ## VaultCore tests including both dev Vaultwarden servers and SSO
 	@cd Packages/VaultCore && TRIWARDEN_DEV_HOST=$(DEV_IP) TRIWARDEN_DEV_IP=$(DEV_IP) TRIWARDEN_DEV_CA=$(DEV_CA) \
-		swift test 2>&1 | grep -E "✘|Test run"
+		swift test
 
 selftest: build ## In-app self-test against the dev server (isolated storage)
 	@"$(BIN)" --selftest http://$(DEV_IP):18880 usagi@chiikawarden.test $(DEV_PASSWORD) \
-		hachiware@chiikawarden.test $(DEV_PASSWORD) 2>/dev/null | grep -E "PASS|FAIL|SKIP|SELFTEST"
+		hachiware@chiikawarden.test $(DEV_PASSWORD) 2>&1
 
 selftest-security: build ## Self-test plus the steps that sign in again (sign-in approval, password and KDF changes)
 	@TRIWARDEN_SELFTEST_SECURITY=1 "$(BIN)" --selftest http://$(DEV_IP):18880 usagi@chiikawarden.test $(DEV_PASSWORD) \
-		hachiware@chiikawarden.test $(DEV_PASSWORD) 2>/dev/null | grep -E "PASS|FAIL|SKIP|SELFTEST"
+		hachiware@chiikawarden.test $(DEV_PASSWORD) 2>&1
 
 selftest-cloud: build ## Self-test against Bitwarden cloud with the account in .env (REGION=us|eu)
 	@test -f .env || { echo "Create .env with BITWARDEN_ACCOUNT=… and BITWARDEN_PASSWORD=… (an empty test account)"; exit 64; }
@@ -71,12 +79,13 @@ license: ## Sign a license key: make license NAME="…" EMAIL=… ORDER=…
 
 uitest: ## Click-through UI tests in --demo mode (quit any running Triwarden first)
 	@xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -derivedDataPath build -allowProvisioningUpdates \
-		test -only-testing:TriwardenUITests 2>&1 | grep -E "\.swift:[0-9]+: error|' (passed|failed)|TEST (SUCCEEDED|FAILED)"
+		test -only-testing:TriwardenUITests
 
 snapshots: build ## Render UI snapshots (light + dark) into build/snapshots; ONLY=login,send renders just those
-	@dir=$$(TRIWARDEN_SNAPSHOT_ONLY="$(ONLY)" "$(BIN)" --snapshot 2>/dev/null | tail -1); \
+	@set -e -o pipefail; dir=$$(TRIWARDEN_SNAPSHOT_ONLY="$(ONLY)" "$(BIN)" --snapshot | tail -1); \
 		mkdir -p build/snapshots; n=$$(find "$$dir" -name '*.png' -newer "$(BIN)" | wc -l | tr -d ' '); \
-		find "$$dir" -name '*.png' -newer "$(BIN)" -exec cp -f {} build/snapshots/ \; ; \
+		test "$$n" -gt 0 || { echo "No snapshots rendered; check ONLY and the snapshot output."; exit 1; }; \
+		find "$$dir" -name '*.png' -newer "$(BIN)" -print0 | xargs -0 -I {} cp -f {} build/snapshots/; \
 		echo "$$n images rendered into build/snapshots$(if $(ONLY), (only: $(ONLY)),)"
 
 screenshots: build ## README images (docs/images) and store images (Design/Store) from the demo vault, light and dark

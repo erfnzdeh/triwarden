@@ -39,8 +39,8 @@ struct AppButtonStyle: ButtonStyle {
                 }
             }
             .opacity(isEnabled ? 1 : 0.45)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.snappy(duration: 0.15), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && Motion.animation(.default) != nil ? 0.97 : 1)
+            .animation(Motion.animation(.snappy(duration: 0.15)), value: configuration.isPressed)
             .contentShape(.capsule)
     }
 
@@ -120,25 +120,35 @@ extension ToggleStyle where Self == BrandSwitchStyle {
 struct AppSegmented<Value: Hashable>: View {
     let options: [(Value, LocalizedStringKey)]
     @Binding var selection: Value
-    @Namespace private var thumb
+    var compact = false
     @Environment(\.colorScheme) private var scheme
+    /// One thumb for every segment. A thumb that only exists on the selected segment pops when the
+    /// selection jumps backward, because that view is removed and a new one is inserted.
+    @State private var widths: [Int: CGFloat] = [:]
+
+    private var selectedIndex: Int { options.firstIndex { $0.0 == selection } ?? 0 }
+
+    private var thumbOffset: CGFloat {
+        (0..<selectedIndex).reduce(CGFloat(0)) { partial, index in
+            partial + (widths[index] ?? 0) + 2
+        }
+    }
 
     var body: some View {
         let dark = scheme == .dark
+        let motion = Motion.animation(.spring(duration: 0.3, bounce: 0.15))
+        let row: CGFloat = compact ? 22 : 30
         HStack(spacing: 2) {
-            ForEach(Array(options.enumerated()), id: \.offset) { _, option in
+            ForEach(Array(options.enumerated()), id: \.offset) { index, option in
                 let selected = option.0 == selection
-                Button { withAnimation(.spring(duration: 0.3, bounce: 0.15)) { selection = option.0 } } label: {
+                Button { withAnimation(motion) { selection = option.0 } } label: {
                     Text(option.1)
-                        .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                        .font(.system(size: compact ? 12 : 13, weight: selected ? .semibold : .medium))
                         .foregroundStyle(selected ? .primary : .secondary)
-                        .frame(maxWidth: .infinity).frame(height: 30)
+                        .frame(maxWidth: .infinity).frame(height: row)
                         .background {
-                            if selected {
-                                Capsule()
-                                    .fill(dark ? Color.white.opacity(0.16) : Color.white)
-                                    .shadow(color: .black.opacity(dark ? 0.3 : 0.10), radius: 4, y: 1)
-                                    .matchedGeometryEffect(id: "thumb", in: thumb)
+                            GeometryReader { geo in
+                                Color.clear.preference(key: SegmentWidthKey.self, value: [index: geo.size.width])
                             }
                         }
                         .contentShape(.capsule)
@@ -147,11 +157,31 @@ struct AppSegmented<Value: Hashable>: View {
                 .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
             }
         }
-        .padding(3)
+        .background(alignment: .leading) {
+            Capsule()
+                .fill(dark ? Color.white.opacity(0.16) : Color.white)
+                .shadow(color: .black.opacity(dark ? 0.3 : 0.10), radius: 4, y: 1)
+                .frame(width: widths[selectedIndex] ?? 0, height: row)
+                .offset(x: thumbOffset)
+        }
+        .padding(compact ? 2 : 3)
         .background(dark ? Color.white.opacity(0.06) : Color.black.opacity(0.05), in: .capsule)
+        .onPreferenceChange(SegmentWidthKey.self) { new in
+            let changed = new.count != widths.count || new.contains { index, width in
+                abs((widths[index] ?? 0) - width) > 0.5
+            }
+            if changed { widths = new }
+        }
         // The thumb slides whenever the selection changes, even when it arrives outside an animation (a binding
         // backed by @AppStorage updates a moment later, which made it jump).
-        .animation(.spring(duration: 0.3, bounce: 0.15), value: selection)
+        .animation(motion, value: selection)
+    }
+}
+
+private struct SegmentWidthKey: PreferenceKey {
+    static var defaultValue: [Int: CGFloat] { [:] }
+    static func reduce(value: inout [Int: CGFloat], nextValue: () -> [Int: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
     }
 }
 
@@ -162,7 +192,7 @@ struct ToggleChip: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        Button { withAnimation(.snappy(duration: 0.15)) { isOn.toggle() } } label: {
+        Button { withAnimation(Motion.animation(.snappy(duration: 0.15))) { isOn.toggle() } } label: {
             HStack(spacing: 6) {
                 Image(systemName: isOn ? "checkmark" : "plus").font(.system(size: 10, weight: .bold))
                 Text(verbatim: title).font(.system(size: 13, weight: .semibold, design: .monospaced))

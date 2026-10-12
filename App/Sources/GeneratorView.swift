@@ -43,6 +43,7 @@ struct GeneratorView: View {
             .onChange(of: passphrase) { save(); regenerate() }
             .onChange(of: username) { save(); regenerate() }
             .onChange(of: storedMode) { regenerate() }
+            .onChange(of: model.generatorRequest) { regenerate() }
     }
 
     private var modePicker: some View {
@@ -70,7 +71,6 @@ struct GeneratorView: View {
                 Spacer(minLength: 16)
                 modePicker.frame(maxWidth: 380)
             }
-            .frame(height: 32)
             .padding(.bottom, -8) // 10 pt to the result, like the vault page's search row to its list
             hero
             (wide ? AnyLayout(HStackLayout(alignment: .top, spacing: 16)) : AnyLayout(VStackLayout(spacing: 16))) {

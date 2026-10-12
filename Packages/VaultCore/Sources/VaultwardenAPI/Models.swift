@@ -76,6 +76,8 @@ public struct SyncResponse: Decodable, Sendable {
         public let organizationId: String
         /// Encrypted with the organization key.
         public let name: String
+        public var readOnly: Bool? = nil
+        public var manage: Bool? = nil
     }
 
     /// Decodes a raw (possibly cached) sync payload.

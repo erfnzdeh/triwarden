@@ -1,58 +1,43 @@
+import AppKit
 import SwiftUI
 
-/// What a right-click on an item offers, wherever the item appears (the list, One-Time Codes): copy its parts, open
-/// its website, and the same actions as the detail's toolbar.
-struct ItemContextMenu: View {
-    @Environment(AppModel.self) private var model
-    let item: VaultItem
-
-    var body: some View {
-        Group {
-            if let username = item.username, !username.isEmpty {
-                Button("Copy Username", systemImage: "person") { model.copy(username, label: String(localized: "Username")) }
-            }
-            if let password = item.password, !password.isEmpty {
-                Button("Copy Password", systemImage: "key") { model.copyPassword(item) }
-                Button("Show Password in Large Type", systemImage: "textformat.size") { model.showLargeType(item) }
-            }
-            if let totp = item.totp {
-                Button("Copy One-Time Code", systemImage: "clock") { model.guarded(item) { model.copy(totp.code(at: .now), label: String(localized: "Code")) } }
-            }
-            if let notes = item.notes, !notes.isEmpty {
-                Button("Copy Notes", systemImage: "note.text") { model.guarded(item) { model.copy(notes, label: String(localized: "Notes")) } }
-            }
-            if let url = websiteURL {
-                Divider()
-                Button("Open Website", systemImage: "safari") { NSWorkspace.shared.open(url) }
-                Button("Copy Website", systemImage: "link") { model.copyPlain(url.absoluteString) }
-            }
-            Divider()
-            if item.isDeleted {
-                Button("Restore", systemImage: "arrow.uturn.backward") { Task { await model.restore(item) } }
-                Button("Delete Forever…", systemImage: "trash.slash", role: .destructive) { model.confirmDeleteForever(item) }
-            } else {
-                Button("Edit", systemImage: "pencil") { model.guarded(item) { model.beginEditing(EditRequest(mode: .edit(item))) } }
-                Button("Clone", systemImage: "plus.square.on.square") { model.guarded(item) { model.beginEditing(EditRequest(mode: .clone(item))) } }
-                Button(item.favorite ? "Remove from Favorites" : "Add to Favorites", systemImage: item.favorite ? "star.slash" : "star") {
-                    Task { await model.toggleFavorite(item) }
-                }
-                Button(item.isArchived ? "Unarchive" : "Archive", systemImage: "archivebox") {
-                    Task { await model.setArchived(item, !item.isArchived) }
-                }
-                if item.organizationId != nil {
-                    Button("Shared Folders…", systemImage: "rectangle.stack") { model.organizationSheet = .collections(item.id) }
-                } else if model.session(for: item.accountId)?.organizations.isEmpty == false {
-                    Button("Move to Shared Vault…", systemImage: "building.2") { model.organizationSheet = .share([item.id]) }
-                }
-                Divider()
-                Button("Move to Trash…", systemImage: "trash", role: .destructive) { model.confirmTrash(item) }
-            }
+extension AppModel {
+    /// Shared actions for vault, code and menu-bar rows; existing guards and confirmations stay at execution.
+    func itemContextActions(_ item: VaultItem) -> [ActionMenuEntry] {
+        var rows: [ActionMenuEntry] = []
+        if let username = item.username, !username.isEmpty {
+            rows.append(ActionMenuEntry(title: String(localized: "Copy Username"), symbol: "person") { self.copy(username, label: String(localized: "Username")) })
         }
-        .labelStyle(.titleAndIcon)
-    }
-
-    private var websiteURL: URL? {
-        guard let address = item.uri ?? item.host, !address.isEmpty else { return nil }
-        return URL(string: address.contains("://") ? address : "https://" + address)
+        if let password = item.password, !password.isEmpty {
+            rows.append(ActionMenuEntry(title: String(localized: "Copy Password"), symbol: "key") { self.copyPassword(item) })
+            rows.append(ActionMenuEntry(title: String(localized: "Show Password in Large Type"), symbol: "textformat.size") { self.showLargeType(item) })
+        }
+        if let totp = item.totp {
+            rows.append(ActionMenuEntry(title: String(localized: "Copy One-Time Code"), symbol: "clock") { self.guarded(item) { self.copy(totp.code(at: .now), label: String(localized: "Code")) } })
+        }
+        if let notes = item.notes, !notes.isEmpty {
+            rows.append(ActionMenuEntry(title: String(localized: "Copy Notes"), symbol: "note.text") { self.guarded(item) { self.copy(notes, label: String(localized: "Notes")) } })
+        }
+        if let address = item.uri ?? item.host, !address.isEmpty,
+           let url = URL(string: address.contains("://") ? address : "https://" + address) {
+            rows.append(ActionMenuEntry(title: String(localized: "Open Website"), symbol: "safari", separatorBefore: true) { NSWorkspace.shared.open(url) })
+            rows.append(ActionMenuEntry(title: String(localized: "Copy Website"), symbol: "link") { self.copyPlain(url.absoluteString) })
+        }
+        if item.isDeleted {
+            rows.append(ActionMenuEntry(title: String(localized: "Restore"), symbol: "arrow.uturn.backward", separatorBefore: true) { Task { await self.restore(item) } })
+            rows.append(ActionMenuEntry(title: String(localized: "Delete Forever…"), symbol: "trash.slash", destructive: true) { self.confirmDeleteForever(item) })
+        } else {
+            rows.append(ActionMenuEntry(title: String(localized: "Edit"), symbol: "pencil", separatorBefore: true) { self.guarded(item) { self.beginEditing(EditRequest(mode: .edit(item))) } })
+            rows.append(ActionMenuEntry(title: String(localized: "Clone"), symbol: "plus.square.on.square") { self.guarded(item) { self.beginEditing(EditRequest(mode: .clone(item))) } })
+            rows.append(ActionMenuEntry(title: item.favorite ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites"), symbol: item.favorite ? "star.slash" : "star") { Task { await self.toggleFavorite(item) } })
+            rows.append(ActionMenuEntry(title: item.isArchived ? String(localized: "Unarchive") : String(localized: "Archive"), symbol: "archivebox") { Task { await self.setArchived(item, !item.isArchived) } })
+            if item.organizationId != nil {
+                rows.append(ActionMenuEntry(title: String(localized: "Shared Folders…"), symbol: "rectangle.stack") { self.organizationSheet = .collections(item.id) })
+            } else if session(for: item.accountId)?.organizations.isEmpty == false {
+                rows.append(ActionMenuEntry(title: String(localized: "Move to Shared Vault…"), symbol: "building.2") { self.organizationSheet = .share([item.id]) })
+            }
+            rows.append(ActionMenuEntry(title: String(localized: "Move to Trash…"), symbol: "trash", destructive: true, separatorBefore: true) { self.confirmTrash(item) })
+        }
+        return rows
     }
 }

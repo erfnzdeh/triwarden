@@ -30,6 +30,62 @@ private final class ControlReturnMonitor: @unchecked Sendable {
     }
 }
 
+/// Sample the desktop behind the floating panel. Light mode uses a lighter material plus a white wash,
+/// so the card stays light when it floats over another app.
+private struct PaletteBackdrop: NSViewRepresentable {
+    var dark: Bool
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = DragVisualEffectView()
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.material = dark ? .hudWindow : .popover
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        view.material = dark ? .hudWindow : .popover
+    }
+}
+
+/// Empty parts of the palette (the blur, the padding) drag the panel. Controls stay clickable.
+private final class DragVisualEffectView: NSVisualEffectView {
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        let start = NSEvent.mouseLocation
+        let origin = window.frame.origin
+        window.trackEvents(matching: [.leftMouseDragged, .leftMouseUp], timeout: .infinity, mode: .eventTracking) { next, stop in
+            guard let next else { return }
+            if next.type == .leftMouseUp {
+                stop.pointee = true
+                return
+            }
+            let now = NSEvent.mouseLocation
+            window.setFrameOrigin(NSPoint(x: origin.x + now.x - start.x, y: origin.y + now.y - start.y))
+        }
+    }
+}
+
+/// Moves the command palette with the pointer. A few points of movement so a click still selects a row,
+/// and the search field is left out so selecting text there doesn't drag the panel.
+private struct PanelDrag: ViewModifier {
+    @State private var origin: NSPoint?
+
+    func body(content: Content) -> some View {
+        content.simultaneousGesture(
+            DragGesture(minimumDistance: 4, coordinateSpace: .global)
+                .onChanged { value in
+                    guard let panel = NSApp.windows.first(where: { $0 is QuickSearchPanel && $0.isVisible }) else { return }
+                    if origin == nil { origin = panel.frame.origin }
+                    guard let origin else { return }
+                    panel.setFrameOrigin(NSPoint(x: origin.x + value.translation.width,
+                                                 y: origin.y - value.translation.height))
+                }
+                .onEnded { _ in origin = nil }
+        )
+    }
+}
+
 /// One runnable action in the palette.
 struct PaletteCommand: Identifiable {
     let id: String
@@ -52,6 +108,7 @@ struct CommandPalette: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorScheme) private var scheme
     let close: () -> Void
+    var sizeChanged: (CGSize) -> Void = { _ in }
     /// Snapshots: start with this typed, and (optionally) the first item's actions open.
     var initialQuery = ""
     var initialActions = false
@@ -244,31 +301,37 @@ struct CommandPalette: View {
             searchBar
             .padding(.horizontal, 18)
             .frame(height: 54)
-            Divider().opacity(0.6)
+            paletteDivider
 
             if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 FrontTabMatchPrompt(horizontalPadding: 14)
             }
             results(self.sections)
-            Divider().opacity(0.6)
+                .modifier(PanelDrag())
+            paletteDivider
             footer
-                .padding(.horizontal, 16).frame(height: 36)
+                .padding(.horizontal, 18).padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .modifier(PanelDrag())
         }
         .frame(width: 704)
-        .background(.regularMaterial, in: .rect(cornerRadius: 22, style: .continuous))
-        .background((dark ? Color.black.opacity(0.15) : Color.white.opacity(0.55)), in: .rect(cornerRadius: 22, style: .continuous))
+        .background {
+            ZStack {
+                PaletteBackdrop(dark: dark)
+                if !dark { Color.white.opacity(0.62) }
+            }
+            .clipShape(.rect(cornerRadius: 22, style: .continuous))
+        }
+        .animation(Motion.animation(.spring(duration: 0.34, bounce: 0.12)), value: index)
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.primary.opacity(dark ? 0.14 : 0.08), lineWidth: 0.5))
-        .shadow(color: .black.opacity(dark ? 0.35 : 0.14), radius: 18, y: 8)
-        .scaleEffect(x: appeared ? 1 : 0.92, y: appeared ? 1 : 0.94, anchor: .top) // a short way to grow: it feels instant
+        .scaleEffect(x: appeared ? 1 : 0.92, y: appeared ? 1 : 0.94, anchor: .center)
         .opacity(appeared ? 1 : 0)
     }
 
     var body: some View {
         card
-        .padding(28) // room for the shadow inside the panel
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        // The transparent margin is part of the panel: a click there counts as outside.
-        .background(Color.black.opacity(0.001).onTapGesture { close() })
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { sizeChanged($0) }
+        .frame(maxWidth: .infinity, alignment: .top)
         .onChange(of: model.quickSearchNonce, initial: true) {
             query = initialQuery; scopeTokens = []; index = 0; focused = true
             promoteScopes()
@@ -355,6 +418,7 @@ struct CommandPalette: View {
             ScrollView {
                 resultRows(sections)
             }
+            .thinScroller()
             .scrollBounceBehavior(.basedOnSize)
             .frame(maxHeight: Self.resultsMaxHeight)
             .fixedSize(horizontal: false, vertical: true) // as tall as the rows, up to the limit
@@ -430,52 +494,77 @@ struct CommandPalette: View {
         }
     }
 
+    private var paletteDivider: some View {
+        Rectangle().fill(Color.primary.opacity(0.10))
+            .frame(height: 0.5).padding(.horizontal, 18)
+            .accessibilityHidden(true)
+    }
+
     /// What the keys do for the highlighted entry (the rows stay clean); after a copy, what was copied.
     @ViewBuilder private var footer: some View {
-        HStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             if let flash {
                 Label { Text(verbatim: flash) } icon: { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
                     .font(.system(size: 12, weight: .medium))
                     .transition(.opacity)
             } else {
                 selectionHints
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            Spacer()
         }
-        .animation(.easeOut(duration: 0.15), value: flash)
-        .animation(.easeOut(duration: 0.12), value: index)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(Motion.animation(.spring(duration: 0.34, bounce: 0.12)), value: flash)
+        .animation(Motion.animation(.spring(duration: 0.34, bounce: 0.12)), value: index)
+        .animation(Motion.animation(.spring(duration: 0.34, bounce: 0.12)), value: actionsFor?.id)
     }
 
     @ViewBuilder private var selectionHints: some View {
         let current = entries.indices.contains(index) ? entries[index] : nil
         switch current {
         case .item(let item)?:
-            if let context, item.kind == .login {
-                footerHint("↵", "Type into \(context.app)")
-                if item.username != nil { footerHint("⌃↵", "Username") }
-                if item.password != nil { footerHint("⌥↵", "Password") }
-                if item.totp != nil { footerHint("⌘↵", "Code") }
-                Text("Hold ⇧ to submit")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-            } else {
-                footerHint("↵", "Open")
-                if item.password != nil { footerHint("⌘↵", "Copy password") }
-                if item.totp != nil { footerHint("⌥↵", "Copy code") }
-                if item.host != nil { footerHint("⇧↵", "Open website") }
+            HStack(spacing: 16) {
+                if let context, item.kind == .login {
+                    footerHint("↵", "Type into \(context.app)")
+                } else {
+                    footerHint("↵", "Open")
+                }
+                Spacer(minLength: 12)
+                footerHint("→", "More")
             }
-            footerHint("→", "More")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 16) { itemShortcutHints(item) }.fixedSize()
+                VStack(alignment: .leading, spacing: 8) { itemShortcutHints(item) }
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
         case .generated?:
-            footerHint("↵", "Copy")
-            footerHint("⌘↵", "Save as login")
-            footerHint("⌘R", "New")
+            HStack(spacing: 16) {
+                footerHint("↵", "Copy")
+                footerHint("⌘↵", "Save as login")
+                footerHint("⌘R", "New")
+            }
         case .command?:
-            footerHint("↵", actionsFor != nil ? "Run" : "Open")
-            if actionsFor != nil { footerHint("←", "Back") }
+            HStack(spacing: 16) {
+                footerHint("↵", actionsFor != nil ? "Run" : "Open")
+                if actionsFor != nil { footerHint("←", "Back") }
+            }
         case .ssh(let choice)?:
             footerHint("↵", choice.title)
         case nil:
             EmptyView()
+        }
+    }
+
+    @ViewBuilder private func itemShortcutHints(_ item: VaultItem) -> some View {
+        if context != nil, item.kind == .login {
+            if item.username != nil { footerHint("⌃↵", "Username") }
+            if item.password != nil { footerHint("⌥↵", "Password") }
+            if item.totp != nil { footerHint("⌘↵", "Code") }
+            Text("Hold ⇧ to submit")
+                .font(.system(size: 12)).foregroundStyle(.primary.opacity(0.8))
+        } else {
+            if item.password != nil { footerHint("⌘↵", "Copy password") }
+            if item.totp != nil { footerHint("⌥↵", "Copy code") }
+            if item.host != nil { footerHint("⇧↵", "Open website") }
         }
     }
 
@@ -487,7 +576,8 @@ struct CommandPalette: View {
     private func footerHint(_ keys: String, _ label: LocalizedStringKey) -> some View {
         HStack(spacing: 6) {
             Keycap(keys: keys)
-            Text(label).font(.system(size: 12)).foregroundStyle(.secondary)
+            Text(label).font(.system(size: 12)).foregroundStyle(.primary.opacity(0.8))
+                .lineLimit(1).truncationMode(.middle)
         }
     }
 
@@ -863,7 +953,11 @@ private struct PaletteUnlock: View {
             }
             .padding(12)
             .onAppear { focused = true }
-            .onChange(of: model.errorMessage) { _, message in if message != nil { password = "" } }
+            .onChange(of: model.errorMessage) { _, message in
+                guard message != nil else { return }
+                password = ""
+                Task { @MainActor in focused = true }
+            }
         } else {
             HStack {
                 Label("Sign in to Triwarden to search your vault", systemImage: "person.crop.circle.badge.questionmark")

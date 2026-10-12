@@ -11,6 +11,7 @@ struct CodesPane: View {
     @Environment(AppModel.self) private var model
     @State private var copiedID: String?
     @State private var query = ""
+    @FocusState private var searchFocused: Bool
     /// Which tag is picked: every code, recently copied ones, or one vault.
     @State private var filter: CodesFilter = .all
 
@@ -22,7 +23,10 @@ struct CodesPane: View {
 
     /// Every live code, narrowed by the typed filter (the tags count from this).
     private var base: [VaultItem] {
-        model.vaultItems.filter { !$0.isDeleted && !$0.isArchived && $0.totp != nil && AppModel.searchMatches($0, query) }
+        let source = model.sidebarSearchScope.flatMap { scope in
+            scope.destination == .codes ? model.items.filter(scope.contains) : nil
+        } ?? model.vaultItems
+        return source.filter { !$0.isDeleted && !$0.isArchived && $0.totp != nil && AppModel.searchMatches($0, query) }
     }
 
     private static func vaultKey(_ item: VaultItem) -> String { item.organizationId ?? AppModel.VaultFilter.personalKey }
@@ -70,6 +74,13 @@ struct CodesPane: View {
                 .padding(.leading, VaultView.pageInset)
                 .padding(.bottom, 10)
             codes(list: list, pinned: pinned, rest: rest)
+        }
+        .onChange(of: model.wantsCodesSearchFocus, initial: true) { _, wants in
+            guard wants else { return }
+            model.wantsCodesSearchFocus = false
+            query = ""
+            filter = .all
+            Task { @MainActor in searchFocused = true }
         }
     }
 
@@ -166,6 +177,7 @@ struct CodesPane: View {
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
                 TextField("Filter", text: $query, prompt: Text("Filter codes"))
+                    .focused($searchFocused)
                     .textFieldStyle(.plain).font(.system(size: 13))
                     .onKeyPress(.escape) { guard !query.isEmpty else { return .ignored }; query = ""; return .handled }
                 if !query.isEmpty {
@@ -211,7 +223,7 @@ struct CodesPane: View {
                 } pin: {
                     Task { await model.toggleFavorite(item) }
                 }
-                .contextMenu { ItemContextMenu(item: item) }
+                .appContextMenu(model.itemContextActions(item))
             }
         }
     }

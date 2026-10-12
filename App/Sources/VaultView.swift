@@ -106,7 +106,7 @@ struct VaultView: View {
     private var sort: ItemSort { ItemSort(rawValue: sortRaw) ?? .title }
 
     private var filtered: [VaultItem] {
-        let matching = model.vaultItems
+        let matching = (model.sidebarSearchScope.map { scope in model.items.filter(scope.contains) } ?? model.vaultItems)
             .filter(section.includes)
             .filter(model.passesSearchFilters)
             .filter { AppModel.searchMatches($0, query) }
@@ -344,6 +344,7 @@ struct VaultView: View {
             let at = old.firstIndex(of: selected) ?? 0
             model.selectedID = new.isEmpty ? nil : new[min(at, new.count - 1)]
         }
+        .onChange(of: model.sidebarSearchRequest) { query = "" }
         .onChange(of: model.requestedSection) { _, requested in
             if let requested { section = requested; model.requestedSection = nil }
         }
@@ -429,6 +430,7 @@ struct VaultView: View {
 enum SidebarSelection: Hashable {
     case section(VaultSection)
     case folder(String)
+    case folders
     /// Your own items (not in any shared vault).
     case myVault
     case organization(String)
@@ -450,7 +452,9 @@ enum SidebarSelection: Hashable {
 
     func includes(_ item: VaultItem) -> Bool {
         switch self {
-        case .watchtower, .sends, .generator, .codes: false
+        case .folders: !item.isDeleted && !item.isArchived && item.folderName != nil
+        case .codes: !item.isDeleted && !item.isArchived && item.hasTOTP
+        case .watchtower, .sends, .generator: false
         case .account(let id): !item.isDeleted && !item.isArchived && item.accountId == id
         case .section(let s): s.includes(item)
         case .folder(let path): !item.isDeleted && !item.isArchived && (item.folderName == path || item.folderName?.hasPrefix(path + "/") == true)
@@ -513,15 +517,10 @@ private struct Sidebar: View {
 
     private func count(_ selection: SidebarSelection) -> Int { model.vaultItems.filter(selection.includes).count }
 
-    @ViewBuilder private var newFolderMenu: some View {
-        Button("New Folder…", systemImage: "folder.badge.plus") { model.promptNewFolder() }
-            .labelStyle(.titleAndIcon)
-            .tint(Color(nsColor: .labelColor))
-    }
-
     private func row(_ s: VaultSection) -> some View {
         SidebarLabel(s.title, symbol: s.symbol, tag: .section(s), count: count(.section(s)))
             .tag(SidebarSelection.section(s))
+            .sidebarContextMenu(model.sidebarActions(for: .section(s)), selection: .section(s))
     }
 
     /// A row picked. A vault with ⌘ held joins (or leaves) the vaults shown everywhere instead of opening; opening a
@@ -534,6 +533,9 @@ private struct Sidebar: View {
             }
             if !model.vaultShown(key) { withAnimation(.snappy(duration: 0.25)) { model.toggleVault(key) } }
         }
+        model.sidebarSearchScope = nil
+        model.watchtowerIssueFilter = nil
+        model.expiredSendsOnly = false
         section = new
     }
 
@@ -557,6 +559,7 @@ private struct Sidebar: View {
                 Section("Vaults") {
                     SidebarLabel("My vault", symbol: "person", tag: .myVault, count: count(.myVault))
                         .tag(SidebarSelection.myVault)
+                        .sidebarContextMenu(model.sidebarActions(for: .myVault), selection: .myVault)
                         .opacity(model.vaultShown(AppModel.VaultFilter.personalKey) ? 1 : 0.45)
                     ForEach(model.visibleOrganizations) { org in
                         SharedVaultRow(org: org, count: count)
@@ -568,19 +571,24 @@ private struct Sidebar: View {
             Section("Tools") {
                 SidebarLabel("Send", symbol: "paperplane", tag: .sends, count: model.sends.count)
                     .tag(SidebarSelection.sends)
+                    .sidebarContextMenu(model.sidebarActions(for: .sends), selection: .sends)
                 SidebarLabel("One-Time Codes", symbol: "clock.badge.checkmark", tag: .codes,
                              count: model.vaultItems.filter { !$0.isDeleted && !$0.isArchived && $0.totp != nil }.count)
                     .tag(SidebarSelection.codes)
+                    .sidebarContextMenu(model.sidebarActions(for: .codes), selection: .codes)
                 SidebarLabel("Generator", symbol: "dice", tag: .generator)
                     .tag(SidebarSelection.generator)
+                    .sidebarContextMenu(model.sidebarActions(for: .generator), selection: .generator)
                 SidebarLabel("Watchtower", symbol: "checkmark.shield", tag: .watchtower, count: model.watchtowerIssueCount)
                     .tag(SidebarSelection.watchtower)
+                    .sidebarContextMenu(model.sidebarActions(for: .watchtower), selection: .watchtower)
             }
             // Your own ways of sorting items, and items set aside: kept (Archive) or on their way out (Trash).
             Section("Manage") {
                 if model.folders.isEmpty {
                     SidebarLabel("My Folders", symbol: "folder")
-                        .contextMenu { newFolderMenu }
+                        .tag(SidebarSelection.folders)
+                        .sidebarContextMenu(model.sidebarActions(for: .folders), selection: .folders)
                 } else {
                     DisclosureGroup(isExpanded: $foldersExpanded) {
                         ForEach(FolderNode.tree(model.folders)) { node in
@@ -588,7 +596,8 @@ private struct Sidebar: View {
                         }
                     } label: {
                         SidebarLabel("My Folders", symbol: "folder")
-                            .contextMenu { newFolderMenu }
+                            .tag(SidebarSelection.folders)
+                            .sidebarContextMenu(model.sidebarActions(for: .folders), selection: .folders)
                     }
                 }
                 row(.archive)
@@ -604,7 +613,7 @@ private struct Sidebar: View {
         .listItemTint(.monochrome) // icons in the text's own colour, not the brand blue
         // Selection: a calm sky (deep in dark mode) that white text reads well on, not the bright accent.
         .tint(Color.sidebarSelection)
-        .background(SidebarCalmSelection()) // always the soft selection, never the focused (solid) one
+        .background(SidebarCalmSelection()) // preserve keyboard focus while keeping row emphasis quiet
         .safeAreaInset(edge: .bottom) { SidebarAccountCard().padding(10) }
     }
 }
@@ -833,15 +842,9 @@ struct AccountSwitcher: View {
                         }
                     }
                 }
-                .contextMenu {
-                    Group {
-                        if open { Button("Lock", systemImage: "lock") { model.lock(account.id) } }
-                        Button("Log Out…", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                            close(); model.confirmLogOut(account.id)
-                        }
-                    }
-                    .labelStyle(.titleAndIcon)
-                }
+                .appContextMenu((open ? [ActionMenuEntry(title: String(localized: "Lock"), symbol: "lock") { model.lock(account.id) }] : []) + [
+                    ActionMenuEntry(title: String(localized: "Log Out…"), symbol: "rectangle.portrait.and.arrow.right", destructive: true) { close(); model.confirmLogOut(account.id) }
+                ])
             }
             Divider().padding(.vertical, 4).padding(.horizontal, 8)
             action("Add Account…", "person.badge.plus") { model.beginAddAccount() }
@@ -936,6 +939,8 @@ private struct SyncStatusText: View {
     var body: some View {
         if model.isSyncing {
             Text("Syncing…")
+        } else if model.hasSyncError {
+            Text("Couldn't sync")
         } else if model.previewUnlocked {
             Text("Synced just now") // the demo vault (screenshots, UI tests): there's no server to be offline from
         } else if let date = model.lastSynced {
@@ -1000,16 +1005,7 @@ private struct SharedVaultRow: View {
     private var label: some View {
         SidebarLabel(verbatim: org.name, symbol: "building.2", tag: .organization(org.id), count: count(.organization(org.id)))
             .tag(SidebarSelection.organization(org.id))
-            .contextMenu {
-                Group {
-                    Button("Event Log…", systemImage: "list.bullet.rectangle") { model.eventLogFor = org.id }
-                    Button("Leave Shared Vault…", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {
-                        model.leaveOrganization(org.id)
-                    }
-                }
-                .labelStyle(.titleAndIcon)
-                .tint(Color(nsColor: .labelColor))
-            }
+            .sidebarContextMenu(model.sidebarActions(for: .organization(org.id), name: org.name, organization: org), selection: .organization(org.id))
     }
 
     var body: some View {
@@ -1018,7 +1014,7 @@ private struct SharedVaultRow: View {
             label
         } else {
             DisclosureGroup(isExpanded: $expanded) {
-                ForEach(tree) { SharedFolderRow(node: $0, count: count) }
+                ForEach(tree) { SharedFolderRow(node: $0, org: org, count: count) }
             } label: { label }
         }
     }
@@ -1027,7 +1023,9 @@ private struct SharedVaultRow: View {
 /// A shared folder (collection) in the sidebar, with the ones nested under it. A level that's only part of others'
 /// names ("Engineering" for "Engineering/Backend") is a heading, not something to select.
 private struct SharedFolderRow: View {
+    @Environment(AppModel.self) private var model
     let node: FolderNode
+    let org: Grouping
     let count: (SidebarSelection) -> Int
     @State private var expanded = true
 
@@ -1035,6 +1033,7 @@ private struct SharedFolderRow: View {
         if let id = node.folderIds.first {
             SidebarLabel(verbatim: node.name, symbol: "rectangle.stack", tag: .collection(id), count: count(.collection(id)))
                 .tag(SidebarSelection.collection(id))
+                .sidebarContextMenu(model.sidebarActions(for: .collection(id), name: node.name, organization: org, collection: org.children.first { $0.id == id }), selection: .collection(id))
         } else {
             SidebarLabel(verbatim: node.name, symbol: "rectangle.stack")
         }
@@ -1045,7 +1044,7 @@ private struct SharedFolderRow: View {
             label
         } else {
             DisclosureGroup(isExpanded: $expanded) {
-                ForEach(node.children) { SharedFolderRow(node: $0, count: count) }
+                ForEach(node.children) { SharedFolderRow(node: $0, org: org, count: count) }
             } label: { label }
         }
     }
@@ -1068,20 +1067,7 @@ private struct FolderRow: View {
                 Task { await model.move(itemIDs: ids, toFolderIn: node.folderIds) }
                 return true
             } isTargeted: { targeted = $0 }
-            .contextMenu {
-                Group {
-                    Button("New Subfolder…", systemImage: "folder.badge.plus") { model.promptNewFolder(in: node.path) }
-                    Button("Rename…", systemImage: "pencil") { model.renamingFolder = node.path }
-                    if !node.folderIds.isEmpty {
-                        Divider()
-                        Button("Delete Folder…", systemImage: "folder.badge.minus", role: .destructive) {
-                            model.confirmDeleteFolder(name: node.name, ids: node.folderIds)
-                        }
-                    }
-                }
-                .labelStyle(.titleAndIcon)
-                .tint(Color(nsColor: .labelColor)) // the sidebar's selection tint would colour the menu's icons blue
-            }
+            .sidebarContextMenu(model.sidebarActions(for: .folder(node.path)), selection: .folder(node.path))
         if node.children.isEmpty {
             label
         } else {
@@ -1094,8 +1080,7 @@ private struct FolderRow: View {
 
 // MARK: Search
 
-/// Centered toolbar search, ⌘F to focus.
-/// Looks like a search field; opens the command palette (⌘K / ⌘F).
+/// Toolbar command palette (⌘K); ⌘F focuses the separate vault-list filter.
 private struct PaletteTrigger: View {
     @Environment(AppModel.self) private var model
     /// Matches the + and the bell so the header controls share one height.
@@ -1109,7 +1094,7 @@ private struct PaletteTrigger: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").font(.system(size: 13, weight: .medium))
-            Text(compactLabel ? "Search" : "Search or run a command").font(.system(size: 13)).lineLimit(1)
+            Text(compactLabel ? "Commands" : "Find items or run commands").font(.system(size: 13)).lineLimit(1)
             Spacer()
             Text(verbatim: "⌘K")
                 .font(.system(size: 10, weight: .medium))
@@ -1139,40 +1124,23 @@ private struct NewItemButton: View {
     @State private var hovering = false
 
     var body: some View {
-        Menu {
-            Group {
-                Button("New Login", systemImage: "key") { model.beginEditing(EditRequest(mode: .create(.login))) }
-                    .keyboardShortcut("n", modifiers: .command)
-                Button("New Secure Note", systemImage: "note.text") { model.beginEditing(EditRequest(mode: .create(.secureNote))) }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
-                Button("New Card", systemImage: "creditcard") { model.beginEditing(EditRequest(mode: .create(.card))) }
-                Button("New Identity", systemImage: "person.crop.rectangle") { model.beginEditing(EditRequest(mode: .create(.identity))) }
-                Button("New SSH Key", systemImage: "terminal") { model.beginEditing(EditRequest(mode: .create(.sshKey))) }
-                Divider()
-                Button("New Send", systemImage: "paperplane") {
-                    model.requestedSection = .sends
-                    model.composingSend = true
-                }
-                Button("New Folder…", systemImage: "folder.badge.plus") { model.promptNewFolder() }
-                    .keyboardShortcut("n", modifiers: [.command, .option])
-                Divider()
-                Button("Import…", systemImage: "square.and.arrow.down") { model.beginImport() }
-                    .keyboardShortcut("i", modifiers: [.command, .shift])
-                    .disabled(model.sessions.isEmpty)
-            }
-            .labelStyle(.titleAndIcon)
-        } label: {
+        ActionMenu(entries: [
+            ActionMenuEntry(title: String(localized: "New Login"), symbol: "key", shortcut: "⌘N") { model.beginEditing(EditRequest(mode: .create(.login))) },
+            ActionMenuEntry(title: String(localized: "New Secure Note"), symbol: "note.text", shortcut: "⇧⌘N") { model.beginEditing(EditRequest(mode: .create(.secureNote))) },
+            ActionMenuEntry(title: String(localized: "New Card"), symbol: "creditcard") { model.beginEditing(EditRequest(mode: .create(.card))) },
+            ActionMenuEntry(title: String(localized: "New Identity"), symbol: "person.crop.rectangle") { model.beginEditing(EditRequest(mode: .create(.identity))) },
+            ActionMenuEntry(title: String(localized: "New SSH Key"), symbol: "terminal") { model.beginEditing(EditRequest(mode: .create(.sshKey))) },
+            ActionMenuEntry(title: String(localized: "New Send"), symbol: "paperplane") { model.requestedSection = .sends; model.composingSend = true },
+            ActionMenuEntry(title: String(localized: "New Folder…"), symbol: "folder.badge.plus", shortcut: "⌥⌘N") { model.promptNewFolder() },
+            ActionMenuEntry(title: String(localized: "Import…"), symbol: "square.and.arrow.down", shortcut: "⇧⌘I", enabled: !model.sessions.isEmpty) { model.beginImport() }
+        ]) {
             Image(systemName: "plus").font(.system(size: 14, weight: .medium))
                 .frame(width: Self.size, height: Self.size)
                 .modifier(HeaderChrome(shape: .circle, hovering: hovering))
                 .contentShape(.circle)
                 .animation(.easeOut(duration: 0.12), value: hovering)
         }
-        .menuStyle(.button)
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
         .fixedSize()
-        .tint(Color(nsColor: .labelColor)) // in the sidebar, whose selection tint would colour the menu's icons blue
         .onHover { hovering = $0 }
         .help(Text("New Item (⌘N)"))
         .accessibilityLabel(Text("New Item"))
@@ -1181,7 +1149,7 @@ private struct NewItemButton: View {
 
 /// Shows `content` in an AppKit popover attached to the bottom edge of this view. SwiftUI's toolbar popover
 /// does not appear when asked to open downward.
-private struct BelowPopover<Content: View>: NSViewRepresentable {
+struct BelowPopover<Content: View>: NSViewRepresentable {
     @Binding var isPresented: Bool
     @ViewBuilder var content: () -> Content
 
@@ -1219,7 +1187,7 @@ private struct BelowPopover<Content: View>: NSViewRepresentable {
             host.sizingOptions = .preferredContentSize
             let popover = NSPopover()
             popover.behavior = .transient
-            popover.animates = true
+            popover.animates = ActionMenuPresentation.animates
             popover.contentViewController = host
             popover.delegate = self
             self.host = host
@@ -1605,7 +1573,7 @@ private enum Inbox {
                 symbol: "arrow.triangle.2.circlepath",
                 tint: Color(red: 0.95, green: 0.72, blue: 0.38),
                 title: String(localized: "Couldn't sync"),
-                subtitle: String(localized: "The vault on this Mac is unchanged."),
+                subtitle: model.sessions.filter { $0.lastSyncError != nil }.map { $0.account.email + ": " + ($0.lastSyncError ?? "") }.joined(separator: "\n"),
                 primaryTitle: "Retry",
                 primary: { model.scheduleSync() }
             ))
@@ -1786,6 +1754,16 @@ enum ItemSort: String, CaseIterable, Identifiable {
         }
     }
 
+    var menuTitle: String {
+        switch self { case .title: String(localized: "Title"); case .edited: String(localized: "Date Edited"); case .created: String(localized: "Date Created") }
+    }
+    func menuOrderTitle(ascending: Bool) -> String {
+        switch self {
+        case .title: ascending ? String(localized: "A to Z") : String(localized: "Z to A")
+        case .edited, .created: ascending ? String(localized: "Oldest First") : String(localized: "Newest First")
+        }
+    }
+
     /// The index letter for a title: A–Z, with Chinese and Japanese romanised (銀行 → Y) and everything else "#".
     static func letter(_ name: String) -> String {
         let latin = name.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false) ?? name
@@ -1919,26 +1897,19 @@ private struct ItemColumn: View {
                     if selection == nil || !items.contains(where: { $0.id == selection }) { selection = items.first?.id }
                 }
                 SearchFilterMenu()
-                Menu {
-                    Picker("Sort By", selection: $sort) {
-                        ForEach(ItemSort.allCases) { Label($0.title, systemImage: $0.symbol).tag($0.rawValue) }
-                    }
-                    .pickerStyle(.inline)
-                    Picker("Order", selection: $ascending) {
-                        Text(order.orderTitle(ascending: true)).tag(true)
-                        Text(order.orderTitle(ascending: false)).tag(false)
-                    }
-                    .pickerStyle(.inline)
-                } label: {
+                ActionMenu(entries: [.heading(String(localized: "Sort By"))] + ItemSort.allCases.map { choice in
+                    ActionMenuEntry(title: choice.menuTitle, symbol: choice.symbol, checked: sort == choice.rawValue) { sort = choice.rawValue }
+                } + [
+                    .heading(String(localized: "Order")),
+                    ActionMenuEntry(title: order.menuOrderTitle(ascending: true), symbol: "arrow.up", checked: ascending) { ascending = true },
+                    ActionMenuEntry(title: order.menuOrderTitle(ascending: false), symbol: "arrow.down", checked: !ascending) { ascending = false }
+                ]) {
                     Image(systemName: "arrow.up.arrow.down")
                         .font(.system(size: 13, weight: .semibold))
                         .frame(width: 32, height: 32)
                         .modifier(HeaderChrome(shape: .circle))
                         .contentShape(.circle)
                 }
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .menuIndicator(.hidden)
                 .fixedSize()
                 .help(Text("Sort"))
                 .accessibilityLabel(Text("Sort"))
@@ -1978,7 +1949,7 @@ private struct ItemColumn: View {
                                 .accessibilityAddTraits(item.id == selection ? [.isButton, .isSelected] : .isButton)
                                 .accessibilityAction { selection = item.id }
                                 .draggable(item.id) { ItemRow(item: item, isSelected: true).frame(width: 260) }
-                                .contextMenu { ItemContextMenu(item: item) }
+                                .appContextMenu(model.itemContextActions(item))
                                 // Trashed, archived or deleted: the row slips out; restored ones fade back in.
                                 .transition(.asymmetric(insertion: .opacity,
                                                         removal: .opacity.combined(with: .scale(scale: 0.96)).combined(with: .move(edge: .leading))))
@@ -2224,9 +2195,7 @@ struct ItemDetail: View {
                             .buttonStyle(.plain)
                             .disabled(url == nil)
                             .help(Text("Open in your browser"))
-                            .contextMenu {
-                                Button("Copy", systemImage: "doc.on.doc") { model.copyPlain(address) }
-                            }
+                            .appContextMenu([ActionMenuEntry(title: String(localized: "Copy"), symbol: "doc.on.doc") { model.copyPlain(address) }])
                         }
                     }
                     // Which vault it's in: the same names as the sidebar's Vaults (My vault, or a shared vault › its folders).
@@ -2447,6 +2416,7 @@ struct ItemDetail: View {
                 toolbarButton("trash", help: "Move to Trash… (⌘⌫)", spoken: "Move to Trash", effect: .bounce) { model.confirmTrash(item) }
             }
         }
+        .accessibilityElement(children: .contain)
         .padding(.horizontal, 3)
         .frame(height: 32)
         .modifier(HeaderChrome(shape: .capsule))
@@ -2455,9 +2425,8 @@ struct ItemDetail: View {
     /// `spoken`: the VoiceOver label when the tooltip carries a shortcut hint, e.g. "Edit" for "Edit (⌘E)".
     private func toolbarButton(_ symbol: String, help: LocalizedStringKey, spoken: LocalizedStringKey? = nil,
                                effect: ToolbarSymbolButton.Effect = .none, action: @escaping () -> Void) -> some View {
-        ToolbarSymbolButton(symbol: symbol, effect: effect, action: action)
+        ToolbarSymbolButton(symbol: symbol, label: spoken ?? help, effect: effect, action: action)
             .help(Text(help))
-            .accessibilityLabel(Text(spoken ?? help))
     }
 }
 
@@ -2485,10 +2454,10 @@ extension HeroCard {
                         LevelBar(level: strength.0, color: strength.0 <= 1 ? .red : strength.0 == 2 ? .orange : .green)
                     }
                     .copyTick(armed: $passwordArmed, copied: $passwordCopied)
-                    .contextMenu {
-                        Button("Copy Password", systemImage: "doc.on.doc") { model.copyPassword(item) }
-                        Button("Show in Large Type", systemImage: "textformat.size") { model.showLargeType(item) }
-                    }
+                    .appContextMenu([
+                        ActionMenuEntry(title: String(localized: "Copy Password"), symbol: "doc.on.doc") { model.copyPassword(item) },
+                        ActionMenuEntry(title: String(localized: "Show in Large Type"), symbol: "textformat.size") { model.showLargeType(item) }
+                    ])
                 }
                 if let totp = item.totp {
                     // The code and ring read the app's shared clock; the tile itself never ticks.
@@ -2917,6 +2886,7 @@ struct AccountUnlockPane: View {
             guard message != nil else { return }
             refusals += 1
             password = ""
+            Task { @MainActor in focused = true }
         }
         .onChange(of: password) { _, typed in if !typed.isEmpty, model.errorMessage != nil { model.errorMessage = nil } }
     }
@@ -3065,7 +3035,7 @@ struct HeaderChrome: ViewModifier {
                 } else {
                     shape.fill(fill)
                         .background(.ultraThinMaterial, in: shape)
-                        .shadow(color: .black.opacity(hovering ? 0.10 : 0.07), radius: 6, y: 2)
+                        .shadow(color: .black.opacity(hovering ? 0.06 : 0.03), radius: 3, y: 1)
                 }
             }
             .overlay {
@@ -3155,6 +3125,7 @@ struct NewFolderSheet: View {
     @State private var saving = false
     @FocusState private var focused: Bool
 
+    private var destinationSessions: [AccountSession] { model.sessions.filter { model.folderContextAccountIDs?.contains($0.id) ?? true } }
     private var trimmed: String { name.trimmingCharacters(in: .whitespaces) }
     /// The whole path to create: the parent's, then what was typed.
     private var fullName: String { parent.map { $0 + "/" + trimmed } ?? trimmed }
@@ -3168,9 +3139,9 @@ struct NewFolderSheet: View {
                     FormHeader(symbol: "folder.badge.plus", title: "New Folder", subtitle: "Group items; folders can nest.")
                 }
                 FormCard {
-                    if model.sessions.count > 1 && parent == nil {
+                    if destinationSessions.count > 1 {
                         FormField(label: "Account") {
-                            SoftMenu(options: model.sessions.map { (String?.some($0.id), $0.account.email) }, selection: $accountId,
+                            SoftMenu(options: [(nil, String(localized: "Choose an account…"))] + destinationSessions.map { (String?.some($0.id), $0.account.email) }, selection: $accountId,
                                      accessibilityLabel: "Account")
                         }
                     }
@@ -3183,21 +3154,21 @@ struct NewFolderSheet: View {
                 }
             }
             .padding(20)
-            FormFooter(action: "Create", busy: saving, disabled: trimmed.isEmpty, cancel: { dismiss() }, submit: create)
+            FormFooter(action: "Create", busy: saving, disabled: trimmed.isEmpty || accountId == nil, cancel: { dismiss() }, submit: create)
         }
         .frame(width: 440)
         .background(Color.windowBase)
         .onAppear {
-            // Inside a folder: the account that folder belongs to.
-            accountId = parent.flatMap { path in
+            if let ids = model.folderContextAccountIDs { accountId = ids.count == 1 ? ids.first : nil }
+            else { accountId = parent.flatMap { path in
                 model.sessions.first { $0.folders.contains { $0.name == path || $0.name.hasPrefix(path + "/") } }?.id
-            } ?? model.defaultAccountId
+            } ?? model.defaultAccountId }
             focused = true
         }
     }
 
     private func create() {
-        guard !trimmed.isEmpty, !saving else { return }
+        guard !trimmed.isEmpty, accountId != nil, !saving else { return }
         saving = true
         Task {
             if await model.createFolder(name: fullName, accountId: accountId) != nil { dismiss() }
@@ -3616,6 +3587,7 @@ struct ToolbarSymbolButton: View {
     enum Effect { case none, bounce, bounceDown, wiggle, wiggleBack }
 
     let symbol: String
+    let label: LocalizedStringKey
     var effect: Effect = .none
     let action: () -> Void
     @State private var taps = 0
@@ -3630,6 +3602,7 @@ struct ToolbarSymbolButton: View {
                 .frame(width: 30, height: 26).contentShape(.rect)
         }
         .buttonStyle(HeaderIconStyle())
+        .accessibilityLabel(Text(label))
     }
 
     @ViewBuilder private func animated(_ image: some View) -> some View {
@@ -3695,27 +3668,69 @@ private struct PurgeChip: View {
     }
 }
 
-/// Keeps the sidebar's selection in its soft style. A sidebar that has keyboard focus draws its selection
-/// "emphasized" (a solid accent fill, graphite here), and it took focus with every click — so the style flipped
-/// back and forth as focus moved between the sidebar and the list. The sidebar's outline view now never takes
-/// focus: clicks and drops still select, and the keyboard stays with the list and the search.
+/// AppKit recomputes row emphasis on focus, reuse and appearance changes. Keep observing it
+/// for the lifetime of each visible sidebar row instead of applying a one-time override.
 struct SidebarCalmSelection: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView { Finder() }
-    func updateNSView(_ view: NSView, context: Context) { (view as? Finder)?.apply() }
+    func makeNSView(context: Context) -> Finder { Finder() }
+    func updateNSView(_ view: Finder, context: Context) { view.apply() }
+    static func dismantleNSView(_ view: Finder, coordinator: ()) { view.stop() }
 
     final class Finder: NSView {
+        private var notifications: [NSObjectProtocol] = []
+        private var rows: [ObjectIdentifier: NSKeyValueObservation] = [:]
+
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
+            stop()
+            guard window != nil else { return }
+            let names: [Notification.Name] = [
+                NSOutlineView.selectionDidChangeNotification,
+                NSOutlineView.itemDidExpandNotification,
+                NSOutlineView.itemDidCollapseNotification,
+                NSView.boundsDidChangeNotification,
+                NSWindow.didBecomeKeyNotification,
+                NSWindow.didResignKeyNotification,
+            ]
+            notifications = names.map { name in
+                NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    self?.apply()
+                }
+            }
             apply()
-            DispatchQueue.main.async { [weak self] in self?.apply() } // the outline view may arrive a moment later
+            DispatchQueue.main.async { [weak self] in self?.apply() }
+        }
+
+        override func layout() { super.layout(); apply() }
+        override func viewDidChangeEffectiveAppearance() {
+            super.viewDidChangeEffectiveAppearance()
+            apply()
         }
 
         func apply() {
             guard let root = window?.contentView else { return }
-            for outline in Self.outlines(in: root) where !outline.refusesFirstResponder {
-                outline.refusesFirstResponder = true
-                if window?.firstResponder === outline { window?.makeFirstResponder(nil) }
+            var visible: Set<ObjectIdentifier> = []
+            for outline in Self.outlines(in: root) {
+                outline.refusesFirstResponder = false
+                for index in 0..<outline.numberOfRows {
+                    guard let row = outline.rowView(atRow: index, makeIfNecessary: false) else { continue }
+                    let id = ObjectIdentifier(row)
+                    visible.insert(id)
+                    if rows[id] == nil {
+                        rows[id] = row.observe(\.isEmphasized, options: [.new]) { row, _ in
+                            // Setting false emits a second observation; the guard ends that recursion.
+                            if row.isEmphasized { row.isEmphasized = false }
+                        }
+                    }
+                    if row.isEmphasized { row.isEmphasized = false }
+                }
             }
+            rows = rows.filter { visible.contains($0.key) }
+        }
+
+        func stop() {
+            notifications.forEach(NotificationCenter.default.removeObserver)
+            notifications.removeAll()
+            rows.removeAll()
         }
 
         private static func outlines(in view: NSView) -> [NSOutlineView] {

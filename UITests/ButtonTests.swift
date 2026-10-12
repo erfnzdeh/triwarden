@@ -83,6 +83,14 @@ final class ButtonTests: XCTestCase {
 
     // MARK: Item detail
 
+    func testItemActionAccessibilityLabels() {
+        select("GitHub")
+        for label in ["Reveal", "Archive", "Favorite", "Edit", "Move to Trash"] {
+            XCTAssertTrue(window.toolbars.buttons[label].firstMatch.waitForExistence(timeout: 3),
+                          "Missing independently named button: \(label)")
+        }
+    }
+
     func testItemToolbar() {
         select("GitHub")
         XCTAssertTrue(button("Edit").waitForExistence(timeout: 3), "item toolbar missing")

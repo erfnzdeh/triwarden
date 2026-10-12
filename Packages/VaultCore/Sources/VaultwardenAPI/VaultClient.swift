@@ -298,6 +298,18 @@ public actor VaultClient {
         return created.id
     }
 
+    /// Creates a collection-owned item directly, without first saving a personal copy.
+    public func createOrganizationCipher(_ body: Data, collectionIds: [String]) async throws(APIError) -> String {
+        struct Created: Decodable { let id: String }
+        do {
+            let cipher = try JSONSerialization.jsonObject(with: body)
+            let wrapped = try JSONSerialization.data(withJSONObject: ["cipher": cipher, "collectionIds": collectionIds])
+            let created: Created = try await send(authorized(post(environment.apiURL, "ciphers/create", jsonBody: wrapped)))
+            return created.id
+        } catch let error as APIError { throw error }
+        catch { throw .http(status: -1, message: "Malformed organization cipher") }
+    }
+
     /// Imports many personal items at once (body from `VaultImport.requestBody`): ciphers, folders,
     /// and which folder each cipher goes in. All fields are already encrypted.
     public func importCiphers(_ body: Data) async throws(APIError) {

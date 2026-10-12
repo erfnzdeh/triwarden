@@ -95,6 +95,13 @@ struct UnlockView: View {
             guard message != nil else { return }
             errorAt = .now
             password = ""
+            // Next turn: clearing the field in the same frame steals focus again.
+            Task { @MainActor in focused = true }
+        }
+        .onChange(of: model.isBusy) { _, busy in
+            // Key derivation disables the field and drops first responder. Return it once that ends in failure.
+            guard !busy, model.errorMessage != nil else { return }
+            Task { @MainActor in focused = true }
         }
         .onChange(of: password.count) { old, new in
             // The pins repeat every 12 notches, so a paste (or a clear) only needs the shortest turn to the same place;
@@ -197,7 +204,6 @@ struct UnlockCapsuleField: View {
                           prompt: pinMode ? Text("PIN") : Text("Master password"),
                           isFocused: focused, onSubmit: submit)
                 .font(.system(size: 13))
-                .disabled(model.isBusy)
             Button(action: submit) {
                 ZStack {
                     if model.isBusy {
