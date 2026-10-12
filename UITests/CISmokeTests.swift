@@ -12,7 +12,7 @@ final class CISmokeTests: XCTestCase {
         // macOS can launch the process with its SwiftUI window ordered behind the test runner.
         // Bring the actual vault window forward through the app's standard Window menu.
         app.menuBars.menuBarItems["Window"].click()
-        app.menuItems["Triwarden"].firstMatch.click()
+        app.menuBars.menuBarItems["Window"].menus.menuItems["Triwarden"].firstMatch.click()
         return app
     }
 
