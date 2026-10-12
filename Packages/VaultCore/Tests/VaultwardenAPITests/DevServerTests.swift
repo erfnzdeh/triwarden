@@ -49,8 +49,9 @@ struct DevServerTests {
 
     @Test(arguments: DevServer.ports)
     func passwordHintRequestSucceeds(port: Int) async throws {
-        // Dev servers have mail (Mailpit), so the hint is emailed rather than returned.
-        _ = try await DevServer.client(port: port).requestPasswordHint(email: "usagi@chiikawarden.test")
+        // Local dev servers email through Mailpit; disposable CI servers return a synthetic hint.
+        let hint = try await DevServer.client(port: port).requestPasswordHint(email: "usagi@chiikawarden.test")
+        if let expected = DevServer.env["TRIWARDEN_DEV_HINT"] { #expect(hint == expected) }
     }
 
     @Test(arguments: DevServer.ports)

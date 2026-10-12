@@ -55,6 +55,7 @@ for _ in {1..60}; do
   sleep 1
 done
 [[ $ready == 1 ]] || { echo 'Disposable server did not become ready' >&2; exit 1; }
+export TRIWARDEN_DEV_HINT="synthetic CI password hint"
 "$python" DevServer/seed.py "https://localhost:$port" --ca "$state/ca.pem"
 (
   cd Packages/VaultCore
