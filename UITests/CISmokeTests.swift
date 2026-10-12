@@ -10,7 +10,9 @@ final class CISmokeTests: XCTestCase {
         defer { app.terminate() }
         XCTAssertTrue(app.staticTexts["GitHub"].firstMatch.waitForExistence(timeout: 15))
         app.typeKey("l", modifierFlags: [.command, .shift])
-        XCTAssertTrue(app.staticTexts["Vault locked"].firstMatch.waitForExistence(timeout: 10))
+        // Demo accounts are in memory only; locking returns to login rather than a saved-account unlock screen.
+        XCTAssertTrue(app.staticTexts["Welcome back"].firstMatch.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts["GitHub"].firstMatch.exists)
     }
 
     func testDemoItemEditorOpensAndCancels() {
