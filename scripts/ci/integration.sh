@@ -32,7 +32,7 @@ openssl x509 -req -in "$state/server.csr" -CA "$state/ca.pem" -CAkey "$state/ca-
   -CAcreateserial -days 1 -sha256 -extfile "$state/server.ext" -out "$state/server.pem" >/dev/null 2>&1
 DATA_FOLDER="$state/data" ROCKET_ADDRESS=127.0.0.1 ROCKET_PORT=18880 \
   DOMAIN="https://localhost:$port" WEB_VAULT_ENABLED=false SIGNUPS_ALLOWED=true \
-  SIGNUPS_VERIFY=false LOGIN_RATELIMIT_MAX_BURST=1000 LOGIN_RATELIMIT_SECONDS=1 \
+  SIGNUPS_VERIFY=false SHOW_PASSWORD_HINT=true LOGIN_RATELIMIT_MAX_BURST=1000 LOGIN_RATELIMIT_SECONDS=1 \
   "$server" >build/ci-integration/server.log 2>&1 &
 server_pid=$!
 cat > "$state/Caddyfile" <<CADDY
