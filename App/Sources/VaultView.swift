@@ -2886,6 +2886,7 @@ struct AccountUnlockPane: View {
             guard message != nil else { return }
             refusals += 1
             password = ""
+            Task { @MainActor in focused = true }
         }
         .onChange(of: password) { _, typed in if !typed.isEmpty, model.errorMessage != nil { model.errorMessage = nil } }
     }
@@ -3667,29 +3668,69 @@ private struct PurgeChip: View {
     }
 }
 
-/// Keeps the sidebar's selection in its soft style. A sidebar that has keyboard focus draws its selection
-/// "emphasized" (a solid accent fill, graphite here), and it took focus with every click — so the style flipped
-/// back and forth as focus moved between the sidebar and the list. The sidebar's outline view now never takes
-/// focus: clicks and drops still select, and the keyboard stays with the list and the search.
+/// AppKit recomputes row emphasis on focus, reuse and appearance changes. Keep observing it
+/// for the lifetime of each visible sidebar row instead of applying a one-time override.
 struct SidebarCalmSelection: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView { Finder() }
-    func updateNSView(_ view: NSView, context: Context) { (view as? Finder)?.apply() }
+    func makeNSView(context: Context) -> Finder { Finder() }
+    func updateNSView(_ view: Finder, context: Context) { view.apply() }
+    static func dismantleNSView(_ view: Finder, coordinator: ()) { view.stop() }
 
     final class Finder: NSView {
+        private var notifications: [NSObjectProtocol] = []
+        private var rows: [ObjectIdentifier: NSKeyValueObservation] = [:]
+
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
+            stop()
+            guard window != nil else { return }
+            let names: [Notification.Name] = [
+                NSOutlineView.selectionDidChangeNotification,
+                NSOutlineView.itemDidExpandNotification,
+                NSOutlineView.itemDidCollapseNotification,
+                NSView.boundsDidChangeNotification,
+                NSWindow.didBecomeKeyNotification,
+                NSWindow.didResignKeyNotification,
+            ]
+            notifications = names.map { name in
+                NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    self?.apply()
+                }
+            }
             apply()
-            DispatchQueue.main.async { [weak self] in self?.apply() } // the outline view may arrive a moment later
+            DispatchQueue.main.async { [weak self] in self?.apply() }
+        }
+
+        override func layout() { super.layout(); apply() }
+        override func viewDidChangeEffectiveAppearance() {
+            super.viewDidChangeEffectiveAppearance()
+            apply()
         }
 
         func apply() {
             guard let root = window?.contentView else { return }
+            var visible: Set<ObjectIdentifier> = []
             for outline in Self.outlines(in: root) {
                 outline.refusesFirstResponder = false
-                for row in 0..<outline.numberOfRows {
-                    outline.rowView(atRow: row, makeIfNecessary: false)?.isEmphasized = false
+                for index in 0..<outline.numberOfRows {
+                    guard let row = outline.rowView(atRow: index, makeIfNecessary: false) else { continue }
+                    let id = ObjectIdentifier(row)
+                    visible.insert(id)
+                    if rows[id] == nil {
+                        rows[id] = row.observe(\.isEmphasized, options: [.new]) { row, _ in
+                            // Setting false emits a second observation; the guard ends that recursion.
+                            if row.isEmphasized { row.isEmphasized = false }
+                        }
+                    }
+                    if row.isEmphasized { row.isEmphasized = false }
                 }
             }
+            rows = rows.filter { visible.contains($0.key) }
+        }
+
+        func stop() {
+            notifications.forEach(NotificationCenter.default.removeObserver)
+            notifications.removeAll()
+            rows.removeAll()
         }
 
         private static func outlines(in view: NSView) -> [NSOutlineView] {

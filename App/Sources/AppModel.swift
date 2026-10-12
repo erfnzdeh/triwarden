@@ -681,7 +681,7 @@ final class AppModel {
 
     /// Brings the app forward and opens Settings (from the menu bar, the palette, the account menu).
     func showSettings(_ pane: SettingsView.Pane? = nil) {
-        if let pane { UserDefaults.standard.set(pane.rawValue, forKey: SettingsView.paneKey) }
+        UserDefaults.standard.set((pane ?? .general).rawValue, forKey: SettingsView.paneKey)
         if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
         NSApp.activate()
         openSettingsAction()

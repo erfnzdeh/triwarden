@@ -30,17 +30,60 @@ private final class ControlReturnMonitor: @unchecked Sendable {
     }
 }
 
-/// Sample the desktop behind the floating panel instead of stacking opaque SwiftUI tints.
+/// Sample the desktop behind the floating panel. Light mode uses a lighter material plus a white wash,
+/// so the card stays light when it floats over another app.
 private struct PaletteBackdrop: NSViewRepresentable {
+    var dark: Bool
+
     func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .hudWindow
+        let view = DragVisualEffectView()
         view.blendingMode = .behindWindow
         view.state = .active
+        view.material = dark ? .hudWindow : .popover
         return view
     }
 
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        view.material = dark ? .hudWindow : .popover
+    }
+}
+
+/// Empty parts of the palette (the blur, the padding) drag the panel. Controls stay clickable.
+private final class DragVisualEffectView: NSVisualEffectView {
+    override func mouseDown(with event: NSEvent) {
+        guard let window else { return }
+        let start = NSEvent.mouseLocation
+        let origin = window.frame.origin
+        window.trackEvents(matching: [.leftMouseDragged, .leftMouseUp], timeout: .infinity, mode: .eventTracking) { next, stop in
+            guard let next else { return }
+            if next.type == .leftMouseUp {
+                stop.pointee = true
+                return
+            }
+            let now = NSEvent.mouseLocation
+            window.setFrameOrigin(NSPoint(x: origin.x + now.x - start.x, y: origin.y + now.y - start.y))
+        }
+    }
+}
+
+/// Moves the command palette with the pointer. A few points of movement so a click still selects a row,
+/// and the search field is left out so selecting text there doesn't drag the panel.
+private struct PanelDrag: ViewModifier {
+    @State private var origin: NSPoint?
+
+    func body(content: Content) -> some View {
+        content.simultaneousGesture(
+            DragGesture(minimumDistance: 4, coordinateSpace: .global)
+                .onChanged { value in
+                    guard let panel = NSApp.windows.first(where: { $0 is QuickSearchPanel && $0.isVisible }) else { return }
+                    if origin == nil { origin = panel.frame.origin }
+                    guard let origin else { return }
+                    panel.setFrameOrigin(NSPoint(x: origin.x + value.translation.width,
+                                                 y: origin.y - value.translation.height))
+                }
+                .onEnded { _ in origin = nil }
+        )
+    }
 }
 
 /// One runnable action in the palette.
@@ -264,15 +307,24 @@ struct CommandPalette: View {
                 FrontTabMatchPrompt(horizontalPadding: 14)
             }
             results(self.sections)
+                .modifier(PanelDrag())
             paletteDivider
             footer
                 .padding(.horizontal, 18).padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .modifier(PanelDrag())
         }
         .frame(width: 704)
-        .background { PaletteBackdrop().clipShape(.rect(cornerRadius: 22, style: .continuous)) }
+        .background {
+            ZStack {
+                PaletteBackdrop(dark: dark)
+                if !dark { Color.white.opacity(0.62) }
+            }
+            .clipShape(.rect(cornerRadius: 22, style: .continuous))
+        }
+        .animation(Motion.animation(.spring(duration: 0.34, bounce: 0.12)), value: index)
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.primary.opacity(dark ? 0.14 : 0.08), lineWidth: 0.5))
-        .scaleEffect(x: appeared ? 1 : 0.92, y: appeared ? 1 : 0.94, anchor: .top) // a short way to grow: it feels instant
+        .scaleEffect(x: appeared ? 1 : 0.92, y: appeared ? 1 : 0.94, anchor: .center)
         .opacity(appeared ? 1 : 0)
     }
 
@@ -457,11 +509,13 @@ struct CommandPalette: View {
                     .transition(.opacity)
             } else {
                 selectionHints
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(Motion.animation(.easeOut(duration: 0.15)), value: flash)
-        .animation(Motion.animation(.easeOut(duration: 0.12)), value: index)
+        .animation(Motion.animation(.spring(duration: 0.34, bounce: 0.12)), value: flash)
+        .animation(Motion.animation(.spring(duration: 0.34, bounce: 0.12)), value: index)
+        .animation(Motion.animation(.spring(duration: 0.34, bounce: 0.12)), value: actionsFor?.id)
     }
 
     @ViewBuilder private var selectionHints: some View {
@@ -481,6 +535,7 @@ struct CommandPalette: View {
                 HStack(spacing: 16) { itemShortcutHints(item) }.fixedSize()
                 VStack(alignment: .leading, spacing: 8) { itemShortcutHints(item) }
             }
+            .transition(.opacity.combined(with: .move(edge: .top)))
         case .generated?:
             HStack(spacing: 16) {
                 footerHint("↵", "Copy")
@@ -898,7 +953,11 @@ private struct PaletteUnlock: View {
             }
             .padding(12)
             .onAppear { focused = true }
-            .onChange(of: model.errorMessage) { _, message in if message != nil { password = "" } }
+            .onChange(of: model.errorMessage) { _, message in
+                guard message != nil else { return }
+                password = ""
+                Task { @MainActor in focused = true }
+            }
         } else {
             HStack {
                 Label("Sign in to Triwarden to search your vault", systemImage: "person.crop.circle.badge.questionmark")

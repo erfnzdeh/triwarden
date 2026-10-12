@@ -46,43 +46,28 @@ struct PasswordField: View {
     /// Caps Lock is on: worth a word while typing a password you can't see.
     @State private var capsLock = NSEvent.modifierFlags.contains(.capsLock)
     @State private var capsMonitor: Any?
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var revealed: Bool { visible || optionPeek }
     /// This field, or the caller's focus binding (the unlock door drives focus from outside).
     private var fieldActive: Bool { focused || isFocused?.wrappedValue == true }
     private var showsCapsLock: Bool { capsLock && fieldActive && !revealed }
-    private var revealAnimation: Animation {
-        reduceMotion ? .easeOut(duration: 0.12) : .snappy(duration: 0.22)
-    }
 
     var body: some View {
         ZStack(alignment: .trailing) {
-            // Keep the secure field in place. Swapping it for a TextField drops focus, and the unlock
-            // door then cancels the peek before the password can be seen.
-            styled(
-                SecureField(title, text: $text, prompt: prompt)
-                    .textContentType(.password)
-                    .labelsHidden()
-                    .focused($focused)
-                    .onSubmit(onSubmit)
-                    .opacity(revealed ? 0 : 1)
-            )
-            .overlay(alignment: .leading) {
+            // One field draws both the letters and the caret. An overlay of the password on top of a
+            // still-secure field leaves the caret on the bullet widths, which are wider than the letters,
+            // so it sits in a gap. Swapping fields drops focus; the next turn puts it back.
+            styled(Group {
                 if revealed {
-                    Text(verbatim: text)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .foregroundStyle(.primary)
-                        .padding(.leading, revealTextInset.leading)
-                        .padding(.trailing, revealTextInset.trailing)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                        .transition(.opacity)
+                    TextField(title, text: $text, prompt: prompt)
+                } else {
+                    SecureField(title, text: $text, prompt: prompt)
                 }
             }
-            .animation(revealAnimation, value: revealed)
+            .textContentType(.password)
+            .labelsHidden()
+            .focused($focused)
+            .onSubmit(onSubmit))
 
             HStack(spacing: 0) {
                 if showsCapsLock {
@@ -118,6 +103,7 @@ struct PasswordField: View {
             .padding(.trailing, look == .plain ? 0 : 6)
             .animation(.snappy(duration: 0.2), value: showsCapsLock)
         }
+        .background { SelectionWash(active: fieldActive) }
         .onAppear {
             capsLock = NSEvent.modifierFlags.contains(.capsLock)
             optionDown = Self.optionAlone(NSEvent.modifierFlags)
@@ -138,6 +124,9 @@ struct PasswordField: View {
             peekWait?.cancel()
             visible = false
             optionPeek = false
+        }
+        .onChange(of: revealed) { _, _ in
+            Task { @MainActor in focused = true }
         }
         .onChange(of: optionDown) { _, held in setOptionPeek(held) }
         .onChange(of: focused) { _, now in
@@ -202,21 +191,64 @@ struct PasswordField: View {
     /// Room for ⌥⌘R and the eye, plus the Caps Lock mark when it is showing.
     private var trailingRoom: CGFloat { showsCapsLock ? 86 : 64 }
 
-    /// Where the revealed characters sit, matching the secure field's own insets so they don't slide.
-    private var revealTextInset: (leading: CGFloat, trailing: CGFloat) {
-        switch look {
-        case .soft: (12, 12 + trailingRoom)
-        case .rounded: (8, trailingRoom)
-        case .plain: (0, trailingRoom + 6)
-        }
-    }
-
     @ViewBuilder
     private func styled(_ field: some View) -> some View {
         switch look {
         case .soft: field.textFieldStyle(SoftFieldStyle(trailingInset: trailingRoom))
         case .rounded: field.textFieldStyle(.roundedBorder).padding(.trailing, trailingRoom)
         case .plain: field.textFieldStyle(.plain).padding(.trailing, trailingRoom + 6)
+        }
+    }
+}
+
+/// The field editor's selection is an opaque light slab, which reads as a white box on the dark capsule.
+/// A translucent wash keeps the letters in the label colour.
+private struct SelectionWash: NSViewRepresentable {
+    var active: Bool
+
+    func makeNSView(context: Context) -> NSView { NSView(frame: .zero) }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        context.coordinator.active = active
+        context.coordinator.apply(view)
+        // The field editor attaches after this update when focus has just moved.
+        Task { @MainActor in context.coordinator.apply(view) }
+    }
+
+    static func dismantleNSView(_ view: NSView, coordinator: Coordinator) {
+        coordinator.restore()
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    @MainActor
+    final class Coordinator {
+        var active = false
+        private var editor: NSTextView?
+        private var previous: [NSAttributedString.Key: Any]?
+
+        func apply(_ view: NSView?) {
+            guard active, let editor = view?.window?.firstResponder as? NSTextView, editor.isFieldEditor else {
+                restore()
+                return
+            }
+            if self.editor !== editor {
+                restore()
+                previous = editor.selectedTextAttributes
+                self.editor = editor
+            }
+            let dark = editor.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            editor.selectedTextAttributes = [
+                .backgroundColor: (dark ? NSColor.white : NSColor.black).withAlphaComponent(dark ? 0.28 : 0.16),
+                .foregroundColor: NSColor.labelColor,
+            ]
+            editor.insertionPointColor = .labelColor
+        }
+
+        func restore() {
+            editor?.selectedTextAttributes = previous ?? [:]
+            editor = nil
+            previous = nil
         }
     }
 }

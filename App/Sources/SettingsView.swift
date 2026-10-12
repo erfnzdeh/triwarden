@@ -11,16 +11,16 @@ struct SettingsView: View {
         // Everyday first, then who and how it's protected, then the keys, the connection, the tools, and about.
         case general, accounts, security, shortcuts, server, developer, license, about
         var id: Self { self }
-        var title: LocalizedStringKey {
+        var title: String {
             switch self {
-            case .accounts: "Accounts"
-            case .general: "General"
-            case .shortcuts: "Shortcuts"
-            case .security: "Security"
-            case .developer: "Developer"
-            case .server: "Server"
-            case .license: "License"
-            case .about: "About"
+            case .accounts: String(localized: "Accounts")
+            case .general: String(localized: "General")
+            case .shortcuts: String(localized: "Shortcuts")
+            case .security: String(localized: "Security")
+            case .developer: String(localized: "Developer")
+            case .server: String(localized: "Server")
+            case .license: String(localized: "License")
+            case .about: String(localized: "About")
             }
         }
         var symbol: String {
@@ -53,6 +53,7 @@ struct SettingsView: View {
                 Label(pane.title, systemImage: pane.symbol).tag(pane)
             }
             .listStyle(.sidebar)
+            .background(SidebarCalmSelection())
             .scrollContentBackground(.hidden)
             .thinScroller()
             .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 280)
@@ -74,11 +75,69 @@ struct SettingsView: View {
             }
             .scrollContentBackground(.hidden)
             .background { WindowBackdrop() }
-            .navigationTitle(pane.title)
+            .background { SettingsWindowTitle(title: pane.title) }
             .settingsControlStyles()
         }
+        // The active pane's title sits at the leading edge of the detail column.
+        .toolbar(removing: .title)
         // Opens roomy and resizes freely; forms scroll when the window is shorter than their content.
         .frame(minWidth: 680, idealWidth: 820, maxWidth: .infinity, minHeight: 460, idealHeight: 640, maxHeight: .infinity)
+    }
+}
+
+/// Align the active pane's title with its content, including when the sidebar is resized.
+private struct SettingsWindowTitle: NSViewRepresentable {
+    let title: String
+    func makeNSView(context: Context) -> NSView { TitleHost() }
+    func updateNSView(_ view: NSView, context: Context) {
+        guard let host = view as? TitleHost else { return }
+        host.label.stringValue = title
+        host.place()
+    }
+    static func dismantleNSView(_ view: NSView, coordinator: ()) { (view as? TitleHost)?.label.removeFromSuperview() }
+
+    final class TitleHost: NSView {
+        let label: NSTextField = {
+            let label = NSTextField(labelWithString: String(localized: "Settings"))
+            label.font = .systemFont(ofSize: 13, weight: .bold)
+            label.textColor = .labelColor
+            label.alignment = .left
+            label.setAccessibilityElement(false)
+            return label
+        }()
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            place()
+        }
+
+        override func layout() {
+            super.layout()
+            place()
+        }
+
+        func place() {
+            guard let window else { return }
+            window.title = label.stringValue
+            window.titleVisibility = .hidden
+            guard let titlebar = Self.titlebar(of: window) else { return }
+            titlebar.addSubview(label)
+            label.sizeToFit()
+            let size = label.fittingSize
+            label.frame = NSRect(x: convert(NSPoint(x: 24, y: 0), to: titlebar).x,
+                                 y: (titlebar.bounds.height - size.height) / 2,
+                                 width: size.width, height: size.height)
+        }
+
+        /// The traffic-light container is only as wide as the buttons. Walk up to the bar that spans the window.
+        private static func titlebar(of window: NSWindow) -> NSView? {
+            guard let close = window.standardWindowButton(.closeButton) else { return nil }
+            var view: NSView? = close.superview
+            while let current = view, current.bounds.width < window.frame.width - 1 {
+                view = current.superview
+            }
+            return view
+        }
     }
 }
 
@@ -198,6 +257,7 @@ struct AccountDetailsSheet: View {
 private struct GeneralSettings: View {
     @Environment(AppModel.self) private var model
     @AppStorage(Pref.appearance) private var appearance = AppearanceSetting.system
+    @State private var selectedAppearance = AppearanceSetting.current
     @AppStorage(Pref.fullDoorAnimation) private var fullDoorAnimation = false
     @State private var autoFillOn: Bool?
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -209,12 +269,24 @@ private struct GeneralSettings: View {
     var body: some View {
         Form {
             Section {
-                Picker("Appearance", selection: $appearance) {
-                    Text("System").tag(AppearanceSetting.system)
-                    Text("Light").tag(AppearanceSetting.light)
-                    Text("Dark").tag(AppearanceSetting.dark)
+                LabeledContent("Appearance") {
+                    AppSegmented(options: [
+                        (AppearanceSetting.system, "System"),
+                        (.light, "Light"),
+                        (.dark, "Dark"),
+                    ], selection: $selectedAppearance, compact: true)
+                    .frame(width: 210)
+                    .onChange(of: selectedAppearance) { _, selected in
+                        // Commit the picker movement before invalidating all themed windows.
+                        DispatchQueue.main.async {
+                            guard selectedAppearance == selected else { return }
+                            appearance = selected
+                        }
+                    }
+                    .onChange(of: appearance) { _, value in
+                        if selectedAppearance != value { selectedAppearance = value }
+                    }
                 }
-                .pickerStyle(.segmented)
                 Toggle(isOn: $fullDoorAnimation) {
                     Text("Full vault-door animation")
                     Text("The door drifts while it waits, turns its rings into line and comes apart before the gate opens, and builds itself again when you lock. Enabling this increases CPU usage and power consumption.")

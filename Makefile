@@ -8,9 +8,11 @@ DEV_IP   ?= 192.168.1.50
 DEV_PASSWORD ?= chiikawa-dev-password
 REGION   ?= us
 
-APP     := build/Build/Products/Debug/Triwarden.app
+# Always the local Debug product — never /Applications/Triwarden.app (same bundle id).
+APP     := $(CURDIR)/build/Build/Products/Debug/Triwarden.app
 BIN     := $(APP)/Contents/MacOS/Triwarden
-XCB     := xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -derivedDataPath build -allowProvisioningUpdates
+XCB     := xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug \
+	-derivedDataPath $(CURDIR)/build -allowProvisioningUpdates
 DEV_CA  := $(CURDIR)/DevServer/data/root.crt
 
 .DEFAULT_GOAL := help
@@ -22,12 +24,16 @@ help: ## Show this list
 project: ## Regenerate the Xcode project from project.yml
 	@xcodegen generate -q
 
-build: project ## Build the app (Debug)
+build: project ## Build the Debug app into build/
 	@mkdir -p build
 	@set -o pipefail; $(XCB) build 2>&1 | tee build/build.log && test -x "$(BIN)"
 
-run: build ## Build and open the app
-	@open "$(APP)"
+run: build ## Build and open the Debug app (quits any other Triwarden first)
+	@# Launch Services resolves by bundle id; an already-running /Applications copy wins over this path.
+	@pkill -x Triwarden 2>/dev/null || true
+	@sleep 0.2
+	@echo "Opening Debug: $(APP)"
+	@open -n "$(APP)"
 
 site: ## Run the website development server
 	@pnpm --dir site dev --port 4321

@@ -190,6 +190,9 @@ final class QuickSearchController {
     private var holdingForFill = false
     private var fillWatch: Task<Void, Never>?
     private var preferredSize: CGSize?
+    /// Shrink and grow share one ease. `animator().setFrame` only visibly grows a clear panel.
+    private var frameTarget: NSRect?
+    private var frameTimer: Timer?
 
     init(model: AppModel) { self.model = model }
 
@@ -214,19 +217,8 @@ final class QuickSearchController {
         let panel = self.panel ?? makePanel()
         self.panel = panel
         // Follow the app's Appearance setting, not just the system's.
-        panel.appearance = switch Pref.colorScheme {
-        case .light: NSAppearance(named: .aqua)
-        case .dark: NSAppearance(named: .darkAqua)
-        default: nil
-        }
-        // Over the vault window when it's in front, else high on the screen.
-        if NSApp.isActive, let window = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain && $0 != panel }) {
-            let f = window.frame
-            panel.setFrameTopLeftPoint(NSPoint(x: f.midX - panel.frame.width / 2, y: f.maxY - 40))
-        } else if let screen = NSScreen.main {
-            let f = screen.visibleFrame
-            panel.setFrameTopLeftPoint(NSPoint(x: f.midX - panel.frame.width / 2, y: f.maxY - f.height * 0.14))
-        }
+        panel.appearance = AppearanceSetting.current.nsAppearance
+        center(panel)
         closing?.cancel(); closing = nil
         panel.ignoresMouseEvents = false
         // Over another app the panel takes the keyboard without activating Triwarden (it's a non-activating panel,
@@ -277,7 +269,9 @@ final class QuickSearchController {
             MainActor.assumeIsolated { self?.notePaletteResignKey() }
         }
         let hosting = NSHostingView(rootView: CommandPalette(close: { [weak self] in self?.close() },
-            sizeChanged: { [weak self] size in self?.resizePanel(to: size) }).environment(model))
+            sizeChanged: { [weak self] size in self?.resizePanel(to: size) })
+            .environment(model)
+            .modifier(LiveAppearance()))
         hosting.wantsLayer = true
         hosting.layer?.cornerRadius = 22
         hosting.layer?.masksToBounds = true
@@ -288,13 +282,77 @@ final class QuickSearchController {
     /// Fit the window to the visible card. A fixed transparent canvas also gets dimmed by AppKit sheets.
     private func resizePanel(to size: CGSize) {
         guard size.width > 0, size.height > 0 else { return }
+        let firstFit = preferredSize == nil
         preferredSize = size
         guard let panel, panel.attachedSheet == nil, !holdingForFill else { return }
         let frame = panel.frame
         guard abs(frame.width - size.width) > 0.5 || abs(frame.height - size.height) > 0.5 else { return }
-        panel.setFrame(NSRect(x: frame.minX, y: frame.maxY - size.height,
-                              width: size.width, height: size.height), display: true)
-        panel.invalidateShadow()
+        // Keep the card where the user put it; growth stays around that center.
+        var rect = NSRect(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2,
+                          width: size.width, height: size.height)
+        if let bounds = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame {
+            rect.origin.x = min(max(rect.origin.x, bounds.minX), bounds.maxX - rect.width)
+            rect.origin.y = min(max(rect.origin.y, bounds.minY), bounds.maxY - rect.height)
+        }
+        // The first measurement just replaces the placeholder. Later changes ease in both directions.
+        let ease = panel.isVisible && !firstFit && Motion.plays && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if ease {
+            easeFrame(of: panel, to: rect)
+        } else {
+            frameTimer?.invalidate()
+            frameTimer = nil
+            frameTarget = nil
+            panel.setFrame(rect, display: true)
+            panel.invalidateShadow()
+        }
+    }
+
+    /// Step toward the latest size. A clear panel shows a shrink only when the frame itself moves each tick.
+    private func easeFrame(of panel: NSPanel, to target: NSRect) {
+        frameTarget = target
+        guard frameTimer == nil else { return }
+        frameTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] timer in
+            let done = MainActor.assumeIsolated { () -> Bool in
+                guard let self, let panel = self.panel, let target = self.frameTarget else { return true }
+                let current = panel.frame
+                let dx = target.minX - current.minX
+                let dy = target.minY - current.minY
+                let dw = target.width - current.width
+                let dh = target.height - current.height
+                if abs(dw) < 0.5, abs(dh) < 0.5, abs(dx) < 0.5, abs(dy) < 0.5 {
+                    panel.setFrame(target, display: true)
+                    panel.invalidateShadow()
+                    self.frameTimer = nil
+                    self.frameTarget = nil
+                    return true
+                }
+                panel.setFrame(NSRect(x: current.minX + dx * 0.28,
+                                      y: current.minY + dy * 0.28,
+                                      width: current.width + dw * 0.28,
+                                      height: current.height + dh * 0.28), display: true)
+                return false
+            }
+            if done { timer.invalidate() }
+        }
+    }
+
+    /// Centered in the vault window when that window is in front, otherwise on the screen under the pointer.
+    private func center(_ panel: NSPanel) {
+        let size = preferredSize ?? panel.frame.size
+        let area: NSRect
+        if NSApp.isActive, let window = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain && $0 != panel }) {
+            area = window.frame
+        } else {
+            let mouse = NSEvent.mouseLocation
+            area = (NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main)?.visibleFrame
+                ?? panel.frame
+        }
+        var rect = NSRect(x: area.midX - size.width / 2, y: area.midY - size.height / 2, width: size.width, height: size.height)
+        if let bounds = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame {
+            rect.origin.x = min(max(rect.origin.x, bounds.minX), max(bounds.minX, bounds.maxX - rect.width))
+            rect.origin.y = min(max(rect.origin.y, bounds.minY), max(bounds.minY, bounds.maxY - rect.height))
+        }
+        panel.setFrame(rect, display: false)
     }
 
     /// AppKit can attach the password sheet before its service has an on-screen window.

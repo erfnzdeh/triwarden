@@ -71,7 +71,6 @@ struct GeneratorView: View {
                 Spacer(minLength: 16)
                 modePicker.frame(maxWidth: 380)
             }
-            .frame(height: 32)
             .padding(.bottom, -8) // 10 pt to the result, like the vault page's search row to its list
             hero
             (wide ? AnyLayout(HStackLayout(alignment: .top, spacing: 16)) : AnyLayout(VStackLayout(spacing: 16))) {

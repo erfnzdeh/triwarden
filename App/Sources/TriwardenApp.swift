@@ -1,4 +1,5 @@
 import SwiftUI
+import QuartzCore
 import TipKit
 import UserNotifications
 import VaultwardenAPI
@@ -77,6 +78,7 @@ struct TriwardenApp: App {
             MenuBarContent()
                 .environment(model)
                 .modifier(ReducedMotionPolicy())
+                .modifier(LiveAppearance())
         } label: {
             Image(nsImage: MenuBarGlyph.image(pending: model.sshAgent.pendingCount > 0))
                 .opacity(model.isUnlocked ? 1 : 0.55)
@@ -177,6 +179,10 @@ struct TriwardenApp: App {
                     .keyboardShortcut("k", modifiers: .command)
                 Button("Keyboard Shortcuts") { model.showShortcuts() }
                     .keyboardShortcut("/", modifiers: [.control, .shift])
+            }
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { model.showSettings() }
+                    .keyboardShortcut(",", modifiers: .command)
             }
             CommandGroup(after: .appSettings) {
                 Button("Lock Vault") { model.lock(animated: true) }
@@ -342,17 +348,90 @@ struct GateSplit: ViewModifier, Animatable {
 /// while a Settings window is open; the view itself must invalidate when the preference changes.
 struct LiveAppearance: ViewModifier {
     @AppStorage(Pref.appearance) private var appearance = AppearanceSetting.system
+    @State private var scheme = AppearanceSetting.current.resolvedScheme(systemDark: AppearanceSetting.systemIsDark)
 
     func body(content: Content) -> some View {
-        content.preferredColorScheme(appearance.scheme)
+        content
+            .preferredColorScheme(scheme)
+            .onAppear { refresh(animated: false) }
+            .onChange(of: appearance) { _, _ in refresh(animated: true) }
+            .onReceive(DistributedNotificationCenter.default().publisher(for: Notification.Name("AppleInterfaceThemeChangedNotification"))) { _ in
+                refresh(animated: true)
+            }
+    }
+
+    private func refresh(animated: Bool) {
+        let next = appearance.resolvedScheme(systemDark: AppearanceSetting.systemIsDark)
+        ThemeTransition.perform(to: next, animated: animated) {
+            scheme = next
+            appearance.apply()
+        }
+    }
+}
+
+/// Let Core Animation composite the appearance change without synchronously rasterizing
+/// every window on the input thread. Repeated scene observers share one transition.
+@MainActor
+private enum ThemeTransition {
+    private static var current: ColorScheme?
+
+    static func perform(to scheme: ColorScheme, animated: Bool, changes: () -> Void) {
+        guard current != scheme else { changes(); return }
+        let hadAppearance = current != nil
+        current = scheme
+        if animated, hadAppearance, Motion.plays,
+           !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            for window in NSApp.windows where window.isVisible && !window.isMiniaturized {
+                guard let content = window.contentView else { continue }
+                content.wantsLayer = true
+                let fade = CATransition()
+                fade.type = .fade
+                fade.duration = 0.24
+                fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                content.layer?.add(fade, forKey: "themeAppearance")
+            }
+        }
+        changes()
     }
 }
 
 /// Shared typed values for the theme picker and every window.
 enum AppearanceSetting: String {
     case system, light, dark
-    var scheme: ColorScheme? {
-        switch self { case .system: nil; case .light: .light; case .dark: .dark }
+
+    static var current: AppearanceSetting {
+        AppearanceSetting(rawValue: UserDefaults.standard.string(forKey: Pref.appearance) ?? "") ?? .system
+    }
+
+    /// The menu bar's interface style. Independent of `NSApp.appearance`, which may be forced.
+    static var systemIsDark: Bool {
+        UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark"
+    }
+
+    /// Always a concrete scheme. Passing nil leaves the last Light or Dark override in place.
+    func resolvedScheme(systemDark: Bool) -> ColorScheme {
+        switch self {
+        case .light: .light
+        case .dark: .dark
+        case .system: systemDark ? .dark : .light
+        }
+    }
+
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .light: NSAppearance(named: .aqua)
+        case .dark: NSAppearance(named: .darkAqua)
+        case .system: nil
+        }
+    }
+
+    @MainActor
+    func apply() {
+        let appearance = nsAppearance
+        if NSApp.appearance?.name != appearance?.name { NSApp.appearance = appearance }
+        for window in NSApp.windows where window.appearance?.name != appearance?.name {
+            window.appearance = appearance
+        }
     }
 }
 
