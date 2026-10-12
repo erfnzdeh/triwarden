@@ -1392,10 +1392,20 @@ private struct LanguagePicker: View {
                         .buttonStyle(.appPrimarySmall)
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
-                Picker("Language", selection: $chosen) {
-                    ForEach(Self.choices, id: \.code) { Text(verbatim: $0.name).tag($0.code) }
+                ActionMenu(entries: Self.choices.map { choice in
+                    ActionMenuEntry(title: choice.name, checked: chosen == choice.code,
+                                    run: { chosen = choice.code })
+                }) {
+                    HStack(spacing: 6) {
+                        Text(verbatim: Self.choices.first { $0.code == chosen }?.name ?? Self.choices[0].name)
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(.primary.opacity(0.05), in: .capsule)
+                    .contentShape(.capsule)
                 }
-                .labelsHidden()
+                .accessibilityLabel("Language")
                 .fixedSize()
             }
             .animation(.snappy(duration: 0.2), value: chosen)
