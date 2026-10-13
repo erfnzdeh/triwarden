@@ -36563,30 +36563,30 @@
         }
       }
     },
-    "It's free to use for as long as you like, with every feature. If it's earned a place on your Mac, a license keeps it going." : {
+    "Personal use is free, with every feature. If you use Triwarden for work accounts, please purchase a license. One license covers your personal and work use on all your Macs." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "すべての機能を、好きなだけ無料でお使いいただけます。あなたの Mac に欠かせないものになったら、ライセンスで開発を支えてください。"
+            "value" : "私用では全機能を無料で利用できます。仕事用のアカウントを管理する場合は、ライセンスをご購入ください。1 ライセンスで本人のすべての Mac での私用と仕事用をカバーします。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "所有功能都可以免費用，想用幾耐都得。如果佢已經係你部 Mac 嘅必備工具，買個授權就可以支持佢繼續發展。"
+            "value" : "私人用途可免費使用完整功能。如果你用 Triwarden 管理工作帳戶，請購買授權。一份授權涵蓋你在所有 Mac 上的私人與工作用途。"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "所有功能都能免费使用，想用多久就用多久。如果它已成为你 Mac 上的常用工具，购买授权可以支持它继续发展。"
+            "value" : "私人用途可免费使用完整功能。如果你用 Triwarden 管理工作账号，请购买授权。一份授权覆盖你在所有 Mac 上的私人和工作用途。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "所有功能都能免費使用，想用多久就用多久。如果它已成為你 Mac 上的常用工具，購買授權可以支持它繼續發展。"
+            "value" : "私人用途可免費使用完整功能。如果你用 Triwarden 管理工作帳號，請購買授權。一份授權涵蓋你在所有 Mac 上的私人與工作用途。"
           }
         }
       }
@@ -37263,30 +37263,30 @@
         }
       }
     },
-    "One person, all their Macs — including a company Mac. Not for resale or sharing across people. Commercial use needs a license; an employer may buy and assign one." : {
+    "Work accounts include company email, company GitHub, client systems and freelance work. The purpose of use decides whether you need a license, not who owns the Mac. One license per person covers personal and work use on all their Macs; no sharing between users." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一人が使うすべての Mac（会社の Mac 含む）。転売や複数人共有は不可。商用にはライセンスが必要で、雇用主が購入して一人に割り当てられます。"
+            "value" : "仕事用のアカウントには会社のメールや GitHub、顧客システム、フリーランス業務が含まれます。ライセンスの要否は Mac の所有者ではなく用途で決まります。1 人につき 1 ライセンスで、すべての Mac での私用と仕事用をカバーします。利用者間の共有はできません。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一人，佢所有 Mac（連公司 Mac）。唔可以轉售或者多人共用。商業用途需要授權；僱主可以代購並指派畀一人。"
+            "value" : "工作帳戶包括公司電郵、公司 GitHub、客戶系統及接案服務。是否需要授權取決於用途，而不是 Mac 屬於誰。每人一份授權涵蓋其所有 Mac 上的私人與工作用途，不可多人共用。"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一人，其所有 Mac（含公司 Mac）。不可转售或多人共用。商业用途需要授权；雇主可代购并指派给一人。"
+            "value" : "工作账号包括公司邮箱、公司 GitHub、客户系统及接单服务。是否需要授权取决于用途，而不是 Mac 属于谁。每人一份授权覆盖其所有 Mac 上的私人和工作用途，不可多人共用。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "一人，其所有 Mac（含公司 Mac）。不可轉售或多人共用。商業用途需要授權；雇主可代購並指派給一人。"
+            "value" : "工作帳號包括公司電郵、公司 GitHub、客戶系統及接案服務。是否需要授權取決於用途，而不是 Mac 屬於誰。每人一份授權涵蓋其所有 Mac 上的私人與工作用途，不可多人共用。"
           }
         }
       }

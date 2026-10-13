@@ -12,7 +12,7 @@ const refresh = !rel?.stable;
 const t = m as unknown as Record<string, (p?: Record<string, string>) => string>;
 const p = { price: SITE.price };
 const honest = [1, 2, 3].map((n) => [t[`honest${n}_t`](), t[`honest${n}_b`]()]);
-const priceFaqs = [1, 2, 3, 4, 5].map((n) => [t[`price_faq${n}_q`](p), t[`price_faq${n}_a`](p)]);
+const priceFaqs = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => [t[`price_faq${n}_q`](p), t[`price_faq${n}_a`](p)]);
 const terms = localeHref(currentLocale(), "license-terms/");
 
 const tiers = [

@@ -22,17 +22,26 @@ A paid License key is for **one natural person** — the assignee.
 If several people need Triwarden, each person needs their own key. A company may purchase keys and assign each to
 one person.
 
-## Commercial use
+## Personal and work use
 
-Using Triwarden **for work or business** (including on a company Mac, for employer accounts, or in a paid
-practice) requires a **paid License**.
+**Personal use is free. Using official Triwarden builds to manage work accounts requires a paid License.**
 
-Personal use and home self-hosted Vaultwarden may stay on the free tier. Official free builds may show a
-gentle purchase reminder after a grace period; nothing is feature-locked.
+Work accounts include company email, company GitHub, client systems, and service accounts used for freelance
+work. If you manage both personal and work accounts, one license covers both on every Mac you use.
+Each team member needs their own license; an employer may purchase and assign them.
+
+The purpose of use decides whether a license is needed, not who owns the Mac:
+
+- Your own Mac, personal or household accounts only: free.
+- Your own Mac, including work accounts: one paid license required.
+- A company Mac, personal accounts only: free.
+
+Personal use includes home self-hosted Vaultwarden. After 30 days, official free builds may show a purchase
+reminder at most once a week. No features are locked, and the app does not inspect accounts to enforce payment.
 
 ## Paid keys and the GPL
 
-A paid License covers the official build’s reminder and the commercial permission described here. It does **not**
+A paid License covers the official build’s reminder and the permission for work use described here. It does **not**
 replace or limit the GPL-3.0 rights in the source code.
 
 Compiling Triwarden yourself under the GPL remains free and unrestricted by these paid-key terms. Forks must
