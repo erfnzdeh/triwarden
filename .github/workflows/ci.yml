@@ -3,47 +3,196 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "site/**"
-      - ".github/workflows/site.yml"
   pull_request:
-    paths-ignore:
-      - "site/**"
-      - ".github/workflows/site.yml"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Exact commit or tag to validate before a manual release
+        type: string
+        required: true
+
+permissions:
+  contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   vaultcore:
     name: VaultCore tests
     runs-on: macos-26
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - name: Show toolchain
         run: xcodebuild -version && swift --version
       - name: Unit tests
-        # Dev-server integration tests skip themselves without TRIWARDEN_DEV_HOST.
         working-directory: Packages/VaultCore
         run: swift test
 
-  app:
-    name: Build app
+  integration:
+    name: Vaultwarden ${{ matrix.version }} integration
     runs-on: macos-26
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Native servers avoid unsupported Docker/nested virtualization on macOS runners.
+          - version: 1.35.0
+            revision: a4907f35390acfd8079ab798a9f6eb785eb17c35
+            rust: 1.92.0
+            port: 18843
+          - version: 1.30.5
+            revision: d0c22b9fc90ae52aedbbccdafe9915bd0bdb0d84
+            rust: 1.77.2
+            port: 18844
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/checkout@v4
+        with:
+          repository: dani-garcia/vaultwarden
+          ref: ${{ matrix.revision }}
+          path: .ci-vaultwarden
+          persist-credentials: false
+      - name: Tools
+        run: |
+          brew install caddy openssl@3
+          rustup toolchain install "$RUST_VERSION" --profile minimal
+          python3 -m venv "$RUNNER_TEMP/seed-venv"
+          "$RUNNER_TEMP/seed-venv/bin/pip" install requests cryptography argon2-cffi
+        env:
+          RUST_VERSION: ${{ matrix.rust }}
+      - uses: actions/cache@v4
+        id: server-cache
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .ci-vaultwarden/target
+          key: vaultwarden-${{ runner.os }}-${{ runner.arch }}-${{ matrix.revision }}-${{ matrix.rust }}
+      - name: Build native disposable server
+        working-directory: .ci-vaultwarden
+        env:
+          RUST_VERSION: ${{ matrix.rust }}
+        run: |
+          OPENSSL_DIR=$(brew --prefix openssl@3)
+          export OPENSSL_DIR
+          cargo +"$RUST_VERSION" build --locked --features sqlite
+      - name: Save compiled server before integration tests
+        if: steps.server-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            .ci-vaultwarden/target
+          key: vaultwarden-${{ runner.os }}-${{ runner.arch }}-${{ matrix.revision }}-${{ matrix.rust }}
+      - name: Seed and test over HTTPS
+        env:
+          CI_SERVER_PORT: ${{ matrix.port }}
+          CI_SEED_PYTHON: ${{ runner.temp }}/seed-venv/bin/python
+        run: |
+          openssl_prefix=$(brew --prefix openssl@3)
+          export PATH="$openssl_prefix/bin:$PATH"
+          scripts/ci/integration.sh "$GITHUB_WORKSPACE/.ci-vaultwarden/target/debug/vaultwarden"
+      - name: Upload failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-${{ matrix.version }}-logs
+          path: build/ci-integration/*.log
+
+  app:
+    name: Build app
+    # This existing required check is the final gate, including server tests.
+    needs: [vaultcore, integration]
+    if: always()
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - name: Require successful tests
+        env:
+          CORE_RESULT: ${{ needs.vaultcore.result }}
+          SERVER_RESULT: ${{ needs.integration.result }}
+        run: test "$CORE_RESULT" = success && test "$SERVER_RESULT" = success
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - name: Xcode cache identity
+        id: sdk
+        run: echo "version=$(xcodebuild -version | tr '\n' '-')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: app-cache
+        with:
+          path: |
+            build/Build
+            build/ModuleCache.noindex
+            build/SourcePackages
+          key: app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-${{ hashFiles('project.yml', 'Packages/VaultCore/Package.resolved', 'App/**', 'Shared/**', 'AutoFill/**', 'BrowserExtension/**', 'CLI/**', 'Helpers/**', 'UITests/**', 'Packages/VaultCore/Sources/**') }}
+          restore-keys: |
+            app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate project
         run: xcodegen generate
       - name: Build (unsigned)
         run: |
+          mkdir -p build/ci
           xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" build | tail -20
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee build/ci/build.log | tail -20
+      - name: Save compiled app before UI tests
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            build/Build
+            build/ModuleCache.noindex
+            build/SourcePackages
+          key: app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-${{ hashFiles('project.yml', 'Packages/VaultCore/Package.resolved', 'App/**', 'Shared/**', 'AutoFill/**', 'BrowserExtension/**', 'CLI/**', 'Helpers/**', 'UITests/**', 'Packages/VaultCore/Sources/**') }}
+      - name: UI smoke tests (ad-hoc signing, no release credentials)
+        run: |
+          test -f UITests/CISmokeTests.swift
+          # Codesigning changes do not always invalidate Xcode's copied extension bundles.
+          # Remove only generated embedded copies; reuse compiled objects for the UI build.
+          python3 -c 'from pathlib import Path; import shutil; [shutil.rmtree(p) for p in Path("build/Build/Products/Debug/Triwarden.app/Contents/PlugIns").glob("*.appex")]'
+          xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug \
+            -derivedDataPath build CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_ENTITLEMENTS="" DEVELOPMENT_TEAM="" ENABLE_HARDENED_RUNTIME=NO \
+            -resultBundlePath build/ci/ui-smoke.xcresult \
+            -only-testing:TriwardenUITests/CISmokeTests test 2>&1 | tee build/ci/ui-smoke.log | tail -30
+          xcrun xcresulttool get test-results summary --path build/ci/ui-smoke.xcresult > build/ci/ui-summary.json
+          python3 -c 'import json; s=json.load(open("build/ci/ui-summary.json")); assert s["passedTests"] == 2 and s["failedTests"] == 0, s'
+      # Run after ad-hoc signing: changing the executable's signature after it creates Keychain items
+      # would prompt for access in the UI tests.
+      - name: Offline compatibility self-test
+        run: |
+          # Older release tags predate this entry point; current PRs must run it.
+          if [[ -f App/Sources/CompatibilitySelfTest.swift ]]; then
+            build/Build/Products/Debug/Triwarden.app/Contents/MacOS/Triwarden --selftest-compatibility | tee build/ci/compatibility.log
+          elif [[ '${{ github.event_name }}' != workflow_dispatch ]]; then
+            echo 'Compatibility self-test is missing' >&2
+            exit 1
+          fi
       - name: Verify local command failure reporting
         run: python3 scripts/test-make-exit-codes.py
       - name: JavaScript syntax
         run: |
           node --check BrowserExtension/WebExtension/content.js
           node --check BrowserExtension/WebExtension/background.js
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ci-evidence
+          path: build/ci/
