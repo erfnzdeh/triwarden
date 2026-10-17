@@ -30,6 +30,8 @@ extension VaultClient {
     /// Moves a personal item into an organization (`cipher` re-encrypted with the organization key, see
     /// `CipherEditor.sharedCipher`), into the given collections.
     public func shareCipher(id: String, cipher: [String: Any], collectionIds: [String]) async throws(APIError) {
+        var cipher = cipher
+        if let owner = cipherOwner { cipher["encryptedFor"] = owner }
         try await call("PUT", "ciphers/\(id)/share", json: ["cipher": cipher, "collectionIds": collectionIds])
     }
 

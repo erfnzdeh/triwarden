@@ -114,6 +114,18 @@ class Server:
         r = self.post("api/accounts/register", json=body)
         if r.status_code == 404:
             r = self.post("identity/accounts/register", json=body)
+        if r.status_code == 404:
+            # 1.37.4 dropped both single-step routes; registration is the cloud two-step flow, and with no mail
+            # server configured the verification endpoint hands the token straight back instead of emailing it.
+            step = self.post("identity/accounts/register/send-verification-email",
+                             json={"email": email, "name": name}, headers={"Accept": "application/json"})
+            if step.status_code == 204:
+                raise SystemExit(f"register {email}: this server emails a verification token instead of returning it")
+            if not step.ok:
+                raise SystemExit(f"register {email}: verification email {step.status_code} {step.text[:200]}")
+            token = step.json()
+            body["emailVerificationToken"] = token["token"] if isinstance(token, dict) else token
+            r = self.post("identity/accounts/register/finish", json=body)
         if r.ok:
             return True
         if "already" in r.text.lower() or "registered" in r.text.lower():
@@ -155,6 +167,7 @@ class Session:
     def __init__(self, server: Server, token: str, user_key: bytes, pw_hash: str):
         self.server, self.user_key, self.pw_hash = server, user_key, pw_hash
         self.h = {"Authorization": f"Bearer {token}"}
+        self._user_id = None
 
     def req(self, method: str, path: str, **tw):
         r = self.server.s.request(method, f"{self.server.base}/{path}", headers=self.h, timeout=30, **tw)
@@ -165,6 +178,15 @@ class Session:
     def cipher_count(self) -> int:
         data = self.req("GET", "api/sync?excludeDomains=true")
         return len(data.get("ciphers") or data.get("Ciphers") or [])
+
+    def cipher(self, body: dict) -> dict:
+        """A cipher write body as servers since web-v2025.6.0 expect it: `encryptedFor` names the account, and a
+        body without it is refused with 422. Older servers ignore the field."""
+        if self._user_id is None:
+            profile = self.req("GET", "api/accounts/profile") or {}
+            self._user_id = profile.get("id") or profile.get("Id")
+        body["encryptedFor"] = self._user_id
+        return body
 
     def login_item(self, name, username, password, uri, totp_secret=None, notes=None, favorite=False, key=None, org=None):
         k = key or self.user_key
@@ -196,14 +218,14 @@ class Session:
              "identity": {"firstName": enc("Usagi", k), "email": enc("usagi@chiikawarden.test", k)}},
         ]
         for it in items:
-            self.req("POST", "api/ciphers", json=it)
+            self.req("POST", "api/ciphers", json=self.cipher(it))
         # SSH key items only exist on newer servers; skip quietly elsewhere.
         try:
-            self.req("POST", "api/ciphers", json={
+            self.req("POST", "api/ciphers", json=self.cipher({
                 "type": 5, "name": enc("homelab-ed25519", k), "favorite": False, "folderId": None, "organizationId": None,
                 "sshKey": {"privateKey": enc("-----BEGIN OPENSSH PRIVATE KEY-----\n(dev placeholder)\n-----END OPENSSH PRIVATE KEY-----", k),
                            "publicKey": enc("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDevPlaceholder usagi@triwarden", k),
-                           "keyFingerprint": enc("SHA256:devplaceholder", k)}})
+                           "keyFingerprint": enc("SHA256:devplaceholder", k)}}))
         except RuntimeError as e:
             print(f"    (ssh key item skipped: {str(e)[:80]})")
 
@@ -225,7 +247,7 @@ class Session:
         col_id = col_id.get("id") or col_id.get("Id")
         item = self.login_item("Family Netflix", "family@chiikawarden.test", "shared-Dev-Only-42!",
                                "https://netflix.com", key=org_key, org=org_id)
-        self.req("POST", "api/ciphers/create", json={"cipher": item, "collectionIds": [col_id]})
+        self.req("POST", "api/ciphers/create", json={"cipher": self.cipher(item), "collectionIds": [col_id]})
 
     def fix_shared_totp(self) -> int:
         """Older seeds gave Cloudflare the same secret as GitHub (identical codes). Re-key it in place."""
@@ -248,7 +270,7 @@ class Session:
             c = logins["Cloudflare"][0]
             c["login"]["totp"] = enc(CLOUDFLARE_TOTP, self.user_key)
             c["lastKnownRevisionDate"] = c.get("revisionDate")
-            self.req("PUT", f"api/ciphers/{c['id']}", json=c)
+            self.req("PUT", f"api/ciphers/{c['id']}", json=self.cipher(c))
             fixed = 1
         return fixed
 

@@ -291,10 +291,37 @@ public actor VaultClient {
         return r
     }
 
+    /// The account a cipher write belongs to: the access token's `sub`, the same id servers since web-v2025.6.0
+    /// compare `encryptedFor` against.
+    var cipherOwner: String? { accessToken.flatMap { Self.jwtClaim("sub", $0) } }
+
+    /// One cipher write body with `encryptedFor` named. Servers since web-v2025.6.0 refuse a body without it (422,
+    /// before the request is handled); older ones ignore the field. Left alone when the token carries no subject,
+    /// so nothing is invented for a server that never asked.
+    static func cipherBody(_ body: Data, owner: String?) -> Data {
+        guard let owner, var object = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] else { return body }
+        object["encryptedFor"] = owner
+        return (try? JSONSerialization.data(withJSONObject: object)) ?? body
+    }
+
+    /// An import body: `ciphers` holds one cipher body per item, and the server validates them all before
+    /// importing any.
+    static func importBody(_ body: Data, owner: String?) -> Data {
+        guard let owner, var root = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any],
+              let ciphers = root["ciphers"] as? [[String: Any]] else { return body }
+        root["ciphers"] = ciphers.map { cipher in
+            var cipher = cipher
+            cipher["encryptedFor"] = owner
+            return cipher
+        }
+        return (try? JSONSerialization.data(withJSONObject: root)) ?? body
+    }
+
     /// Creates a personal item from `CipherEditor.newCipher`. Returns the new id.
     public func createCipher(_ body: Data) async throws(APIError) -> String {
         struct Created: Decodable { let id: String }
-        let created: Created = try await send(authorized(post(environment.apiURL, "ciphers", jsonBody: body)))
+        let request = try post(environment.apiURL, "ciphers", jsonBody: Self.cipherBody(body, owner: cipherOwner))
+        let created: Created = try await send(authorized(request))
         return created.id
     }
 
@@ -302,7 +329,7 @@ public actor VaultClient {
     public func createOrganizationCipher(_ body: Data, collectionIds: [String]) async throws(APIError) -> String {
         struct Created: Decodable { let id: String }
         do {
-            let cipher = try JSONSerialization.jsonObject(with: body)
+            let cipher = try JSONSerialization.jsonObject(with: Self.cipherBody(body, owner: cipherOwner))
             let wrapped = try JSONSerialization.data(withJSONObject: ["cipher": cipher, "collectionIds": collectionIds])
             let created: Created = try await send(authorized(post(environment.apiURL, "ciphers/create", jsonBody: wrapped)))
             return created.id
@@ -313,19 +340,21 @@ public actor VaultClient {
     /// Imports many personal items at once (body from `VaultImport.requestBody`): ciphers, folders,
     /// and which folder each cipher goes in. All fields are already encrypted.
     public func importCiphers(_ body: Data) async throws(APIError) {
-        _ = try await sendRaw(authorized(post(environment.apiURL, "ciphers/import", jsonBody: body)))
+        let request = try post(environment.apiURL, "ciphers/import", jsonBody: Self.importBody(body, owner: cipherOwner))
+        _ = try await sendRaw(authorized(request))
     }
 
     /// Imports into an organization (body from `VaultImport.organizationRequestBody`): ciphers and collections,
     /// encrypted with the organization key.
     public func importOrganizationCiphers(_ body: Data, organizationId: String) async throws(APIError) {
         let id = organizationId.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(["-"])) ?? organizationId
-        _ = try await sendRaw(authorized(post(environment.apiURL, "ciphers/import-organization?organizationId=\(id)", jsonBody: body)))
+        let path = "ciphers/import-organization?organizationId=\(id)"
+        _ = try await sendRaw(authorized(post(environment.apiURL, path, jsonBody: Self.importBody(body, owner: cipherOwner))))
     }
 
     /// Replaces an item with a body from `CipherEditor.updatedCipher`.
     public func updateCipher(id: String, _ body: Data) async throws(APIError) {
-        var r = try post(environment.apiURL, "ciphers/\(id)", jsonBody: body)
+        var r = try post(environment.apiURL, "ciphers/\(id)", jsonBody: Self.cipherBody(body, owner: cipherOwner))
         r.httpMethod = "PUT"
         _ = try await sendRaw(authorized(r))
     }

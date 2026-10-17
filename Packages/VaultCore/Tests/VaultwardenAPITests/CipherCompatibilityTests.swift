@@ -71,3 +71,54 @@ import TriCrypto
         #expect(future["login"] as? String == "opaque" && future["attachments"] as? Int == 42)
     }
 }
+
+/// Every cipher write body names the account it belongs to. Bitwarden's web-v2025.6.0 added `encryptedFor` to the
+/// cipher request, and Vaultwarden 1.37 deserializes it as a required user id: a body without it is refused with
+/// 422 before the request is handled, on create, edit, share and import alike.
+@Suite struct CipherWriteBodyTests {
+    let owner = "bbf61681-e775-4807-8ae7-48f860b6986a"
+
+    @Test func theOwnerIsTheAccessTokensSubject() throws {
+        let claims = try JSONSerialization.data(withJSONObject: ["email": "usagi@chiikawarden.test", "sub": owner])
+        let segment = claims.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        #expect(VaultClient.jwtClaim("sub", "header.\(segment).signature") == owner)
+    }
+
+    @Test func aNewItemNamesItsOwnerAndKeepsItsShape() throws {
+        let body = Data(#"{"type":2,"name":"2.x|y|z","folderId":null,"favorite":false,"secureNote":{"type":0}}"#.utf8)
+        let object = try #require(JSONSerialization.jsonObject(with: VaultClient.cipherBody(body, owner: owner)) as? [String: Any])
+        #expect(object["encryptedFor"] as? String == owner)
+        #expect(object["type"] as? Int == 2)
+        #expect((object["secureNote"] as? [String: Any])?["type"] as? Int == 0)
+        #expect(object["folderId"] as? NSNull != nil)
+    }
+
+    @Test func anEditedItemNamesItsOwner() throws {
+        // The PUT body is the server's own JSON with the edit patched in, and the server never sends this back.
+        let body = Data(#"{"id":"c1","type":1,"name":"2.x|y|z","login":{"username":"2.a|b|c"},"revisionDate":"2026-10-12T00:00:00Z"}"#.utf8)
+        let object = try #require(JSONSerialization.jsonObject(with: VaultClient.cipherBody(body, owner: owner)) as? [String: Any])
+        #expect(object["encryptedFor"] as? String == owner)
+        #expect(object["id"] as? String == "c1")
+        #expect((object["login"] as? [String: Any])?["username"] as? String == "2.a|b|c")
+    }
+
+    @Test func everyImportedItemNamesItsOwner() throws {
+        let body = Data(#"{"ciphers":[{"type":1,"name":"a"},{"type":2,"name":"b"}],"folders":[{"name":"c"}],"folderRelationships":[{"key":0,"value":0}]}"#.utf8)
+        let root = try #require(JSONSerialization.jsonObject(with: VaultClient.importBody(body, owner: owner)) as? [String: Any])
+        let ciphers = try #require(root["ciphers"] as? [[String: Any]])
+        #expect(ciphers.count == 2)
+        #expect(ciphers.allSatisfy { $0["encryptedFor"] as? String == owner })
+        #expect((root["folders"] as? [[String: Any]])?.count == 1)
+        #expect((root["folderRelationships"] as? [[String: Any]])?.count == 1)
+    }
+
+    @Test func bodiesWithoutAnOwnerAreLeftAlone() {
+        // An older server sees exactly what it saw before, and so does a token that carries no subject.
+        let body = Data(#"{"type":2,"name":"x"}"#.utf8)
+        #expect(VaultClient.cipherBody(body, owner: nil) == body)
+        #expect(VaultClient.importBody(body, owner: nil) == body)
+    }
+}
