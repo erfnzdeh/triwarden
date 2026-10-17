@@ -399,7 +399,6 @@ private struct SecuritySettings: View {
     @AppStorage(Pref.timeoutAction) private var timeoutAction = "lock"
     @AppStorage(Pref.lockOnSleep) private var lockOnSleep = true
     @AppStorage(Pref.clipboardSeconds) private var clipboardSeconds = 30
-    @AppStorage(Pref.codeAfterPassword) private var codeAfterPassword = true
     @AppStorage(Pref.hideFromCapture) private var hideFromCapture = false
 
     var body: some View {
@@ -436,11 +435,10 @@ private struct SecuritySettings: View {
                     Divider()
                     Text("Never").tag(0)
                 }
-                Toggle("Copy the one-time code after the password is pasted", isOn: $codeAfterPassword)
             } header: {
                 Text("Clipboard")
             } footer: {
-                Text("Copied secrets are marked as concealed, so clipboard managers skip them. Paste a login's password, and its one-time code is ready to paste next.")
+                Text("Copied secrets are marked as concealed, so clipboard managers skip them.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 

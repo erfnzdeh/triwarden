@@ -19,7 +19,6 @@ enum Pref {
     static let cliApprovalSeconds = "cliApprovalSeconds"
     static let browser = "browser"                       // answer the Safari/Chrome extension
     static let checkUpdates = "checkUpdates"             // opt-in: look at GitHub's latest release daily
-    static let codeAfterPassword = "codeAfterPassword"   // after a password is pasted, the clipboard holds its code
     static let hideFromCapture = "hideFromCapture"       // windows stay out of screen sharing, recordings and screenshots
     static let timeoutAction = "timeoutAction"           // after inactivity: "lock" or "logOut" (accounts may override)
     static let showMenuBar = "showMenuBar"               // the menu bar icon and its panel
@@ -32,7 +31,7 @@ enum Pref {
     static func register() {
         UserDefaults.standard.register(defaults: [
             appearance: "system", autoLockMinutes: 15, lockOnSleep: true, fullDoorAnimation: false, clipboardSeconds: 30,
-            codeAfterPassword: true, hideFromCapture: false, timeoutAction: "lock", // opt-in: some screen tools and recordings need the window
+            hideFromCapture: false, timeoutAction: "lock", // opt-in: some screen tools and recordings need the window
             showMenuBar: true, closeToMenuBar: false, matchFrontTab: false, matchFrontTabDismissed: false,
         ])
         UserDefaults.standard.removeObject(forKey: "lockAnimations") // retired (see fullDoorAnimation)

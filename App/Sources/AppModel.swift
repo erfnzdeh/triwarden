@@ -1091,30 +1091,13 @@ final class AppModel {
         flash(String(localized: "Copied"))
     }
 
-    /// - Parameter afterPaste: runs once the value has been pasted somewhere (the clipboard hands it out lazily, so
-    ///   Triwarden hears when another app reads it).
-    func copy(_ value: String, label: String, afterPaste: (@MainActor () -> Void)? = nil) {
+    /// Copies a secret, hides it from clipboard managers, and clears it after the configured delay if unchanged.
+    func copy(_ value: String, label: String) {
         let pb = NSPasteboard.general
         pb.clearContents()
         let concealed = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
-        if let afterPaste {
-            let item = NSPasteboardItem()
-            let promise = PastePromise(value: value) {
-                // Let the paste finish before the clipboard changes under it.
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(400))
-                    afterPaste()
-                }
-            }
-            pastePromise = promise
-            item.setDataProvider(promise, forTypes: [.string])
-            item.setString("", forType: concealed)
-            pb.writeObjects([item])
-        } else {
-            pastePromise = nil
-            pb.setString(value, forType: .string)
-            pb.setString("", forType: concealed)
-        }
+        pb.setString(value, forType: .string)
+        pb.setString("", forType: concealed)
         let change = pb.changeCount
         copiedChange = change
         let seconds = UserDefaults.standard.integer(forKey: Pref.clipboardSeconds)
@@ -1161,25 +1144,15 @@ final class AppModel {
         }
     }
 
-    /// Hands the copied password to the app that pastes it, then tells Triwarden it went.
-    @ObservationIgnored private var pastePromise: PastePromise?
-
-    /// Copies an item's password (asking for the master password first if the item wants it). When the login has a
-    /// one-time code too, the code follows: the clipboard switches to it once the password is pasted (Settings ›
-    /// Security), and the toast offers it as a button.
+    /// Copies an item's password (asking for the master password first if the item wants it). A login with a one-time
+    /// code also offers an explicit Copy Code action; reading or pasting the password never changes the clipboard.
     func copyPassword(_ item: VaultItem) {
         guard let password = item.password else { return }
         guarded(item) { [weak self] in
             guard let self else { return }
-            let label = String(localized: "Password")
-            guard let totp = item.totp else { copy(password, label: label); return }
+            copy(password, label: String(localized: "Password"))
+            guard let totp = item.totp else { return }
             let copyCode: @MainActor () -> Void = { [weak self] in self?.copy(totp.code(), label: String(localized: "Code")) }
-            if UserDefaults.standard.bool(forKey: Pref.codeAfterPassword) {
-                copy(password, label: label, afterPaste: copyCode)
-                toast = String(localized: "Password copied · the code follows once you paste")
-            } else {
-                copy(password, label: label)
-            }
             toastAction = ToastAction(title: String(localized: "Copy Code"), run: copyCode)
             toastTask?.cancel()
             toastTask = Task {
@@ -2316,23 +2289,5 @@ final class AppModel {
         default:
             errorMessage = error.localizedDescription
         }
-    }
-}
-
-/// A clipboard value handed out on request, so Triwarden learns when it's pasted (`AppModel.copyPassword`).
-final class PastePromise: NSObject, NSPasteboardItemDataProvider {
-    private let value: String
-    private var onPaste: (() -> Void)?
-
-    init(value: String, onPaste: @escaping () -> Void) {
-        self.value = value
-        self.onPaste = onPaste
-    }
-
-    func pasteboard(_ pasteboard: NSPasteboard?, item: NSPasteboardItem, provideDataForType type: NSPasteboard.PasteboardType) {
-        item.setString(value, forType: type)
-        let run = onPaste
-        onPaste = nil
-        run?()
     }
 }
