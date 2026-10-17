@@ -21,6 +21,7 @@ struct TriwardenApp: App {
         NSWindow.allowsAutomaticWindowTabbing = false
         #if DEBUG
         Bench.runUnlockIfRequested()
+        CompatibilitySelfTest.runIfRequested()
         Snapshot.runIfRequested()
         SelfTest.runIfRequested()
         CloudSelfTest.runIfRequested()
@@ -144,7 +145,7 @@ struct TriwardenApp: App {
                 let item = model.selectedItem
                 Button("Edit") { if let item { model.guarded(item) { model.beginEditing(EditRequest(mode: .edit(item))) } } }
                     .keyboardShortcut("e", modifiers: .command)
-                    .disabled(item == nil || item?.isDeleted == true)
+                    .disabled(item?.isSupported != true || item?.isDeleted == true)
                 Divider()
                 Button("Copy Username") { if let u = item?.username { model.copy(u, label: String(localized: "Username")) } }
                     .keyboardShortcut("c", modifiers: [.command, .shift])
@@ -161,15 +162,15 @@ struct TriwardenApp: App {
                 Divider()
                 Button("Toggle Favorite") { if let item { Task { await model.toggleFavorite(item) } } }
                     .keyboardShortcut("d", modifiers: .command)
-                    .disabled(item == nil || item?.isDeleted == true)
+                    .disabled(item?.isSupported != true || item?.isDeleted == true)
                 Button(item?.isArchived == true ? "Unarchive" : "Archive") {
                     if let item { Task { await model.setArchived(item, !item.isArchived) } }
                 }
                 .keyboardShortcut("a", modifiers: [.command, .option])
-                .disabled(item == nil || item?.isDeleted == true)
+                .disabled(item?.isSupported != true || item?.isDeleted == true)
                 Button("Move to Trash…") { if let item { model.confirmTrash(item) } }
                     .keyboardShortcut(.delete, modifiers: .command)
-                    .disabled(item == nil || item?.isDeleted == true)
+                    .disabled(item?.isSupported != true || item?.isDeleted == true)
             }
             CommandGroup(replacing: .help) {
                 Button("Triwarden Help") { model.showHelp() }

@@ -2155,7 +2155,7 @@ struct ItemDetail: View {
     var body: some View {
         ScrollView {
             StaggeredStack(spacing: 18) {
-                if item.isDeleted {
+                if item.isDeleted && item.isSupported {
                     Group {
                         if let purge = model.purgeDate(item) {
                             Label("In Trash until \(purge.formatted(date: .abbreviated, time: .omitted)), when Bitwarden deletes it for good. Restore it to use it again.",
@@ -2165,6 +2165,20 @@ struct ItemDetail: View {
                         }
                     }
                         .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                if !item.isSupported {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Unsupported item", systemImage: "lock")
+                            .font(.headline)
+                        Text("This item type is not supported yet. Use an updated Bitwarden client to make changes.")
+                            .font(.system(size: 13)).foregroundStyle(.secondary)
+                        if let type = item.unsupportedType {
+                            Text("Item type: \(type)").font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(Color.panelStrong, in: .rect(cornerRadius: 18))
                 }
                 HeroCard(item: item, reveal: secretsVisible)
 
@@ -2225,6 +2239,7 @@ struct ItemDetail: View {
                             }
                             .buttonStyle(.plain)
                             .help(Text("Change shared folders"))
+                            .disabled(!item.isSupported)
                         }
                     } else if let folderId = item.folderId, let folder = model.folders.first(where: { $0.id == folderId }) {
                         DetailRow(symbol: "folder", title: "Folder") {
@@ -2307,7 +2322,7 @@ struct ItemDetail: View {
                 .background(Color.panelStrong, in: .rect(cornerRadius: 18, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.panelEdge))
 
-                if !item.attachments.isEmpty || !item.isDeleted {
+                if item.isSupported && (!item.attachments.isEmpty || !item.isDeleted) {
                     AttachmentsSection(item: item)
                 }
 
@@ -2323,7 +2338,7 @@ struct ItemDetail: View {
         .modifier(SideOverflowClip())
         .thinScroller()
         .dropDestination(for: URL.self) { urls, _ in
-            guard !item.isDeleted, !urls.isEmpty else { return false }
+            guard item.isSupported, !item.isDeleted, !urls.isEmpty else { return false }
             Task { await model.addAttachments(urls, to: item) }
             return true
         } isTargeted: { dropping = $0 }
@@ -2375,7 +2390,10 @@ struct ItemDetail: View {
 
     private var actions: some View {
         HStack(spacing: 0) {
-            if item.isDeleted {
+            if !item.isSupported {
+                Label("Unsupported item", systemImage: "lock")
+                    .font(.system(size: 12)).foregroundStyle(.secondary).padding(.horizontal, 10)
+            } else if item.isDeleted {
                 toolbarButton("arrow.uturn.backward", help: "Restore", effect: .wiggleBack) { Task { await model.restore(item) } }
                 toolbarButton("trash.slash", help: "Delete Forever", effect: .bounce) { confirmDelete = true }
                     .foregroundStyle(.red)

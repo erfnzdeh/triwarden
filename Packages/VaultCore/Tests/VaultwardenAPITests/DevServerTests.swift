@@ -15,7 +15,8 @@ enum DevServer {
     static var enabled: Bool { host != nil }
 
     /// Latest Vaultwarden and a 1.30.x build, to cover older API shapes.
-    static let ports = [18843, 18844]
+    static let ports: [Int] = env["TRIWARDEN_DEV_PORTS"]?
+        .split(separator: ",").compactMap { Int($0) } ?? [18843, 18844]
 
     static func client(port: Int) throws -> VaultClient {
         let ca = try env["TRIWARDEN_DEV_CA"].map { try Data(contentsOf: URL(filePath: $0)) }
@@ -48,8 +49,9 @@ struct DevServerTests {
 
     @Test(arguments: DevServer.ports)
     func passwordHintRequestSucceeds(port: Int) async throws {
-        // Dev servers have mail (Mailpit), so the hint is emailed rather than returned.
-        _ = try await DevServer.client(port: port).requestPasswordHint(email: "usagi@chiikawarden.test")
+        // Local dev servers email through Mailpit; disposable CI servers return a synthetic hint.
+        let hint = try await DevServer.client(port: port).requestPasswordHint(email: "usagi@chiikawarden.test")
+        if let expected = DevServer.env["TRIWARDEN_DEV_HINT"] { #expect(hint == expected) }
     }
 
     @Test(arguments: DevServer.ports)
@@ -111,7 +113,7 @@ struct DevServerTests {
         #expect(names.contains("GitHub"))
     }
 
-    @Test(arguments: [18843]) // websockets via Caddy on the latest server
+    @Test(.enabled(if: DevServer.ports.contains(18843)), arguments: [18843]) // unified websocket endpoint on modern servers
     func liveSyncNotifiesOnChange(port: Int) async throws {
         let client = try DevServer.client(port: port)
         let userKey = try await client.login(email: "usagi@chiikawarden.test", password: DevServer.password)

@@ -60,6 +60,8 @@ The following capabilities are implemented; continued work focuses on reliabilit
 
 ## Reliability priorities
 
+- Unknown server item types stay discoverable and read-only; preserve encrypted payloads and reject unsafe
+  writes, mixed batches and partial exports. Verify with `make selftest-compatibility` and VaultCore compatibility tests.
 - Import delivery distinguishes confirmed writes, uncertain requests and batches not sent; failed reads never invite resending successful imports.
 - Every account syncs independently; failures stay visible with a retry action and the encrypted cache remains available.
 - Local build and test commands preserve failure exit codes.
