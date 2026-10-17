@@ -12,8 +12,11 @@ final class ButtonTests: XCTestCase {
     override func setUp() async throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments = ["--demo", "-appearance", "light"]
+        app.launchArguments = ["--demo", "--demo-item", "2", "-appearance", "light"]
         app.launch()
+        app.activate()
+        let clearSearch = app.buttons["Clear Search"].firstMatch
+        if clearSearch.exists { clearSearch.click() }
         XCTAssertTrue(app.staticTexts["GitHub"].firstMatch.waitForExistence(timeout: 10), "demo vault did not open")
     }
 
@@ -134,6 +137,46 @@ final class ButtonTests: XCTestCase {
         XCTAssertEqual(clipboard(), "m7Kq#vR2!tLp9wZe$Hu", "password tile did not copy the password")
         window.buttons.matching(NSPredicate(format: "label CONTAINS %@", "One-time code")).firstMatch.click()
         XCTAssertEqual(clipboard()?.count, 6, "code tile did not copy a 6-digit code")
+    }
+
+    func testDetailCopyActions() {
+        select("GitHub")
+        let username = window.buttons["Copy Username"].firstMatch
+        XCTAssertTrue(username.waitForExistence(timeout: 3))
+        let preview = XCTAttachment(screenshot: window.screenshot())
+        preview.name = "Item detail — compact copy actions"
+        preview.lifetime = .keepAlways
+        add(preview)
+        username.click()
+        XCTAssertEqual(clipboard(), "alexchen")
+        XCTAssertEqual(username.value as? String, "Copied")
+        XCTAssertFalse(window.staticTexts["m7Kq#vR2!tLp9wZe$Hu"].exists, "Copying username revealed the password")
+
+        let website = window.buttons["Copy Website"].firstMatch
+        XCTAssertTrue(website.exists, "Website copy should be visible without a context menu")
+        website.click()
+        XCTAssertEqual(clipboard(), "https://github.com/login?return_to=%2Fsettings%2Fsecurity")
+        XCTAssertEqual(website.value as? String, "Copied")
+        XCTAssertTrue(window.buttons["Open website"].firstMatch.exists, "Website opening needs its own action")
+
+        window.buttons["Copy Notes"].firstMatch.click()
+        XCTAssertEqual(clipboard(), "Recovery codes are in the “GitHub recovery” note.")
+
+    }
+
+    func testCardFieldsCopyWithoutRevealing() {
+        select("Travel Visa")
+        window.buttons["Copy Card number"].firstMatch.click()
+        XCTAssertEqual(clipboard(), "4111111111116411", "Copy must use raw digits rather than display formatting")
+        XCTAssertFalse(window.staticTexts["4111 1111 1111 6411"].exists)
+
+        window.buttons["Copy Cardholder"].firstMatch.click()
+        XCTAssertEqual(clipboard(), "Alex Chen")
+        XCTAssertEqual(window.buttons["Copy Card number"].firstMatch.value as? String, "")
+
+        window.buttons["Copy Security code"].firstMatch.click()
+        XCTAssertEqual(clipboard(), "123")
+        XCTAssertFalse(window.staticTexts["123"].exists, "Copying a secret field must leave it masked")
     }
 
     // MARK: Sidebar pages
