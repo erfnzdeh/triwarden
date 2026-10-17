@@ -8,7 +8,7 @@ import Observation
 ///
 /// A **License** is a one-time purchase (Lemon Squeezy — cards, Alipay, WeChat Pay, PayPal…). It ends the reminder
 /// and covers **one natural person** on every Mac they use (including a company Mac). Not for resale or sharing
-/// across people (see `docs/LICENSE-TERMS.md`). Commercial use needs a license; an employer may buy and assign one.
+/// across people (see `docs/LICENSE-TERMS.md`). Managing work accounts needs a license, regardless of who owns the Mac; an employer may buy and assign one.
 ///
 /// Two kinds of key register:
 ///

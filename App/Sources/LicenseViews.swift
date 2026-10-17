@@ -14,7 +14,7 @@ struct LicenseReminderView: View {
             Text("Enjoying Triwarden?")
                 .font(.system(size: 20, weight: .bold)).tracking(-0.2)
                 .padding(.top, 14)
-            Text("It's free to use for as long as you like, with every feature. If it's earned a place on your Mac, a license keeps it going.")
+            Text("Personal use is free, with every feature. If you use Triwarden for work accounts, please purchase a license. One license covers your personal and work use on all your Macs.")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -206,7 +206,7 @@ struct LicenseSettings: View {
                     .disabled(license.pricingURL == nil)
             }
         } footer: {
-            Text("One person, all their Macs — including a company Mac. Not for resale or sharing across people. Commercial use needs a license; an employer may buy and assign one.")
+            Text("Work accounts include company email, company GitHub, client systems and freelance work. The purpose of use decides whether you need a license, not who owns the Mac. One license per person covers personal and work use on all their Macs; no sharing between users.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
