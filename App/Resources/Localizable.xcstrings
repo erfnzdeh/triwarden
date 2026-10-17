@@ -9624,34 +9624,6 @@
         }
       }
     },
-    "Copied secrets are marked as concealed, so clipboard managers skip them. Paste a login's password, and its one-time code is ready to paste next." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "コピーした秘密情報は非表示として扱われ、クリップボード管理アプリには残りません。ログインのパスワードを貼り付けると、次はその確認コードを貼り付けられます。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "拷贝的机密内容会标记为隐藏，剪贴板管理工具不会记录。粘贴登录项的密码后，接着就能粘贴它的一次性验证码。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "拷貝的機密內容會標記為隱藏，剪貼簿管理工具不會記錄。貼上登入項目的密碼後，接著就能貼上它的一次性驗證碼。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "複製嘅機密內容會標記為隱藏，剪貼簿管理工具唔會記錄。貼上登入項目嘅密碼之後，跟住就可以貼上佢嘅一次性驗證碼。"
-          }
-        }
-      }
-    },
     "Copied the password for %@." : {
       "localizations" : {
         "ja" : {
@@ -10125,34 +10097,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "複製設定"
-          }
-        }
-      }
-    },
-    "Copy the one-time code after the password is pasted" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "パスワードを貼り付けたら確認コードをコピー"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "粘贴密码后拷贝一次性验证码"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "貼上密碼後拷貝一次性驗證碼"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "貼上密碼後複製一次性驗證碼"
           }
         }
       }
@@ -23803,34 +23747,6 @@
         }
       }
     },
-    "Password copied · the code follows once you paste" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "パスワードをコピーしました · 貼り付けると次は確認コード"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已拷贝密码 · 粘贴后接着是验证码"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已拷貝密碼 · 貼上後接著是驗證碼"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已複製密碼 · 貼上之後就輪到驗證碼"
-          }
-        }
-      }
-    },
     "Password found in a data breach" : {
       "localizations" : {
         "ja" : {
@@ -36419,30 +36335,30 @@
         }
       }
     },
-    "Paste the key from your receipt" : {
+    "Paste the key from your email" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "領収書のキーを貼り付け"
+            "value" : "メールのキーを貼り付け"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "貼上收據入面嘅授權碼"
+            "value" : "貼上電郵入面嘅授權碼"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "粘贴收据中的密钥"
+            "value" : "粘贴邮件中的授权码"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "貼上收據中的金鑰"
+            "value" : "貼上電子郵件中的授權碼"
           }
         }
       }
@@ -36475,30 +36391,30 @@
         }
       }
     },
-    "This license key isn't valid. Paste the whole key from your receipt." : {
+    "This license key isn't valid. Paste the whole key from your email." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このライセンスキーは無効です。領収書のキー全体を貼り付けてください。"
+            "value" : "このライセンスキーは無効です。メールのキー全体を貼り付けてください。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "呢個授權碼無效。請貼上收據入面完整嘅授權碼。"
+            "value" : "呢個授權碼無效。請貼上電郵入面完整嘅授權碼。"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此授权密钥无效。请粘贴收据中的完整密钥。"
+            "value" : "此授权码无效。请粘贴邮件中的完整授权码。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此授權金鑰無效。請貼上收據中的完整金鑰。"
+            "value" : "此授權碼無效。請貼上電子郵件中的完整授權碼。"
           }
         }
       }
@@ -36583,90 +36499,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Triwarden 仍可繼續使用。你隨時可以用同一組金鑰重新註冊。"
-          }
-        }
-      }
-    },
-    "This license key is for a different product." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このライセンスキーは別の製品用です。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "呢個授權碼屬於其他產品。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此授权密钥属于其他产品。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此授權金鑰屬於其他產品。"
-          }
-        }
-      }
-    },
-    "Couldn't reach Lemon Squeezy. Check your connection and try again." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Lemon Squeezy に接続できませんでした。接続を確認して、もう一度お試しください。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "連唔到 Lemon Squeezy。請檢查網絡連線再試。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法连接 Lemon Squeezy。请检查网络连接后重试。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法連線 Lemon Squeezy。請檢查網絡連線後再試。"
-          }
-        }
-      }
-    },
-    "This license key couldn't be activated." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このライセンスキーを有効にできませんでした。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "呢個授權碼啟用唔到。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法激活此授权密钥。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法啟用此授權金鑰。"
           }
         }
       }
@@ -36923,30 +36755,30 @@
         }
       }
     },
-    "Card, Alipay, WeChat Pay or PayPal" : {
+    "Stripe checkout · one-time, not a subscription" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "カード、Alipay、WeChat Pay、PayPal"
+            "value" : "Stripe 決済 · 買い切り・サブスクリプションではありません"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "信用卡、支付寶、微信支付或 PayPal"
+            "value" : "Stripe 結帳 · 一次付款，並非訂閱"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "银行卡、支付宝、微信支付或 PayPal"
+            "value" : "Stripe 结账 · 一次付款，并非订阅"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "信用卡、支付寶、微信支付或 PayPal"
+            "value" : "Stripe 結帳 · 一次付款，並非訂閱"
           }
         }
       }
@@ -36979,30 +36811,30 @@
         }
       }
     },
-    "A key from your receipt is confirmed with Lemon Squeezy once, when you register; nothing is checked after that. Offline keys never leave this Mac." : {
+    "Your signed license key is emailed after purchase. It is checked only on this Mac and never sent to Stripe, Triwarden or another license server." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "領収書のキーは、登録時に Lemon Squeezy で一度だけ確認します。その後は確認しません。オフラインキーがこの Mac の外に送られることはありません。"
+            "value" : "購入後、署名済みライセンスキーをメールでお送りします。キーはこの Mac 上だけで検証され、Stripe、Triwarden、その他のライセンスサーバーへ送信されません。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "收據入面嘅授權碼只會喺註冊時向 Lemon Squeezy 確認一次，之後唔會再檢查。離線授權碼永遠唔會離開呢部 Mac。"
+            "value" : "付款後，已簽署的授權碼會寄到你的電郵。授權碼只會在這部 Mac 驗證，不會傳送到 Stripe、Triwarden 或其他授權伺服器。"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "收据中的密钥只在注册时向 Lemon Squeezy 确认一次，之后不再检查。离线密钥永远不会离开此 Mac。"
+            "value" : "付款后，已签名的授权码会发送到你的邮箱。授权码只在这台 Mac 验证，不会发送到 Stripe、Triwarden 或其他授权服务器。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "收據中的金鑰只在註冊時向 Lemon Squeezy 確認一次，之後不再檢查。離線金鑰永遠不會離開此 Mac。"
+            "value" : "付款後，已簽署的授權碼會寄到你的電子郵件。授權碼只會在這部 Mac 驗證，不會傳送到 Stripe、Triwarden 或其他授權伺服器。"
           }
         }
       }

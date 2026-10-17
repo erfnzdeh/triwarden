@@ -102,12 +102,11 @@ targets:
         CFBundleLocalizations: [en, zh-Hant, zh-HK, zh-Hans, ja]
         # Updates (Sparkle): appcast attached to the latest GitHub release; every update must carry an EdDSA
         # signature made with the private key matching SUPublicEDKey (set by `make sparkle-keys`).
-        # Fork-style licence (App/Sources/License.swift): Lemon Squeezy checkout, optional site /pricing/ for Learn More,
-        # the product whose receipt keys register, and the Ed25519 key that offline keys are checked against. Without a
-        # store link the app never asks.
+        # Fork-style licence (App/Sources/License.swift): Stripe checkout, optional site /pricing/ for Learn More,
+        # and the Ed25519 public key used to verify Komori-issued signed keys locally. Without a store link the app
+        # never asks.
         TWStoreURL: $(TW_STORE_URL)
         TWPricingURL: $(TW_PRICING_URL)
-        TWLemonProductID: $(TW_LEMON_PRODUCT_ID)
         TWLicensePublicKey: $(TW_LICENSE_PUBLIC_KEY)
         SUFeedURL: https://github.com/sinhong2011/triwarden/releases/latest/download/appcast.xml
         SUPublicEDKey: $(SPARKLE_PUBLIC_KEY)
@@ -130,12 +129,11 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: ControlAccent # neutral graphite for system controls (menus, pickers, switches); Color.brand stays AccentColor
         ENABLE_PREVIEWS: YES # Xcode canvas: see App/Sources/Previews.swift
-        # TEST MODE checkout — confirm price US$19.99 and replace with the live variant before release.
-        TW_STORE_URL: "https://niskan516.lemonsqueezy.com/checkout/buy/3c30c6c1-6296-4fc0-b465-bd762aced135"
+        # Live Stripe Managed Payments link. Komori fulfills signed keys after verified payment.
+        TW_STORE_URL: "https://buy.stripe.com/8x2dRaaSJ1fS4y27r183C00"
         # Official site /pricing/ absolute URL (Learn More). Empty until SITE_URL is verified in production.
         TW_PRICING_URL: ""
-        TW_LEMON_PRODUCT_ID: "1419547" # numeric product id from the Lemon Squeezy dashboard
-        TW_LICENSE_PUBLIC_KEY: "tKfg++yszjBWpgVoyELeDo2CRrKq2RCU+UvNdp5dvIs=" # license-public-key (written by `make license-keys`; the private key never enters the repo)
+        TW_LICENSE_PUBLIC_KEY: "tKfg++yszjBWpgVoyELeDo2CRrKq2RCU+UvNdp5dvIs=" # must match Komori's triwarden-live signing identity
         SPARKLE_PUBLIC_KEY: "7DshdRJXizUaeQeMuAi1w4A8QeYH+2YJxaOdvtxPfTI=" # sparkle-public-key (written by `make sparkle-keys`; the private key never enters the repo)
     scheme:
       testTargets: [TriwardenUITests]
