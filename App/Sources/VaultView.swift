@@ -2181,22 +2181,10 @@ struct ItemDetail: View {
 
                 VStack(spacing: 0) {
                     ForEach(Array(item.websites.enumerated()), id: \.offset) { index, address in
-                        let url = URL(string: address.contains("://") ? address : "https://" + address)
-                        DetailRow(symbol: "globe", title: index == 0 ? "Website" : "Website \(index + 1)") {
-                            Button { if let url { NSWorkspace.shared.open(url) } } label: {
-                                HStack(spacing: 5) {
-                                    Text(verbatim: address).lineLimit(1).truncationMode(.middle)
-                                    Image(systemName: "arrow.up.right").font(.system(size: 10, weight: .semibold))
-                                        .foregroundStyle(.secondary)
-                                }
-                                .foregroundStyle(.primary)
-                                .contentShape(.rect)
+                        WebsiteDetailRow(address: address, index: index)
+                            .overlay(alignment: .top) {
+                                if index > 0 { Divider().opacity(0.6).padding(.leading, 16) }
                             }
-                            .buttonStyle(.plain)
-                            .disabled(url == nil)
-                            .help(Text("Open in your browser"))
-                            .appContextMenu([ActionMenuEntry(title: String(localized: "Copy"), symbol: "doc.on.doc") { model.copyPlain(address) }])
-                        }
                     }
                     // Which vault it's in: the same names as the sidebar's Vaults (My vault, or a shared vault › its folders).
                     if item.organizationId == nil {
@@ -2303,8 +2291,12 @@ struct ItemDetail: View {
                     }
                     if let notes = item.notes, !notes.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Notes").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
-                                .textCase(.uppercase).tracking(0.6)
+                            HStack {
+                                Text("Notes").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                                    .textCase(.uppercase).tracking(0.6)
+                                Spacer()
+                                DetailCopyButton(value: notes, label: String(localized: "Notes"))
+                            }
                             Text(verbatim: notes).font(.system(size: 13)).textSelection(.enabled)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -2440,7 +2432,7 @@ extension HeroCard {
                     } content: {
                         let strength = StrengthMeter(password: password).level
                         HStack {
-                            CopyCaption(copied: passwordCopied) { Text("Password · click to copy") }
+                            CopyCaption(copied: passwordCopied) { Label("Password", systemImage: "doc.on.doc") }
                             Spacer(minLength: 6)
                             Text(strength.1)
                         }
@@ -2453,6 +2445,7 @@ extension HeroCard {
                         // Same place and size as the code's countdown bar, so the tiles line up.
                         LevelBar(level: strength.0, color: strength.0 <= 1 ? .red : strength.0 == 2 ? .orange : .green)
                     }
+                    .help(Text("Copy password"))
                     .copyTick(armed: $passwordArmed, copied: $passwordCopied)
                     .appContextMenu([
                         ActionMenuEntry(title: String(localized: "Copy Password"), symbol: "doc.on.doc") { model.copyPassword(item) },
@@ -2465,14 +2458,15 @@ extension HeroCard {
                         codeArmed = model.copyCount
                         model.guarded(item) { model.copy(totp.code(at: .now), label: String(localized: "Code")) }
                     } content: {
-                        CopyCaption(copied: codeCopied) { Text("One-time code") }
+                        CopyCaption(copied: codeCopied) { Label("One-time code", systemImage: "doc.on.doc") }
                             .font(.system(size: 12)).foregroundStyle(style.muted)
-                        HStack(alignment: .center) {
+                        HStack(alignment: .center, spacing: 12) {
                             LiveOTPCode(totp: totp, size: 22)
-                            Spacer(minLength: 8)
                             LiveCountdownRing(totp: totp, size: 34)
                         }
                     }
+                    .fixedSize(horizontal: true, vertical: false)
+                    .help(Text("Copy one-time code"))
                     .copyTick(armed: $codeArmed, copied: $codeCopied)
                 }
                 }
@@ -2511,17 +2505,27 @@ private struct HeroCard: View {
                     .shadow(color: .black.opacity(style.dark ? 0.3 : 0.08), radius: 6, y: 3)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.name).font(.system(size: 30, weight: .heavy)).tracking(-0.8).lineLimit(1)
-                    Text(verbatim: [item.username, item.host].compactMap { $0 }.joined(separator: " · "))
-                        .foregroundStyle(style.muted).lineLimit(1)
+                    let subtitle = item.kind == .login ? (item.host ?? "")
+                        : [item.username, item.host].compactMap { $0 }.joined(separator: " · ")
+                    if !subtitle.isEmpty {
+                        Text(verbatim: subtitle).foregroundStyle(style.muted).lineLimit(1)
+                            .textSelection(.enabled)
+                    }
                 }
+            }
+
+            if item.kind == .login, let username = item.username, !username.isEmpty {
+                FieldLine(item: item, field: ItemField(label: String(localized: "Username"), value: username), reveal: reveal)
+                    .background(style.tile, in: .rect(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(style.tileEdge))
             }
 
             // Tiles share one height: the row sizes to the tallest, each tile fills it. Stacked when the card is narrow
             // (decided in the layout pass, so it's always right for the current width).
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 10) { tiles(style) }
-                    .frame(minWidth: 0, idealWidth: 440, maxWidth: .infinity)
-                VStack(spacing: 10) { tiles(style) }
+                    .frame(minWidth: 0, idealWidth: 440, maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: 10) { tiles(style) }
             }
             .fixedSize(horizontal: false, vertical: true)
 
@@ -2586,13 +2590,9 @@ private struct PressScale: ButtonStyle {
 
 /// A label/value row with copy; secrets stay masked until revealed.
 private struct FieldLine: View {
-    @Environment(AppModel.self) private var model
     let item: VaultItem
     let field: ItemField
     let reveal: Bool
-    @State private var armed: Int?
-    @State private var copied = false
-
     /// Card numbers are shown grouped (4-4-4-4 / Amex 4-6-5); the clipboard still gets the raw digits.
     private var shown: String {
         item.kind == .card && field.label == String(localized: "Card number")
@@ -2600,40 +2600,28 @@ private struct FieldLine: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text(verbatim: field.label)
-                .font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
-                .frame(width: 110, alignment: .leading)
-            Group {
-                if field.secret {
-                    MaskedSecret(secret: shown, revealed: reveal, dots: 10)
-                } else {
-                    Text(verbatim: shown)
-                        .contentTransition(.opacity)
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: field.label)
+                    .font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                Group {
+                    if field.secret {
+                        MaskedSecret(secret: shown, revealed: reveal, dots: 10)
+                    } else {
+                        Text(verbatim: shown)
+                            .contentTransition(.opacity)
+                            .textSelection(.enabled)
+                    }
                 }
-            }
                 .font(.system(size: 13, design: field.monospaced ? .monospaced : .default))
-                .lineLimit(field.monospaced ? 3 : 2)
+                .lineLimit(field.secret ? 3 : nil)
                 .truncationMode(.middle)
-                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Button {
-                armed = model.copyCount
-                if field.secret { model.guarded(item) { model.copy(field.value, label: field.label) } } else { model.copy(field.value, label: field.label) }
-            } label: {
-                // Fixed frame: doc.on.doc ↔ checkmark differ in size, and .replace would otherwise grow the row.
-                Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(width: 20, height: 20)
-                    .contentTransition(.symbolEffect(.replace))
-                    .accessibilityLabel(Text("Copy \(field.label)"))
             }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
-                .help(Text("Copy"))
-                .copyTick(armed: $armed, copied: $copied)
+            DetailCopyButton(value: field.value, label: field.label, guardedItem: field.secret ? item : nil)
         }
-        .padding(.horizontal, 16).padding(.vertical, 13)
+        .padding(.horizontal, 16).padding(.vertical, 12)
         .frame(minHeight: 44)
     }
 }

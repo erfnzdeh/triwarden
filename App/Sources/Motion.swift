@@ -118,7 +118,11 @@ struct CopyTick: ViewModifier {
     func body(content: Content) -> some View {
         content
             .onChange(of: model.copyCount) { _, now in
-                guard let armed, now > armed else { return }
+                guard let armed, now > armed else {
+                    // A different field was copied: don't leave this control's old confirmation stuck on.
+                    if self.armed == nil { copied = false }
+                    return
+                }
                 self.armed = nil
                 withAnimation(Motion.animation(.snappy(duration: 0.25))) { copied = true }
                 Task {
