@@ -68,38 +68,21 @@ Every feature works unregistered and there's no time limit. An unregistered offi
 more than once a week and never in the first week, whether the user wants to buy a license. Debug builds, and
 any build without `TW_STORE_URL`, never ask.
 
-Two kinds of key register (see `App/Sources/License.swift`):
+Every purchased key is an Ed25519-signed payload. Triwarden verifies it on the Mac and makes no activation request.
+Stripe handles checkout; Komori validates the paid Checkout Session, signs one product-scoped key and sends it through
+Resend. Refunds are recorded by Komori, but an already-issued offline key cannot be revoked remotely.
 
-- **Receipt keys**: Lemon Squeezy generates them and puts them in the receipt email, so you don't need to do
-  anything. Pressing Register sends the key and a random install id to Lemon Squeezy once; nothing is checked
-  after that.
-- **Offline keys**: you sign them yourself, and they're checked on the Mac only. They're for buyers who'd rather
-  nothing went online, and a fallback if Lemon Squeezy ever goes away.
+1. Keep the one-time Stripe product at **US$19.99**, quantity one. The live Managed Payments link is set as
+   `TW_STORE_URL` in `project.yml` and `CHECKOUT_URL` in `site/src/config.ts`. Keep both values identical.
+2. Keep Komori’s live `triwarden` product, Stripe price mapping and `triwarden-live` signing identity enabled. The
+   private seed belongs only in Komori’s fulfillment secret. `TW_LICENSE_PUBLIC_KEY` must match that identity.
+3. In Stripe, keep the Komori snapshot webhook enabled for Checkout completion, delayed payment, expiry and refund
+   events. Komori must run its API and fulfillment worker; the worker needs both private and egress networks.
+4. Before release, complete one real checkout. Confirm Stripe reports payment, Komori shows one paid order and issued
+   license, Resend accepts the email, and the emailed key activates in the release build without a network request.
 
-1. In Lemon Squeezy, create **one** one-time product (License, **US$19.99**) with **license keys on, activation
-   limit unlimited, and no expiry**. Removing a license in the app doesn't free an activation, so a limit would
-   eventually lock buyers out. Turn on Alipay and WeChat Pay under Settings › Payments. Confirm the live price and
-   checkout URL match before release (test-mode links must not be treated as live). In `project.yml`, set
-   `TW_STORE_URL` / `TW_LEMON_PRODUCT_ID`, and optionally `TW_PRICING_URL` (absolute site `/pricing/`). Mirror the
-   checkout link and price in `site/src/config.ts`.
-2. Create the offline-key signing key:
-
-   ```bash
-   make license-keys
-   ```
-
-   This keeps an Ed25519 private key in your login keychain (`triwarden-license-signing`) and writes the public
-   key to `project.yml` (`TW_LICENSE_PUBLIC_KEY`). Commit that change and back up the private key. If you lose
-   it, you can't sign new offline keys that this build accepts.
-
-3. When a buyer asks for an offline key, sign one for their order and email it to them:
-
-   ```bash
-   make license NAME="Usagi" EMAIL=usagi@example.com ORDER=1001
-   ```
-
-Either kind of key is for **one person** on all of their personal Macs (no device cap). Not for resale or
-team sharing — see [LICENSE-TERMS.md](LICENSE-TERMS.md).
+A key is for **one person** on all their Macs. It is not for resale or team sharing — see
+[LICENSE-TERMS.md](LICENSE-TERMS.md).
 
 ## Releasing by hand (fallback)
 

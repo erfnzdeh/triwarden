@@ -68,8 +68,6 @@
 	<integer>86400</integer>
 	<key>SUVerifyUpdateBeforeExtraction</key>
 	<true/>
-	<key>TWLemonProductID</key>
-	<string>$(TW_LEMON_PRODUCT_ID)</string>
 	<key>TWLicensePublicKey</key>
 	<string>$(TW_LICENSE_PUBLIC_KEY)</string>
 	<key>TWPricingURL</key>
