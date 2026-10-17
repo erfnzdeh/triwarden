@@ -126,7 +126,7 @@ cask "triwarden" do
   desc "Native macOS client for Vaultwarden and Bitwarden"
   homepage "https://github.com/sinhong2011/triwarden"
 
-  depends_on macos: ">= :tahoe"
+  depends_on macos: :tahoe
 
   app "Triwarden.app"
   binary "#{appdir}/Triwarden.app/Contents/MacOS/tw"

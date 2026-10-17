@@ -5,12 +5,15 @@ import VaultwardenAPI
 // Shared by the app and the AutoFill extension.
 
 struct VaultItem: Identifiable, Hashable {
-    enum Kind: Int { case login = 1, note = 2, card = 3, identity = 4, sshKey = 5 }
+    enum Kind: Int { case unsupported = 0, login = 1, note = 2, card = 3, identity = 4, sshKey = 5 }
 
     let id: String
     /// Which saved account this item belongs to (several can be unlocked at once).
     var accountId = ""
     var kind: Kind = .login
+    /// The server's type, retained even when this client cannot interpret it.
+    var unsupportedType: Int?
+    var isSupported: Bool { kind != .unsupported }
     var name: String
     var username: String?
     let host: String?

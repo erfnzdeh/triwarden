@@ -63,6 +63,8 @@ key for commercial use. See [paid license terms](docs/LICENSE-TERMS.md). Source 
 - Pick many items (⌘-click, ⇧-click, ⌘A) to move, archive, trash or restore them at once.
 - Item history: when it was created and last edited, when its password changed, and its earlier passwords.
 - Works offline from the encrypted cache; edits go straight to the server.
+- Future item types remain visible and read-only, with their encrypted data preserved. Writes and exports
+  that cannot safely handle them stop with an explanation.
 
 **Fast to reach**
 - One search over every vault (⌘F), with filters that stay on between launches: type, folder, vault, favorites,
@@ -162,6 +164,7 @@ make run        # generate the project, build and open the app
 | `make` | List all commands |
 | `make test` | Unit tests for the crypto, API, import/export and SSH agent (`Packages/VaultCore`) |
 | `make selftest` | End-to-end self-test against a local Vaultwarden dev server (`DevServer/`) |
+| `make selftest-compatibility` | Offline synthetic checks for future item types, cache reopen and mutation protection |
 | `make uitest` | Click-through UI tests on a demo vault (quit any running copy first) |
 | `make snapshots` | Light and dark renders of every screen into `build/snapshots` (`ONLY=login,send` for just those) |
 

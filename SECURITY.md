@@ -79,6 +79,10 @@ with `completeUntilFirstUserAuthentication` file protection, and both the app an
   home labs. You can trust a private CA inside Triwarden only, without adding it to the system keychain.
 - **Edits** patch the server's own JSON and send `lastKnownRevisionDate`, so fields this app doesn't
   understand survive and concurrent edits are rejected rather than overwritten.
+- **Unknown item types** remain visible as unsupported, read-only items with their original numeric type.
+  Only shared metadata is shown; their payload is not interpreted as credentials or exposed as custom fields.
+  The encrypted cache and raw cipher retain their data. Editing, cloning, attachments, moving, archiving,
+  deleting and other item writes are blocked, including batches containing an unsupported item.
 
 ## Import and export
 
@@ -92,6 +96,8 @@ Formats match Bitwarden's official clients, so files move between them.
 
 - An export covers the personal vault, or one organization's vault (with its collections) for owners, admins and members
   with the import/export permission. Trash and attachments are left out, as in Bitwarden's export.
+- If the selected vault contains an unsupported item type outside Trash, export stops with an explanation;
+  it does not produce a partial item. Use an updated Bitwarden client to export that vault.
 - Exporting asks for the master password again (checked on the Mac, offline) and warns before any unencrypted format.
 - The file is written straight to the place chosen in the save panel with `0600` permissions, never to a temporary copy.
 - Imports are read only from the file you choose or drop on the window. Every item is encrypted on the Mac with your account

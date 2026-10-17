@@ -185,6 +185,7 @@ struct EditItemSheet: View {
 
     private var symbol: String {
         switch kind {
+        case .unsupported: "questionmark.square"
         case .login: "key.fill"; case .note: "note.text"; case .card: "creditcard.fill"
         case .identity: "person.crop.rectangle.fill"; case .sshKey: "terminal.fill"
         }
@@ -192,6 +193,7 @@ struct EditItemSheet: View {
 
     private var subtitle: LocalizedStringKey {
         switch kind {
+        case .unsupported: "Unsupported item"
         case .login: "A sign-in for a website or app."
         case .note: "Private text, encrypted like everything else."
         case .card: "A payment card, ready for AutoFill."
@@ -338,7 +340,7 @@ struct EditItemSheet: View {
             case .card: cardSection
             case .identity: identitySection
             case .sshKey: sshSection
-            case .note: EmptyView()
+            case .note, .unsupported: EmptyView()
             }
 
             customFieldsSection
@@ -798,7 +800,11 @@ struct EditItemSheet: View {
     }
 
     private func save() async {
-        guard !saveDisabled else { return }
+        guard kind != .unsupported, !saveDisabled else { return }
+        switch mode {
+        case .edit(let item), .clone(let item): guard model.allowMutation([item.id]) else { return }
+        case .create: break
+        }
         saving = true
         defer { saving = false }
         let cleanFields = customFields.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -810,7 +816,7 @@ struct EditItemSheet: View {
                 guard let createdFolder = await model.createFolder(name: path, accountId: accountId) else { return }
                 folderId = createdFolder
             }
-            let newKind: AppModel.NewItemKind = if case .create(let k) = mode { k } else { AppModel.NewItemKind(kind) }
+            guard let newKind = AppModel.NewItemKind(kind) else { return }
             var edit = CipherEdit(name: name, notes: notes, folderId: .some(folderId))
             edit.reprompt = reprompt
             edit.favorite = prefill?.favorite ?? false

@@ -765,6 +765,7 @@ struct CommandPalette: View {
         list.append(PaletteCommand(id: "show", title: String(localized: "Open in Vault"), symbol: "macwindow", shortcut: context == nil ? "↵" : nil) {
             finish(item, flash: nil) { model.showItem(item.id) }
         })
+        guard item.isSupported else { return list }
         list.append(PaletteCommand(id: "edit", title: String(localized: "Edit"), symbol: "pencil") {
             PaletteRecents.note(item.id); close()
             model.bringToFront()

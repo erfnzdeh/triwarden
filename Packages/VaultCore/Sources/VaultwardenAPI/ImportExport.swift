@@ -69,6 +69,7 @@ public enum VaultExport {
         }
         var items: [[String: Any]] = []
         for cipher in sync.ciphers where cipher.organizationId == nil && cipher.deletedDate == nil {
+            try CipherEditor.requireSupportedType(cipher.type)
             guard let data = raw[cipher.id], let key = keyring.key(for: cipher),
                   let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let plain = CipherFields.decrypt(dict, key: key) as? [String: Any] else { continue }
@@ -90,6 +91,7 @@ public enum VaultExport {
         }
         var items: [[String: Any]] = []
         for cipher in sync.ciphers where cipher.organizationId == organizationId && cipher.deletedDate == nil {
+            try CipherEditor.requireSupportedType(cipher.type)
             guard let data = raw[cipher.id], let key = keyring.key(for: cipher),
                   let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let plain = CipherFields.decrypt(dict, key: key) as? [String: Any] else { continue }

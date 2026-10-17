@@ -200,6 +200,7 @@ enum PaletteCreate {
 extension VaultItem.Kind {
     var paletteLabel: String {
         switch self {
+        case .unsupported: String(localized: "Unsupported item")
         case .login: String(localized: "Logins")
         case .note: String(localized: "Secure Notes")
         case .card: String(localized: "Cards")
@@ -210,6 +211,7 @@ extension VaultItem.Kind {
 
     var paletteSymbol: String {
         switch self {
+        case .unsupported: "questionmark.square"
         case .login: "key"
         case .note: "note.text"
         case .card: "creditcard"

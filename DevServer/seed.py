@@ -108,7 +108,7 @@ class Server:
         _, keys = rsa_keys(user_key)
         body = {
             "email": email, "name": name, "masterPasswordHash": password_hash(mk),
-            "masterPasswordHint": None, "key": enc(user_key, stretch(mk)), "keys": keys,
+            "masterPasswordHint": os.environ.get("TRIWARDEN_DEV_HINT"), "key": enc(user_key, stretch(mk)), "keys": keys,
             **{k: v for k, v in kdf.items() if k.startswith("kdf")},
         }
         r = self.post("api/accounts/register", json=body)

@@ -138,6 +138,39 @@ public struct SyncResponse: Decodable, Sendable {
         /// 1: ask for the master password before showing or using its secrets.
         public var reprompt: Int? = nil
         public var passwordHistory: [PasswordHistoryEntry]? = nil
+
+        enum CodingKeys: String, CodingKey {
+            case id, type, organizationId, key, folderId, collectionIds, name, notes, login, card, identity, sshKey
+            case fields, attachments, favorite, deletedDate, revisionDate, creationDate, archivedDate, reprompt, passwordHistory
+        }
+
+        public init(from decoder: any Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            id = try c.decode(String.self, forKey: .id)
+            type = try c.decode(Int.self, forKey: .type)
+            name = try c.decode(String.self, forKey: .name)
+            organizationId = try c.decodeIfPresent(String.self, forKey: .organizationId)
+            key = try c.decodeIfPresent(String.self, forKey: .key)
+            folderId = try c.decodeIfPresent(String.self, forKey: .folderId)
+            collectionIds = try c.decodeIfPresent([String].self, forKey: .collectionIds)
+            favorite = try c.decodeIfPresent(Bool.self, forKey: .favorite)
+            deletedDate = try c.decodeIfPresent(String.self, forKey: .deletedDate)
+            revisionDate = try c.decodeIfPresent(String.self, forKey: .revisionDate)
+            creationDate = try c.decodeIfPresent(String.self, forKey: .creationDate)
+            archivedDate = try c.decodeIfPresent(String.self, forKey: .archivedDate)
+            reprompt = try c.decodeIfPresent(Int.self, forKey: .reprompt)
+            // Unknown payloads are opaque even if they reuse one of today's property names with a new shape.
+            // Keep them in the raw sync data without making the rest of the vault fail to decode.
+            let supported = CipherEditor.Kind(rawValue: type) != nil
+            notes = supported ? try c.decodeIfPresent(String.self, forKey: .notes) : nil
+            login = supported ? try c.decodeIfPresent(Login.self, forKey: .login) : nil
+            card = supported ? try c.decodeIfPresent(Card.self, forKey: .card) : nil
+            identity = supported ? try c.decodeIfPresent(Identity.self, forKey: .identity) : nil
+            sshKey = supported ? try c.decodeIfPresent(SSHKey.self, forKey: .sshKey) : nil
+            fields = supported ? try c.decodeIfPresent([Field].self, forKey: .fields) : nil
+            attachments = supported ? try c.decodeIfPresent([Attachment].self, forKey: .attachments) : nil
+            passwordHistory = supported ? try c.decodeIfPresent([PasswordHistoryEntry].self, forKey: .passwordHistory) : nil
+        }
     }
 
     public struct PasswordHistoryEntry: Decodable, Sendable {

@@ -307,7 +307,15 @@ final class AppModel {
     /// Opens an item form in the detail panel. A new item or clone steps the list's selection aside; an edit keeps
     /// that item selected. Leaving a form with input in it asks first.
     func beginEditing(_ request: EditRequest) {
+        switch request.mode {
+        case .edit(let item), .clone(let item): guard item.isSupported, allowMutation([item.id]) else { return }
+        case .create: break
+        }
         leaveNewItemForm { [self] in
+            switch request.mode {
+            case .edit(let item), .clone(let item): guard allowMutation([item.id]) else { return }
+            case .create: break
+            }
             if case .edit(let item) = request.mode {
                 selectionBeforeForm = nil
                 selectedID = item.id
@@ -458,7 +466,7 @@ final class AppModel {
         AttachmentFiles.wipe() // leftovers from a crash
         Self.current = self
         sshAgent = SSHAgentService(model: self)
-        let tooling = CommandLine.arguments.contains { $0 == "--selftest" || $0 == "--snapshot" }
+        let tooling = CommandLine.arguments.contains { $0.hasPrefix("--selftest") || $0 == "--snapshot" }
             || ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" // Xcode canvas
         if !tooling, UserDefaults.standard.bool(forKey: Pref.sshAgent) { sshAgent.start() }
         cli = CLIBridge(model: self)
@@ -727,6 +735,7 @@ final class AppModel {
 
     /// Asks, then moves the item to Trash (the toast and ⌘Z can still take it back). Every delete asks first.
     func confirmTrash(_ item: VaultItem) {
+        guard allowMutation([item.id]) else { return }
         let message = isCloud(item.accountId) ? String(localized: "You can restore it from Trash for \(Self.cloudTrashDays) days.")
                                     : String(localized: "You can restore it from Trash later.")
         confirm(String(localized: "Move “\(item.name)” to Trash?"), message: message,
@@ -735,6 +744,7 @@ final class AppModel {
 
     /// Asks, then deletes a trashed item for good.
     func confirmDeleteForever(_ item: VaultItem) {
+        guard allowMutation([item.id]) else { return }
         confirm(String(localized: "Delete “\(item.name)” forever?"), message: String(localized: "This can't be undone."),
                 action: String(localized: "Delete Forever")) { [weak self] in await self?.deleteForever(item) }
     }
@@ -1599,12 +1609,28 @@ final class AppModel {
         if sessions.isEmpty { lock() }
     }
 
+    /// Recheck the current items at execution, including keyboard shortcuts and delayed callbacks.
+    @discardableResult
+    func allowMutation(_ ids: [String]) -> Bool {
+        let chosen = items.filter { ids.contains($0.id) }
+        guard chosen.allSatisfy(\.isSupported) else {
+            flash(String(localized: "This item type is not supported yet. Use an updated Bitwarden client to make changes."))
+            return false
+        }
+        do {
+            for session in sessions {
+                try session.requireWritableItems(chosen.filter { $0.accountId == session.id }.map(\.id))
+            }
+        } catch { return failed(error) }
+        return true
+    }
+
     // MARK: Editing
 
     enum NewItemKind {
         case login, secureNote, card, identity, sshKey
-        init(_ kind: VaultItem.Kind) {
-            switch kind { case .login: self = .login; case .note: self = .secureNote; case .card: self = .card
+        init?(_ kind: VaultItem.Kind) {
+            switch kind { case .unsupported: return nil; case .login: self = .login; case .note: self = .secureNote; case .card: self = .card
                           case .identity: self = .identity; case .sshKey: self = .sshKey }
         }
         var itemKind: VaultItem.Kind {
@@ -1640,6 +1666,7 @@ final class AppModel {
 
     @discardableResult
     func updateItem(_ id: String, edit: CipherEdit) async -> Bool {
+        guard allowMutation([id]) else { return false }
         guard let item = items.first(where: { $0.id == id }), let session = session(for: item) else { return offline() }
         do {
             try await session.update(id, edit: edit)
@@ -1692,6 +1719,7 @@ final class AppModel {
 
     /// Moves items into a folder. A folder belongs to one account, so only that account's items move.
     func move(itemIDs: [String], toFolderIn folderIds: [String]) async {
+        guard allowMutation(itemIDs) else { return }
         var moved: [VaultItem] = []
         for id in itemIDs {
             guard let item = items.first(where: { $0.id == id }), let session = session(for: item),
@@ -1711,6 +1739,7 @@ final class AppModel {
     /// Moves personal items into an organization's collections (one request each; the server needs every item
     /// re-encrypted with the organization key).
     func share(_ itemIDs: [String], organizationId: String, collectionIds: [String]) async -> Bool {
+        guard allowMutation(itemIDs) else { return false }
         var moved = 0
         for id in itemIDs {
             guard let item = items.first(where: { $0.id == id }), let session = session(for: item) else { continue }
@@ -1732,6 +1761,7 @@ final class AppModel {
     }
 
     func setCollections(_ item: VaultItem, collectionIds: [String]) async -> Bool {
+        guard allowMutation([item.id]) else { return false }
         guard let session = session(for: item) else { return offline() }
         do {
             try await session.setCollections(item.id, collectionIds: collectionIds)
@@ -1742,6 +1772,7 @@ final class AppModel {
 
     /// The same action on many items, one request per account; shown at once and rolled back if it fails.
     func bulk(_ action: AccountSession.Bulk, _ itemIDs: [String], undoable: Bool = true) async {
+        guard allowMutation(itemIDs) else { return }
         let chosen = items.filter { itemIDs.contains($0.id) }
         withAnimation(.snappy(duration: 0.3)) {
             switch action {
@@ -1796,6 +1827,7 @@ final class AppModel {
 
     /// Takes items out of the archive (undoing a bulk archive; the server has no bulk unarchive).
     private func unarchive(_ chosen: [VaultItem]) async {
+        guard allowMutation(chosen.map(\.id)) else { return }
         for item in chosen { optimistic(item.id) { $0.archived = nil } }
         do {
             for item in chosen { try await session(for: item)?.unarchive(item.id) }
@@ -1811,6 +1843,7 @@ final class AppModel {
     }
 
     func confirmBulk(_ action: AccountSession.Bulk, _ itemIDs: [String], then done: @escaping () -> Void = {}) {
+        guard allowMutation(itemIDs) else { return }
         let n = itemIDs.count
         switch action {
         case .trash:
@@ -1914,6 +1947,7 @@ final class AppModel {
 
     @discardableResult
     func addAttachments(_ urls: [URL], to item: VaultItem) async -> Bool {
+        guard allowMutation([item.id]) else { return false }
         guard let session = session(for: item) else { return offline() }
         attachmentBusy.insert(item.id)
         defer { attachmentBusy.remove(item.id) }
@@ -1934,6 +1968,7 @@ final class AppModel {
     }
 
     func deleteAttachment(_ attachment: VaultItem.Attachment, of item: VaultItem) async {
+        guard allowMutation([item.id]) else { return }
         guard let session = session(for: item) else { _ = offline(); return }
         do {
             try await session.deleteAttachment(item.id, attachment.id)
@@ -1956,6 +1991,7 @@ final class AppModel {
     }
 
     func toggleFavorite(_ item: VaultItem) async {
+        guard allowMutation([item.id]) else { return }
         optimistic(item.id) { $0.favorite.toggle() }
         // `--demo` / previews have no server: the change above is all there is.
         if sessions.isEmpty, previewUnlocked { return }
@@ -1963,6 +1999,7 @@ final class AppModel {
     }
 
     func trash(_ item: VaultItem) async {
+        guard allowMutation([item.id]) else { return }
         if sessions.isEmpty, previewUnlocked { // demo vault: no server
             optimistic(item.id) { $0.isDeleted = true }
             offerUndo(String(localized: "Moved “\(item.name)” to Trash"), actionName: String(localized: "Move to Trash")) { [weak self] in
@@ -1981,6 +2018,7 @@ final class AppModel {
     }
 
     func restore(_ item: VaultItem) async {
+        guard allowMutation([item.id]) else { return }
         guard let session = session(for: item) else { _ = offline(); return }
         optimistic(item.id) { $0.isDeleted = false }
         do {
@@ -1994,6 +2032,7 @@ final class AppModel {
 
     /// Archive: keep the item, but out of the lists, search and AutoFill. Unarchive brings it back.
     func setArchived(_ item: VaultItem, _ archived: Bool) async {
+        guard allowMutation([item.id]) else { return }
         if sessions.isEmpty, previewUnlocked, let i = items.firstIndex(where: { $0.id == item.id }) {
             withAnimation(.snappy(duration: 0.3)) { items[i].archived = archived ? .now : nil } // demo vault: no server
             return
@@ -2021,6 +2060,7 @@ final class AppModel {
     }
 
     func deleteForever(_ item: VaultItem) async {
+        guard allowMutation([item.id]) else { return }
         guard let session = session(for: item) else { _ = offline(); return }
         optimisticRemove(item.id)
         do {
@@ -2035,6 +2075,10 @@ final class AppModel {
     }
 
     private func failed(_ error: Error) -> Bool {
+        if error is CipherEditor.CompatibilityError {
+            flash(String(localized: "This item type is not supported yet. Use an updated Bitwarden client to make changes."))
+            return false
+        }
         if error is AccountSession.WriteError { return offline() }
         if case .http(let status, let message)? = error as? APIError {
             flash(message ?? String(localized: "Server error (\(status))."))

@@ -6,7 +6,9 @@ name: Release
 # sinhong2011/homebrew-tap (with a deploy key that can write to that repo only).
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   # Builds and uploads an existing tag again (e.g. after a failed build): Actions › Release › Run workflow.
   workflow_dispatch:
@@ -16,12 +18,63 @@ on:
         required: true
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
+  source:
+    name: Verify release source
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      current: ${{ steps.source.outputs.current }}
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify tested main commit or manual tag
+        id: source
+        env:
+          EVENT: ${{ github.event_name }}
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [[ $EVENT == workflow_dispatch ]]; then
+            [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version tag"; exit 1; }
+            sha=$(git rev-parse --verify "refs/tags/$TAG^{commit}")
+            git merge-base --is-ancestor "$sha" origin/main
+            echo "sha=$sha" >> "$GITHUB_OUTPUT"
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          elif [[ $TESTED_SHA == "$(git rev-parse origin/main)" ]]; then
+            echo "sha=$TESTED_SHA" >> "$GITHUB_OUTPUT"
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'A newer main commit exists; its successful CI will handle the release.'
+            echo 'current=false' >> "$GITHUB_OUTPUT"
+          fi
+
+  manual-validation:
+    name: Validate manual release tag
+    needs: source
+    if: github.event_name == 'workflow_dispatch' && needs.source.outputs.current == 'true'
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.source.outputs.sha }}
+
   release-please:
-    if: github.event_name == 'push'
+    needs: source
+    if: github.event_name == 'workflow_run' && needs.source.outputs.current == 'true'
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     outputs:
       created: ${{ steps.rp.outputs.release_created }}
@@ -33,11 +86,17 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          target-branch: main
 
   build:
-    needs: release-please
+    needs: [source, release-please, manual-validation]
+    permissions:
+      contents: write
     # A release-please release, or a tag asked for by hand (release-please is skipped then).
-    if: always() && (needs.release-please.outputs.created == 'true' || github.event_name == 'workflow_dispatch')
+    if: >-
+      always() && needs.source.result == 'success' &&
+      (needs.release-please.outputs.created == 'true' ||
+      (github.event_name == 'workflow_dispatch' && needs.manual-validation.result == 'success'))
     runs-on: macos-26
     environment: release # secrets live here, so only this job can read them
     env:
@@ -53,6 +112,11 @@ jobs:
         with:
           ref: ${{ env.TAG }}
           fetch-depth: 0 # build number = commit count
+
+      - name: Require the validated commit
+        env:
+          VALIDATED_SHA: ${{ needs.source.outputs.sha }}
+        run: test "$(git rev-parse HEAD)" = "$VALIDATED_SHA"
 
       - name: Tools
         run: |

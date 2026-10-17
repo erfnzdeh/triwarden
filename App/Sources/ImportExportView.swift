@@ -176,6 +176,9 @@ struct ExportSheet: View {
         let result: (data: Data, skipped: Int, count: Int)
         do {
             result = try session.export(format, filePassword: filePassword, organizationId: vaultId)
+        } catch is CipherEditor.CompatibilityError {
+            self.error = String(localized: "This vault contains an unsupported item type. Export it with an updated Bitwarden client to preserve all data.")
+            return
         } catch {
             self.error = String(localized: "Couldn't read the vault. Sync, then try again.")
             return
