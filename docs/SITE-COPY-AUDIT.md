@@ -35,3 +35,9 @@ Checked claims against License.swift, AccountStore.swift, CLIBridge.swift, SSHAg
 ## Before launch
 
 The existing checkout configuration is explicitly marked TEST MODE. Replace/verify the production checkout before accepting real purchases. This audit does not establish which payment methods are enabled or introduce a refund window. The build also reports an existing large JavaScript chunk warning; it does not block generation of the pages.
+
+## Payment update — 2026-10-17
+
+The test Lemon Squeezy checkout was replaced by the live Stripe Managed Payments link. Komori now validates paid
+Checkout Sessions, signs Triwarden licenses and sends them through Resend. The app verifies signed keys locally and
+no longer sends license or installation data to a license provider.

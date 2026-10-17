@@ -90,7 +90,6 @@ struct LicenseSettings: View {
     @Environment(AppModel.self) private var model
     @State private var key = ""
     @State private var problem: String?
-    @State private var working = false
     @State private var confirmRemove = false
     /// When a key was just registered here: the badge celebrates once.
     @State private var celebration: Date?
@@ -108,6 +107,8 @@ struct LicenseSettings: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .thinScroller()
         .animation(.smooth(duration: 0.35), value: license.isRegistered)
         .onAppear {
             if license.wantsKeyEntry { keyFocused = true; license.wantsKeyEntry = false }
@@ -149,7 +150,7 @@ struct LicenseSettings: View {
                     .buttonStyle(.appPrimary)
                     .disabled(license.storeURL == nil)
                     .padding(.top, 18)
-                Text("Card, Alipay, WeChat Pay or PayPal · one-time, not a subscription")
+                Text("Stripe checkout · one-time, not a subscription")
                     .font(.caption).foregroundStyle(.tertiary)
                     .padding(.top, 8)
             }
@@ -159,7 +160,7 @@ struct LicenseSettings: View {
 
         Section {
             HStack(spacing: 8) {
-                TextField("License key", text: $key, prompt: Text("Paste the key from your receipt"))
+                TextField("License key", text: $key, prompt: Text("Paste the key from your email"))
                     .labelsHidden()
                     .textFieldStyle(SoftFieldStyle())
                     .font(key.isEmpty ? .system(size: 13) : .system(size: 12, design: .monospaced))
@@ -175,11 +176,8 @@ struct LicenseSettings: View {
                     .labelStyle(.titleAndIcon)
                     .buttonBorderShape(.capsule)
                 } else {
-                    Button(action: register) {
-                        if working { ProgressView().controlSize(.small).frame(width: 52) } else { Text("Activate") }
-                    }
-                    .buttonStyle(.appPrimarySmall)
-                    .disabled(working)
+                    Button("Activate", action: register)
+                        .buttonStyle(.appPrimarySmall)
                 }
             }
             if let problem {
@@ -191,7 +189,7 @@ struct LicenseSettings: View {
         } header: {
             Text("Already have a license?")
         } footer: {
-            Text("Your license number is in the confirmation email after purchase. A receipt key is confirmed with Lemon Squeezy once when you activate; nothing is checked after that. Offline keys never leave this Mac.")
+            Text("Your signed license key is emailed after purchase. It is checked only on this Mac and never sent to Stripe, Triwarden or another license server.")
                 .font(.caption).foregroundStyle(.secondary)
         }
 
@@ -263,18 +261,14 @@ struct LicenseSettings: View {
     }
 
     private func register() {
-        guard !working, !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        working = true
+        guard !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         problem = nil
-        Task {
-            do {
-                try await model.license.register(key)
-                key = ""
-                celebration = .now
-            } catch {
-                withAnimation(.snappy) { problem = error.localizedDescription }
-            }
-            working = false
+        do {
+            try model.license.register(key)
+            key = ""
+            celebration = .now
+        } catch {
+            withAnimation(.snappy) { problem = error.localizedDescription }
         }
     }
 }

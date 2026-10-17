@@ -2337,6 +2337,7 @@ struct ItemDetail: View {
         }
         .modifier(SideOverflowClip())
         .thinScroller()
+        .appContextMenu(model.itemContextActions(item))
         .dropDestination(for: URL.self) { urls, _ in
             guard item.isSupported, !item.isDeleted, !urls.isEmpty else { return false }
             Task { await model.addAttachments(urls, to: item) }
@@ -2443,51 +2444,71 @@ struct ItemDetail: View {
 extension HeroCard {
     /// The password and one-time-code tiles.
     @ViewBuilder func tiles(_ style: HeroStyle) -> some View {
-                if let password = item.password {
-                    Tile(style: style) {
-                        passwordArmed = model.copyCount
-                        model.copyPassword(item)
-                    } content: {
-                        let strength = StrengthMeter(password: password).level
-                        HStack {
-                            CopyCaption(copied: passwordCopied) { Label("Password", systemImage: "doc.on.doc") }
-                            Spacer(minLength: 6)
-                            Text(strength.1)
-                        }
-                        .font(.system(size: 12)).foregroundStyle(style.muted)
-                        MaskedSecret(secret: password, revealed: reveal)
-                            .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                            .tracking(0.5)
-                            .lineLimit(1)
-                            .frame(height: 24, alignment: .leading)
-                        // Same place and size as the code's countdown bar, so the tiles line up.
-                        LevelBar(level: strength.0, color: strength.0 <= 1 ? .red : strength.0 == 2 ? .orange : .green)
-                    }
-                    .help(Text("Copy password"))
-                    .copyTick(armed: $passwordArmed, copied: $passwordCopied)
-                    .appContextMenu([
-                        ActionMenuEntry(title: String(localized: "Copy Password"), symbol: "doc.on.doc") { model.copyPassword(item) },
-                        ActionMenuEntry(title: String(localized: "Show in Large Type"), symbol: "textformat.size") { model.showLargeType(item) }
-                    ])
+        if let password = item.password {
+            Tile(style: style) {
+                passwordArmed = model.copyCount
+                model.copyPassword(item)
+            } content: {
+                let strength = StrengthMeter(password: password).level
+                HStack(spacing: 6) {
+                    Text("Password")
+                    Spacer(minLength: 6)
+                    Text(strength.1)
+                    CopyStatusIcon(copied: passwordCopied)
                 }
-                if let totp = item.totp {
-                    // The code and ring read the app's shared clock; the tile itself never ticks.
-                    Tile(style: style) {
-                        codeArmed = model.copyCount
-                        model.guarded(item) { model.copy(totp.code(at: .now), label: String(localized: "Code")) }
-                    } content: {
-                        CopyCaption(copied: codeCopied) { Label("One-time code", systemImage: "doc.on.doc") }
-                            .font(.system(size: 12)).foregroundStyle(style.muted)
-                        HStack(alignment: .center, spacing: 12) {
-                            LiveOTPCode(totp: totp, size: 22)
-                            LiveCountdownRing(totp: totp, size: 34)
-                        }
-                    }
-                    .fixedSize(horizontal: true, vertical: false)
-                    .help(Text("Copy one-time code"))
-                    .copyTick(armed: $codeArmed, copied: $codeCopied)
+                .font(.system(size: 12)).foregroundStyle(style.muted)
+                MaskedSecret(secret: password, revealed: reveal)
+                    .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                    .tracking(0.5)
+                    .lineLimit(1)
+                    .frame(height: 24, alignment: .leading)
+                // Same place and size as the code's countdown bar, so the tiles line up.
+                LevelBar(level: strength.0, color: strength.0 <= 1 ? .red : strength.0 == 2 ? .orange : .green)
+            }
+            .help(Text("Copy password"))
+            .accessibilityLabel(Text("Copy Password"))
+            .copyTick(armed: $passwordArmed, copied: $passwordCopied)
+        }
+        if let totp = item.totp {
+            // The code and ring read the app's shared clock; the tile itself never ticks.
+            Tile(style: style) {
+                codeArmed = model.copyCount
+                model.guarded(item) { model.copy(totp.code(at: .now), label: String(localized: "Code")) }
+            } content: {
+                HStack(spacing: 6) {
+                    Text("One-time code")
+                    Spacer(minLength: 6)
+                    CopyStatusIcon(copied: codeCopied)
                 }
+                .font(.system(size: 12)).foregroundStyle(style.muted)
+                HStack(alignment: .center, spacing: 12) {
+                    LiveOTPCode(totp: totp, size: 22)
+                    LiveCountdownRing(totp: totp, size: 31.3)
                 }
+            }
+            .frame(minWidth: 220)
+            .fixedSize(horizontal: true, vertical: false)
+            .help(Text("Copy one-time code"))
+            .accessibilityLabel(Text("Copy One-time code"))
+            .copyTick(armed: $codeArmed, copied: $codeCopied)
+        }
+    }
+}
+
+private struct CopyStatusIcon: View {
+    let copied: Bool
+
+    var body: some View {
+        ZStack {
+            Image(systemName: "doc.on.doc")
+                .opacity(copied ? 0 : 1)
+                .scaleEffect(copied ? 0.75 : 1)
+            Image(systemName: "checkmark")
+                .opacity(copied ? 1 : 0)
+                .scaleEffect(copied ? 1 : 0.75)
+        }
+        .frame(width: 32, height: 16)
+    }
 }
 
 /// Light: a plain white card. Dark: the deep neutral card. Same layout in both.
@@ -2495,8 +2516,6 @@ private struct HeroStyle {
     let dark: Bool
     var ink: Color { dark ? .white : Color(red: 0.07, green: 0.09, blue: 0.16) }
     var muted: Color { dark ? .white.opacity(0.72) : Color(red: 0.07, green: 0.09, blue: 0.16).opacity(0.58) }
-    var tile: Color { dark ? .white.opacity(0.06) : Color.black.opacity(0.035) }
-    var tileEdge: Color { dark ? .white.opacity(0.07) : Color.black.opacity(0.04) }
     var track: Color { dark ? .white.opacity(0.15) : Color.brand.opacity(0.14) }
     var bar: Color { dark ? .white : .brand }
     var avatar: Color { dark ? .white.opacity(0.14) : Color.brand.opacity(0.10) }
@@ -2531,34 +2550,38 @@ private struct HeroCard: View {
                     }
                 }
             }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                Color.panelStrong
+                    .clipShape(.rect(cornerRadius: 24, style: .continuous))
+            }
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(style.dark ? Color.white.opacity(0.08) : Color.panelEdge))
+            .shadow(color: .black.opacity(style.dark ? 0.3 : 0.07), radius: style.dark ? 24 : 18, y: style.dark ? 16 : 8)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("Item Hero Header")
 
             if item.kind == .login, let username = item.username, !username.isEmpty {
-                FieldLine(item: item, field: ItemField(label: String(localized: "Username"), value: username), reveal: reveal)
-                    .background(style.tile, in: .rect(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(style.tileEdge))
+                FieldLine(item: item, field: ItemField(label: String(localized: "Username"), value: username),
+                          reveal: reveal, rowCopies: true)
+                    .background(Color.panelStrong, in: .rect(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .strokeBorder(style.dark ? Color.white.opacity(0.08) : Color.panelEdge))
             }
 
-            // Tiles share one height: the row sizes to the tallest, each tile fills it. Stacked when the card is narrow
-            // (decided in the layout pass, so it's always right for the current width).
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 10) { tiles(style) }
-                    .frame(minWidth: 0, idealWidth: 440, maxWidth: .infinity, alignment: .leading)
-                VStack(alignment: .leading, spacing: 10) { tiles(style) }
+            if item.password != nil || item.totp != nil {
+                // Tiles share one height: the row sizes to the tallest, each tile fills it. Stacked when narrow.
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 10) { tiles(style) }
+                        .frame(minWidth: 0, idealWidth: 440, maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 10) { tiles(style) }
+                }
+                .fixedSize(horizontal: false, vertical: true)
             }
-            .fixedSize(horizontal: false, vertical: true)
-
         }
         .foregroundStyle(style.ink)
-        .padding(24)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            // Plain surface, no colour wash.
-            Color.panelStrong // the same surface as every other card, in both modes
-            .clipShape(.rect(cornerRadius: 24, style: .continuous))
-        }
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous)
-            .strokeBorder(style.dark ? Color.white.opacity(0.08) : Color.panelEdge))
-        .shadow(color: .black.opacity(style.dark ? 0.3 : 0.07), radius: style.dark ? 24 : 18, y: style.dark ? 16 : 8)
     }
 }
 
@@ -2572,45 +2595,34 @@ private struct Tile<Content: View>: View {
             VStack(alignment: .leading, spacing: 6) { content }
                 .padding(.horizontal, 16).padding(.vertical, 14)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(style.tile, in: .rect(cornerRadius: 16, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(style.tileEdge))
+                .background(Color.panelStrong, in: .rect(cornerRadius: 16, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(style.dark ? Color.white.opacity(0.08) : Color.panelEdge))
                 .contentShape(.rect)
         }
-        .buttonStyle(PressScale())
+        .buttonStyle(RowPressHighlight())
     }
 }
 
-/// A tile's caption that reads "Copied" with a tick for a moment after its copy.
-private struct CopyCaption<Label: View>: View {
-    let copied: Bool
-    @ViewBuilder let label: Label
-
-    var body: some View {
-        ZStack(alignment: .leading) {
-            label.lineLimit(1).opacity(copied ? 0 : 1).offset(y: copied ? -6 : 0)
-            HStack(spacing: 4) {
-                Image(systemName: "checkmark").fontWeight(.bold)
-                    .symbolEffect(.bounce, value: copied)
-                Text("Copied")
-            }
-            .opacity(copied ? 1 : 0).offset(y: copied ? 0 : 6)
-        }
-    }
-}
-
-private struct PressScale: ButtonStyle {
+private struct RowPressHighlight: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.snappy(duration: 0.15), value: configuration.isPressed)
+            .background(Color.primary.opacity(configuration.isPressed ? 0.06 : 0),
+                        in: .rect(cornerRadius: 16, style: .continuous))
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
 /// A label/value row with copy; secrets stay masked until revealed.
 private struct FieldLine: View {
+    @Environment(AppModel.self) private var model
     let item: VaultItem
     let field: ItemField
     let reveal: Bool
+    var rowCopies = false
+    @State private var armed: Int?
+    @State private var copied = false
+
     /// Card numbers are shown grouped (4-4-4-4 / Amex 4-6-5); the clipboard still gets the raw digits.
     private var shown: String {
         item.kind == .card && field.label == String(localized: "Card number")
@@ -2618,6 +2630,28 @@ private struct FieldLine: View {
     }
 
     var body: some View {
+        Group {
+            if rowCopies {
+                Button(action: copyRow) {
+                    line(copied: copied)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(RowPressHighlight())
+                .accessibilityLabel(Text("Copy \(field.label)"))
+                .accessibilityValue(copied ? Text("Copied") : Text(""))
+                .help(copied ? Text("Copied") : Text("Copy \(field.label)"))
+                .copyTick(armed: $armed, copied: $copied)
+            } else {
+                line(copied: nil)
+            }
+        }
+        .onChange(of: field.value) {
+            armed = nil
+            copied = false
+        }
+    }
+
+    private func line(copied: Bool?) -> some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(verbatim: field.label)
@@ -2637,10 +2671,27 @@ private struct FieldLine: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            DetailCopyButton(value: field.value, label: field.label, guardedItem: field.secret ? item : nil)
+            if let copied {
+                Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(copied ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                    .frame(width: 32, height: 32)
+                    .symbolEffect(.bounce, value: copied)
+            } else {
+                DetailCopyButton(value: field.value, label: field.label, guardedItem: field.secret ? item : nil)
+            }
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
         .frame(minHeight: 44)
+    }
+
+    private func copyRow() {
+        armed = model.copyCount
+        if field.secret {
+            model.guarded(item) { model.copy(field.value, label: field.label) }
+        } else {
+            model.copy(field.value, label: field.label)
+        }
     }
 }
 

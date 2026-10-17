@@ -133,9 +133,30 @@ final class ButtonTests: XCTestCase {
 
     func testPasswordAndCodeTilesCopy() {
         select("GitHub")
-        window.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Password")).firstMatch.click()
+        let header = window.descendants(matching: .any)["Item Hero Header"].firstMatch
+        let username = window.buttons["Copy Username"].firstMatch
+        let passwordTile = window.buttons["Copy Password"].firstMatch
+        XCTAssertTrue(header.waitForExistence(timeout: 3))
+        XCTAssertTrue(username.waitForExistence(timeout: 3))
+        XCTAssertTrue(passwordTile.waitForExistence(timeout: 3))
+        XCTAssertGreaterThan(username.frame.minY, header.frame.maxY, "username row should sit below the header card")
+        XCTAssertGreaterThan(passwordTile.frame.minY, username.frame.maxY, "password row should sit below the username row")
+        let passwordHeight = passwordTile.frame.height
+        passwordTile.click()
+        XCTAssertEqual(passwordTile.frame.height, passwordHeight, accuracy: 0.5, "password tile height changed while copied")
+        Thread.sleep(forTimeInterval: 0.15)
+        XCTAssertEqual(passwordTile.frame.height, passwordHeight, accuracy: 0.5, "password tile height changed during icon animation")
+        XCTAssertTrue(window.staticTexts["Password"].exists, "password title disappeared after copying")
+        XCTAssertFalse(window.staticTexts["Copied"].exists, "copied text appeared in the password title")
         XCTAssertEqual(clipboard(), "m7Kq#vR2!tLp9wZe$Hu", "password tile did not copy the password")
-        window.buttons.matching(NSPredicate(format: "label CONTAINS %@", "One-time code")).firstMatch.click()
+        Thread.sleep(forTimeInterval: 0.6)
+        XCTAssertEqual(clipboard(), "m7Kq#vR2!tLp9wZe$Hu", "reading the password changed the clipboard to the one-time code")
+        let codeTile = window.buttons["Copy One-time code"].firstMatch
+        XCTAssertTrue(codeTile.waitForExistence(timeout: 3))
+        XCTAssertGreaterThanOrEqual(codeTile.frame.width, 220, "code tile should keep its wider layout")
+        let codeHeight = codeTile.frame.height
+        codeTile.click()
+        XCTAssertEqual(codeTile.frame.height, codeHeight, accuracy: 0.5, "code tile height changed while copied")
         XCTAssertEqual(clipboard()?.count, 6, "code tile did not copy a 6-digit code")
     }
 
@@ -143,11 +164,12 @@ final class ButtonTests: XCTestCase {
         select("GitHub")
         let username = window.buttons["Copy Username"].firstMatch
         XCTAssertTrue(username.waitForExistence(timeout: 3))
+        XCTAssertGreaterThan(username.frame.width, 200, "The whole username row should be clickable")
         let preview = XCTAttachment(screenshot: window.screenshot())
         preview.name = "Item detail — compact copy actions"
         preview.lifetime = .keepAlways
         add(preview)
-        username.click()
+        username.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5)).click()
         XCTAssertEqual(clipboard(), "alexchen")
         XCTAssertEqual(username.value as? String, "Copied")
         XCTAssertFalse(window.staticTexts["m7Kq#vR2!tLp9wZe$Hu"].exists, "Copying username revealed the password")
@@ -162,6 +184,21 @@ final class ButtonTests: XCTestCase {
         window.buttons["Copy Notes"].firstMatch.click()
         XCTAssertEqual(clipboard(), "Recovery codes are in the “GitHub recovery” note.")
 
+    }
+
+    func testDetailContextMenuHasAllItemActions() {
+        select("GitHub")
+        let passwordTile = window.buttons["Copy Password"].firstMatch
+        XCTAssertTrue(passwordTile.waitForExistence(timeout: 3))
+        passwordTile.rightClick()
+
+        for action in ["Copy Username", "Copy Password", "Show Password in Large Type",
+                       "Copy One-Time Code", "Copy Notes", "Open Website", "Copy Website",
+                       "Edit", "Clone", "Remove from Favorites", "Archive", "Move to Trash…"] {
+            XCTAssertTrue(app.descendants(matching: .any)[action].firstMatch.waitForExistence(timeout: 2),
+                          "Missing detail context action: \(action)")
+        }
+        app.typeKey(.escape, modifierFlags: [])
     }
 
     func testCardFieldsCopyWithoutRevealing() {

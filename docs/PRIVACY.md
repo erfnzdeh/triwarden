@@ -7,9 +7,12 @@ Summary (aligned with the app and site code):
 - Vault data stays on **your** Vaultwarden / Bitwarden server; Triwarden decrypts on the Mac.
 - On the Mac: encrypted local cache, Keychain (unlock, sessions, license if registered), and standard preferences —
   not for analytics.
-- Purchased license keys and a random installation identifier are sent to Lemon Squeezy when activated on a Mac.
-  Successful activations are saved locally without recurring checks. Re-registering or activating on another Mac
-  makes another request. Offline-format keys are verified locally. See [Lemon Squeezy Privacy](https://www.lemonsqueezy.com/privacy).
+- Stripe processes checkout and sends the customer name, email and order/payment details to Triwarden’s Komori
+  license service. Komori stores the order, signed license and delivery record, then Resend emails the key. Neither
+  Komori nor Triwarden receives card details. See [Stripe Privacy](https://stripe.com/privacy) and
+  [Resend Privacy](https://resend.com/legal/privacy-policy).
+- The app verifies the signed license key locally. It never sends the key or an installation identifier to Stripe,
+  Komori or another license server.
 - Sparkle may check GitHub for updates when enabled. See
   [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
 - Watchtower queries Pwned Passwords with five characters of a SHA-1 password hash, never the password or
