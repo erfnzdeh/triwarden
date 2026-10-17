@@ -1,6 +1,15 @@
 import AppKit
 import SwiftUI
 
+extension Color {
+    /// A quiet field fill: native in light mode, softly lifted in dark mode.
+    static let formInputFill = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor.white.withAlphaComponent(0.07)
+            : NSColor.controlBackgroundColor
+    })
+}
+
 /// Rounded field used on the login, unlock and AutoFill screens.
 struct SoftFieldStyle: TextFieldStyle {
     var height: CGFloat = 38
@@ -15,7 +24,7 @@ struct SoftFieldStyle: TextFieldStyle {
             .padding(.leading, 12)
             .padding(.trailing, 12 + trailingInset)
             .frame(height: height)
-            .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 9, style: .continuous))
+            .background(Color.formInputFill, in: .rect(cornerRadius: 9, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
                     // Focus: a firmer neutral outline — no colour, no glow.

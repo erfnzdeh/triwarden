@@ -94,7 +94,7 @@ struct SoftEditor: View {
             }
             .padding(8)
             .frame(minHeight: minHeight)
-            .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 9, style: .continuous))
+            .background(Color.formInputFill, in: .rect(cornerRadius: 9, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .strokeBorder(focused ? Color.primary.opacity(0.35) : Color(nsColor: .separatorColor), lineWidth: focused ? 1.5 : 1))
             .animation(.easeOut(duration: 0.15), value: focused)
@@ -135,7 +135,7 @@ struct SoftMenu<Value: Hashable>: View {
             .lineLimit(1)
             .padding(.horizontal, 12)
             .frame(height: 38)
-            .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 9, style: .continuous))
+            .background(Color.formInputFill, in: .rect(cornerRadius: 9, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
             .contentShape(.rect)
         }
@@ -345,7 +345,7 @@ private extension View {
         font(.system(size: 13))
             .padding(.horizontal, 12)
             .frame(height: 38)
-            .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 9, style: .continuous))
+            .background(Color.formInputFill, in: .rect(cornerRadius: 9, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .strokeBorder(focused ? Color.primary.opacity(0.35) : Color(nsColor: .separatorColor), lineWidth: focused ? 1.5 : 1))
             .animation(.easeOut(duration: 0.15), value: focused)
