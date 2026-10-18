@@ -717,7 +717,7 @@ struct CommandPalette: View {
     /// Everything that can be done with one item, for its type: fill, copy each part, open, edit, favorite, trash.
     private func itemActions(_ item: VaultItem) -> [PaletteCommand] {
         var list: [PaletteCommand] = []
-        func copy(_ id: String, _ title: String, _ symbol: String, shortcut: String? = nil, label: String, _ value: @escaping () -> String) {
+        func copy(_ id: String, _ title: String, _ symbol: String, shortcut: String? = nil, label: String, _ value: @escaping @MainActor () -> String) {
             list.append(PaletteCommand(id: id, title: title, symbol: symbol, shortcut: shortcut) {
                 finish(item, flash: String(localized: "\(label) copied")) { model.copy(value(), label: label) }
             })
