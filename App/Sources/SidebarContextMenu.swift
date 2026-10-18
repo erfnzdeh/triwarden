@@ -29,7 +29,10 @@ private struct SidebarContextModifier: ViewModifier {
     @Environment(\.sidebarCurrent) private var current
 
     func body(content: Content) -> some View {
-        content.appContextMenu(actions.map(\.menuEntry), keyboardTarget: selection != nil && selection == current)
+        content
+            .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+            .contentShape(.rect)
+            .appContextMenu(actions.map(\.menuEntry), keyboardTarget: selection != nil && selection == current)
     }
 }
 
