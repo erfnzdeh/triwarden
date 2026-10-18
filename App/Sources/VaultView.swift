@@ -611,9 +611,9 @@ private struct Sidebar: View {
         .animation(.snappy(duration: 0.3), value: model.focusedAccountID)
         .animation(.snappy(duration: 0.3), value: model.vaultFilter)
         .listItemTint(.monochrome) // icons in the text's own colour, not the brand blue
-        // Selection: a calm sky (deep in dark mode) that white text reads well on, not the bright accent.
+        // Keep the accent available to selected text while SidebarCalmSelection draws the app's quieter card fill.
         .tint(Color.sidebarSelection)
-        .background(SidebarCalmSelection()) // preserve keyboard focus while keeping row emphasis quiet
+        .background(SidebarCalmSelection())
         .safeAreaInset(edge: .bottom) { SidebarAccountCard().padding(10) }
     }
 }
@@ -2483,11 +2483,13 @@ extension HeroCard {
                 .font(.system(size: 12)).foregroundStyle(style.muted)
                 HStack(alignment: .center, spacing: 12) {
                     LiveOTPCode(totp: totp, size: 22)
+                    if item.password == nil { Spacer(minLength: 12) }
                     LiveCountdownRing(totp: totp, size: 31.3)
                 }
             }
-            .frame(minWidth: 220)
-            .fixedSize(horizontal: true, vertical: false)
+            .frame(minWidth: item.password == nil ? nil : 220,
+                   maxWidth: item.password == nil ? .infinity : nil)
+            .fixedSize(horizontal: item.password != nil, vertical: false)
             .help(Text("Copy one-time code"))
             .accessibilityLabel(Text("Copy One-time code"))
             .copyTick(armed: $codeArmed, copied: $codeCopied)
@@ -3733,8 +3735,87 @@ struct SidebarCalmSelection: NSViewRepresentable {
     static func dismantleNSView(_ view: Finder, coordinator: ()) { view.stop() }
 
     final class Finder: NSView {
+        /// The compact sidebar row height and the gap kept between neighbouring rows.
+        static let pillHeight: CGFloat = 28
+        static let pillGap: CGFloat = 5
+
+        private struct RowState {
+            let emphasis: NSKeyValueObservation
+            let trackingArea: NSTrackingArea
+            let tracker: HoverTracker
+        }
+
+        private final class HoverTracker: NSResponder {
+            weak var row: NSTableRowView?
+            weak var outline: NSOutlineView?
+            private let hoverLayer = CALayer()
+            private var hovering = false
+
+            init(row: NSTableRowView, outline: NSOutlineView) {
+                self.row = row
+                self.outline = outline
+                super.init()
+                row.wantsLayer = true
+                hoverLayer.cornerRadius = 8
+                hoverLayer.cornerCurve = .continuous
+                row.layer?.insertSublayer(hoverLayer, at: 0)
+            }
+
+            required init?(coder: NSCoder) {
+                fatalError("HoverTracker is created in code")
+            }
+
+            override func mouseEntered(with event: NSEvent) {
+                hovering = true
+                apply()
+            }
+
+            override func mouseExited(with event: NSEvent) {
+                hovering = false
+                apply()
+            }
+
+            /// A quiet neutral selection that follows the sidebar material instead of looking like a white card.
+            private static let selectedFill = NSColor(name: nil) { a in
+                a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                    ? NSColor.white.withAlphaComponent(0.12) : NSColor.black.withAlphaComponent(0.075)
+            }
+            private static let hoverFill = NSColor(name: nil) { a in
+                a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                    ? NSColor.white.withAlphaComponent(0.06) : NSColor.black.withAlphaComponent(0.04)
+            }
+
+            func apply() {
+                guard let row, let outline else { return }
+                let index = outline.row(for: row)
+                let selected = index >= 0 && outline.selectedRowIndexes.contains(index)
+                let fullRow = outline.visibleRect.insetBy(dx: 10, dy: 0)
+                let localRow = row.convert(fullRow, from: outline)
+                // The pill is `Self.pillHeight` tall and centred in its row; the row's spare height is the gap.
+                let height = min(Finder.pillHeight, row.bounds.height)
+                hoverLayer.frame = CGRect(x: localRow.minX, y: (row.bounds.height - height) / 2,
+                                          width: localRow.width, height: height)
+                row.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    let dark = row.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                    hoverLayer.backgroundColor = selected
+                        ? Self.selectedFill.cgColor
+                        : hovering ? Self.hoverFill.cgColor : NSColor.clear.cgColor
+                    hoverLayer.shadowOpacity = selected ? (dark ? 0.12 : 0.04) : 0
+                }
+                hoverLayer.shadowColor = NSColor.black.cgColor
+                hoverLayer.shadowRadius = 4
+                hoverLayer.shadowOffset = CGSize(width: 0, height: -2)
+                row.isSelected = selected
+                if row.isEmphasized { row.isEmphasized = false }
+            }
+
+            func detach() {
+                hoverLayer.removeFromSuperlayer()
+            }
+        }
+
         private var notifications: [NSObjectProtocol] = []
-        private var rows: [ObjectIdentifier: NSKeyValueObservation] = [:]
+        private var rows: [ObjectIdentifier: RowState] = [:]
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -3766,27 +3847,48 @@ struct SidebarCalmSelection: NSViewRepresentable {
         func apply() {
             guard let root = window?.contentView else { return }
             var visible: Set<ObjectIdentifier> = []
-            for outline in Self.outlines(in: root) {
+            for outline in Self.outlines(in: root) where outline.style == .sourceList {
                 outline.refusesFirstResponder = false
+                outline.selectionHighlightStyle = .none
+                outline.rowHeight = 21
+                // SwiftUI sizes each cell at 36 pt; the spacing tops it up so a row is pill + gap tall.
+                outline.intercellSpacing = NSSize(width: outline.intercellSpacing.width,
+                                                  height: Self.pillHeight + Self.pillGap - 36)
                 for index in 0..<outline.numberOfRows {
                     guard let row = outline.rowView(atRow: index, makeIfNecessary: false) else { continue }
                     let id = ObjectIdentifier(row)
                     visible.insert(id)
                     if rows[id] == nil {
-                        rows[id] = row.observe(\.isEmphasized, options: [.new]) { row, _ in
+                        let emphasis = row.observe(\.isEmphasized, options: [.new]) { row, _ in
                             // Setting false emits a second observation; the guard ends that recursion.
                             if row.isEmphasized { row.isEmphasized = false }
                         }
+                        let tracker = HoverTracker(row: row, outline: outline)
+                        let trackingArea = NSTrackingArea(rect: .zero,
+                                                          options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+                                                          owner: tracker,
+                                                          userInfo: nil)
+                        row.addTrackingArea(trackingArea)
+                        rows[id] = RowState(emphasis: emphasis, trackingArea: trackingArea, tracker: tracker)
                     }
-                    if row.isEmphasized { row.isEmphasized = false }
+                    rows[id]?.tracker.apply()
                 }
             }
-            rows = rows.filter { visible.contains($0.key) }
+            let stale = rows.filter { !visible.contains($0.key) }
+            for (id, state) in stale {
+                state.tracker.detach()
+                state.tracker.row?.removeTrackingArea(state.trackingArea)
+                rows.removeValue(forKey: id)
+            }
         }
 
         func stop() {
             notifications.forEach(NotificationCenter.default.removeObserver)
             notifications.removeAll()
+            for state in rows.values {
+                state.tracker.detach()
+                state.tracker.row?.removeTrackingArea(state.trackingArea)
+            }
             rows.removeAll()
         }
 
