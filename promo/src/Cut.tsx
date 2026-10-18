@@ -142,7 +142,7 @@ const PaletteCut: React.FC = () => {
         </AbsoluteFill>
       )}
       <div style={{ position: "absolute", left: 960 - 530, top: 250, opacity: pal, transform: `translateY(${(1 - pal) * 60}px) scale(${0.96 + 0.04 * pal})` }}>
-        <Crop src="shots/palette-focus-light.png" rect={[448, 112, 1800, 1380]} width={1060} zoom={tween(f, 4 * BEAT, 2 * BAR, 1, 1.05)} />
+        <Crop src="shots/palette-focus-light.png" rect={[450, 358, 1800, 1380]} width={1060} zoom={tween(f, 4 * BEAT, 2 * BAR, 1, 1.05)} />
       </div>
       <div style={{ position: "absolute", left: 160, top: 80, opacity: pal }}>
         <Label at={4 * BEAT}>From any app</Label>
@@ -251,8 +251,8 @@ const MontageCut: React.FC<{ bars: number }> = ({ bars }) => {
 const SpeedCut: React.FC = () => {
   const f = useCurrentFrame();
   const stats = [
-    // Figures that hold on any Mac: the 0.1.1 download, memory at rest (footnoted), browser engines shipped.
-    { v: 11.6, d: 1, u: "MB", l: "download" },
+    // Figures that hold on any Mac: the 0.2.1 DMG, memory at rest (footnoted), browser engines shipped.
+    { v: 14.5, d: 1, u: "MB", l: "download" },
     { v: 138, d: 0, u: "MB", l: "memory at rest" },
     { v: 0, d: 0, u: "", l: "bundled browser engines" },
   ];
@@ -304,19 +304,20 @@ const LightDarkCut: React.FC = () => {
   );
 };
 
-/* ── Offer: three lines, three beats ── */
+/* ── Offer: the licence as it is now, a line a step ── */
 const OfferCut: React.FC<{ bars: number }> = ({ bars }) => {
   const f = useCurrentFrame();
   const long = bars >= 3;
   const step = long ? 2 * BEAT : BEAT; // the long version gives each line two beats
+  const size = long ? 116 : 124;
   return (
     <Paper>
       <AbsoluteFill style={{ display: "grid", placeItems: "center" }}>
         <div style={{ display: "grid", gap: 6 }}>
-          <Words size={long ? 120 : 132} align="center" words={[["Free", 0], ["to", 3], ["try.", 6]]} />
-          <Words size={long ? 120 : 132} align="center" italic color={C.ink3} words={[["$19.99,", step], ["for", step + 4], ["life.", step + 8]]} />
-          <Words size={long ? 120 : 132} align="center" words={[["Unlimited", 2 * step], ["Macs.", 2 * step + 6]]} />
-          {long && <Words size={120} align="center" italic color={C.ink3} words={[["Every", 3 * step], ["update.", 3 * step + 6]]} />}
+          <Words size={size} align="center" words={[["Free", 0], ["for", 3], ["personal", 6], ["use.", 10]]} />
+          <Words size={size} align="center" italic color={C.ink3} words={[["Every", step], ["feature.", step + 5]]} />
+          <Words size={size} align="center" words={[["$19.99", 2 * step], ["once,", 2 * step + 5], ["for", 2 * step + 8], ["work.", 2 * step + 11]]} />
+          {long && <Words size={size} align="center" italic color={C.ink3} words={[["One", 3 * step], ["person,", 3 * step + 4], ["every", 3 * step + 8], ["Mac.", 3 * step + 12]]} />}
         </div>
       </AbsoluteFill>
       {long && (
@@ -343,7 +344,11 @@ const EndCut: React.FC = () => {
         <Words size={180} align="center" words={[["Triwarden", 3 * BEAT]]} />
         <div style={{ height: 30 }} />
         <div style={{ opacity: tween(f, 5 * BEAT, 5 * BEAT + 6, 0, 1), transform: `scale(${punch(f, 5 * BEAT, 0.1)})`, font: `600 30px ${sans}`, padding: "20px 36px", borderRadius: 999, background: C.sky, color: C.ink }}>
-          sinhong2011.github.io/triwarden
+          triwarden.cc
+        </div>
+        <div style={{ height: 22 }} />
+        <div style={{ opacity: tween(f, 6 * BEAT, 6 * BEAT + 6, 0, 1), font: `500 24px ${mono}`, color: C.ink3 }}>
+          brew install --cask sinhong2011/tap/triwarden
         </div>
       </AbsoluteFill>
     </Paper>
