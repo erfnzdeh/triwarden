@@ -2491,11 +2491,15 @@ extension HeroCard {
                     CopyStatusIcon(copied: codeCopied)
                 }
                 .font(.system(size: 12)).foregroundStyle(style.muted)
+                // Pinned to the tile's bottom, so it sits low like the password and its strength bar, with room above.
+                Spacer(minLength: 4)
                 HStack(alignment: .center, spacing: 12) {
                     LiveOTPCode(totp: totp, size: 22)
-                    if item.password == nil { Spacer(minLength: 12) }
-                    LiveCountdownRing(totp: totp, size: 31.3)
+                    // The ring sits at the tile's trailing edge, under the copy icon, at any tile width.
+                    Spacer(minLength: 12)
+                    LiveCountdownRing(totp: totp, size: 24, digits: 0.38)
                 }
+                .padding(.bottom, 2)
             }
             .frame(minWidth: item.password == nil ? nil : 220,
                    maxWidth: item.password == nil ? .infinity : nil)
