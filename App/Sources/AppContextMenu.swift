@@ -71,7 +71,8 @@ private struct ContextMenuSurface: NSViewRepresentable {
                       !self.isHiddenOrHasHiddenAncestor else { return event }
                 if event.type == .rightMouseDown || (event.type == .leftMouseDown && event.modifierFlags.contains(.control)) {
                     let point = self.convert(event.locationInWindow, from: nil)
-                    guard self.visibleRect.contains(point), !self.entries.isEmpty else { return event }
+                    guard self.visibleRect.contains(point), !self.entries.isEmpty,
+                          self.isPreferredTarget(at: event.locationInWindow) else { return event }
                     self.open(with: event)
                     return nil
                 }
@@ -81,6 +82,33 @@ private struct ContextMenuSurface: NSViewRepresentable {
                 self.open(at: NSPoint(x: self.bounds.minX, y: self.bounds.maxY))
                 return nil
             }
+        }
+
+        /// SwiftUI can leave a full-pane background surface over smaller list and sidebar rows.
+        /// Pick the smallest visible surface below the pointer, so the clicked row owns its menu.
+        private func isPreferredTarget(at point: NSPoint) -> Bool {
+            guard let root = window?.contentView else { return false }
+            let candidates = Self.surfaces(in: root).enumerated().compactMap { index, surface -> (Surface, CGFloat, Int)? in
+                guard !surface.entries.isEmpty, let rect = surface.visibleFrameInWindow,
+                      rect.contains(point) else { return nil }
+                return (surface, rect.width * rect.height, index)
+            }
+            let preferred = candidates.min { left, right in
+                if abs(left.1 - right.1) > 0.5 { return left.1 < right.1 }
+                return left.2 > right.2
+            }?.0
+            return preferred === self
+        }
+
+        private var visibleFrameInWindow: NSRect? {
+            guard window != nil, !isHiddenOrHasHiddenAncestor else { return nil }
+            let clipped = bounds.intersection(visibleRect)
+            guard !clipped.isEmpty else { return nil }
+            return convert(clipped, to: nil)
+        }
+
+        private static func surfaces(in view: NSView) -> [Surface] {
+            (view as? Surface).map { [$0] } ?? view.subviews.flatMap(surfaces)
         }
 
         private func makeMenu(_ entries: [ActionMenuEntry]) -> NSMenu {
