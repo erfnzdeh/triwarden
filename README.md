@@ -125,11 +125,11 @@ key for commercial use. See [paid license terms](docs/LICENSE-TERMS.md). Source 
   </tr>
   <tr>
     <td><img src="docs/images/watchtower.jpg" alt="Watchtower with its score, breached and reused passwords"></td>
-    <td><img src="docs/images/vault-dark.jpg" alt="The vault in dark mode"></td>
+    <td><img src="docs/images/appearance.jpg" alt="The same vault in light and dark mode, split on a diagonal"></td>
   </tr>
   <tr>
     <td align="center"><sub>Watchtower</sub></td>
-    <td align="center"><sub>Dark mode</sub></td>
+    <td align="center"><sub>Light and dark mode</sub></td>
   </tr>
   <tr>
     <td align="center"><img src="docs/images/menubar.jpg" width="240" alt="The menu bar panel: the page's login first, favorites with live codes, quick actions and the generator"></td>

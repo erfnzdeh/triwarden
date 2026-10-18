@@ -6,7 +6,7 @@ import { latestRelease } from "../release";
 // Launch and unlock times depend too much on the machine to quote.
 const rel = await latestRelease();
 const stats = [
-  { value: rel ? rel.size / 1_000_000 : 11.6, digits: 1, unit: "MB", label: m.speed_download(), size: true },
+  { value: rel ? rel.size / 1_000_000 : 14.5, digits: 1, unit: "MB", label: m.speed_download(), size: true },
   { value: 138, digits: 0, unit: "MB", label: m.speed_mem(), size: false },
   { value: 0, digits: 0, unit: "", label: m.speed_engines(), size: false },
 ];

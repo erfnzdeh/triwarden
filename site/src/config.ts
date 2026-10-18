@@ -7,7 +7,7 @@ export const CHECKOUT_URL = "https://buy.stripe.com/8x2dRaaSJ1fS4y27r183C00";
 export const SITE = {
   name: "Triwarden",
   repo,
-  version: "0.1.1",
+  version: "0.2.1",
   /** One-time License price shown on the site. Must match Stripe and Komori before going live. */
   price: "US$19.99",
   // Fallback when the latest DMG can't be looked up (see release.ts).
