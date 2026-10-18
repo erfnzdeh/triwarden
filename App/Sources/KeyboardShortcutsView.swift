@@ -49,7 +49,6 @@ struct KeyboardShortcutsView: View {
     }
 
     static let window = Group(title: "Vault window", symbol: "macwindow", entries: [
-        Entry(keys: "⌘K", title: "Command palette"),
         Entry(keys: "⌘?", title: "Triwarden Help"),
         Entry(keys: "⌃⇧/", title: "Keyboard Shortcuts"),
         Entry(keys: "⌘F", title: "Search the list"),

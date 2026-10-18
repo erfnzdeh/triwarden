@@ -10,8 +10,8 @@ struct Shortcut: Codable, Equatable {
     var modifiers: UInt32
     var key: String
 
-    /// ⇧⌘Space by default: free in macOS and most apps (a global ⌘K would take ⌘K from every app). In Triwarden's
-    /// own window ⌘K opens the palette too.
+    /// ⇧⌘Space by default: free in macOS and most apps (a global ⌘K would take ⌘K from every app). The same key
+    /// opens the palette in Triwarden's own window; there is no separate in-app key.
     static let paletteDefault = Shortcut(keyCode: UInt32(kVK_Space), modifiers: UInt32(cmdKey | shiftKey), key: "Space")
 
     /// Each key on its own, for keycaps: ⌃ ⌥ ⇧ ⌘ then the key.

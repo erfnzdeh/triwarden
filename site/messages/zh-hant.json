@@ -57,7 +57,7 @@
   "cap_vault": "登入資料、卡片、備註、身分與 SSH 金鑰，以檔案夾和我的最愛整理。",
   "cap_codes": "所有一次性驗證碼一目了然，各自帶著倒數圓環。點一下就拷貝。",
   "cap_watchtower": "查看密碼安全問題，開啟相關網站更新密碼。",
-  "cap_palette": "搜尋保險庫項目並執行 Triwarden 命令。App 內按 ⌘K，其他 App 中按 ⇧⌘Space。",
+  "cap_palette": "搜尋保險庫項目並執行 Triwarden 命令。在 Triwarden 或任何 App 中按 ⇧⌘Space。",
   "cap_generator": "產生密碼、密語與使用者名稱，並查看近期產生紀錄。",
   "cap_menubar": "目前所在的網頁、我的最愛與它們的驗證碼，在任何 App 裡點一下就到。",
   "cap_signin": "自架、Bitwarden 美國或 Bitwarden 歐洲 — 選一個就能登入。",

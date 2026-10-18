@@ -36,6 +36,6 @@ stays part of the search text, so searching for `#hashtag` still works.
 | ⌫ | With the field empty: take off the last filter |
 | Esc | Close the suggestions, then clear the text, then take the filters off |
 | ↓ | Into the list (or down the suggestions) |
-| ⌘K | The command palette, for searching and running commands from anywhere in the window |
+| ⇧⌘Space | The command palette, for searching and running commands, in Triwarden or any other app |
 
 Every other shortcut is in **Help › Keyboard Shortcuts** (⌘/).

@@ -67,7 +67,7 @@ struct MenuBarContent: View {
                         NSApp.keyWindow?.orderOut(nil) // the palette takes the panel's place
                         DispatchQueue.main.async { model.openPalette() }
                     } label: {
-                        ShortcutKeycaps(keys: Shortcut.current(for: .palette)?.parts ?? ["⌘", "K"])
+                        ShortcutKeycaps(keys: (Shortcut.current(for: .palette) ?? .paletteDefault).parts)
                     }
                     .buttonStyle(.plain)
                     .help(Text("Open the command palette"))

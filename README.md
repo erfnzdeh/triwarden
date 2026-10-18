@@ -39,7 +39,7 @@ Triwarden updates itself (Settings › About), and Homebrew keeps the cask curre
 
 1. Open Triwarden and choose your Vaultwarden server, Bitwarden US or Bitwarden EU. Sign in with your existing account.
 2. Enable Triwarden in **System Settings › General › AutoFill & Passwords** to fill passwords, passkeys and verification codes.
-3. Use **⌘F** to filter the vault list, **⌘K** to find items or run commands, or **⇧⌘Space** to open the palette from another app.
+3. Use **⌘F** to filter the vault list, or **⇧⌘Space** to open the command palette, in Triwarden or any other app.
    Auto-type needs Accessibility permission for **Triwarden Auto-Type**; configure it in **Settings › Shortcuts**.
    The browser extension is optional; its integration controls are in Settings.
 
@@ -71,7 +71,7 @@ key for commercial use. See [paid license terms](docs/LICENSE-TERMS.md). Source 
   one-time code, passkey and Watchtower issue. Pick them from the filter menu or type them — `type:card`, `has:otp`,
   `#Work` — with suggestions as you type; ⌫ takes the last one off. See [Search](docs/search.md).
 - Every shortcut on one page: Help › Keyboard Shortcuts (⌃⇧/).
-- A command palette from anywhere (⇧⌘Space, or a shortcut you choose; ⌘K in the window) to find any item or run any
+- A command palette from anywhere (⇧⌘Space in any app, Triwarden included, or a shortcut you choose) to find any item or run any
   command. Called over a browser or an app, it puts that page's (or app's) logins first, and ↵ types the username
   and password in, like KeePass auto-type (⌃↵ username, ⌥↵ password, ⇧ also submits). The menu bar panel shows the
   page's logins too.

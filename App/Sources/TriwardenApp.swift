@@ -176,8 +176,9 @@ struct TriwardenApp: App {
                 Button("Triwarden Help") { model.showHelp() }
                     .keyboardShortcut("?", modifiers: .command)
                 Divider()
+                // No menu key: the global shortcut (⇧⌘Space by default) opens it here too, and a matching menu key
+                // would toggle it twice.
                 Button("Command Palette") { model.openPalette() }
-                    .keyboardShortcut("k", modifiers: .command)
                 Button("Keyboard Shortcuts") { model.showShortcuts() }
                     .keyboardShortcut("/", modifiers: [.control, .shift])
             }
@@ -194,7 +195,7 @@ struct TriwardenApp: App {
     }
 }
 
-/// Help › Triwarden Help (⌘?), Command Palette (⌘K) and Keyboard Shortcuts (⌃⇧/).
+/// Help › Triwarden Help (⌘?), Command Palette (the global shortcut) and Keyboard Shortcuts (⌃⇧/).
 struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openSettings) private var openSettings

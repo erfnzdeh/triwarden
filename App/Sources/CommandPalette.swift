@@ -100,7 +100,7 @@ struct PaletteCommand: Identifiable {
     }
 }
 
-/// The command palette (⌘K / ⌘F in the window, the global shortcut from Settings anywhere), after the Liquid search design:
+/// The command palette (the global shortcut from Settings, ⇧⌘Space by default, in any app), after the Liquid search design:
 /// a big field, ranked items (the highlighted one opened up with its live code and keys), and commands to run.
 /// Scopes narrow it (`>` commands, `#folder`, `@account`, `card:`…); → or Tab opens an item's every action; `gen 24`
 /// makes a password; a locked vault unlocks right here.

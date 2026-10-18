@@ -317,7 +317,7 @@ struct VaultView: View {
                 .sharedBackgroundVisibility(.hidden)
             }
             .background {
-                // Keyboard: ⌘K is Help › Command Palette, ⌘F the list's search, ⌘G the generator.
+                // Keyboard: ⌘F the list's search, ⌘G the generator (the palette is the global shortcut).
                     Group {
                     Button("") { focusSearch() }.keyboardShortcut("f", modifiers: .command)
                     Button("") { section = .generator }.keyboardShortcut("g", modifiers: .command)
@@ -1080,7 +1080,7 @@ private struct FolderRow: View {
 
 // MARK: Search
 
-/// Toolbar command palette (⌘K); ⌘F focuses the separate vault-list filter.
+/// Toolbar command palette (its global shortcut, ⇧⌘Space by default); ⌘F focuses the separate vault-list filter.
 private struct PaletteTrigger: View {
     @Environment(AppModel.self) private var model
     /// Matches the + and the bell so the header controls share one height.
@@ -1089,17 +1089,27 @@ private struct PaletteTrigger: View {
     var compactLabel = false
     @State private var hovering = false
 
+    /// The palette's global shortcut (Settings › Shortcuts), nil when turned off.
+    private var shortcut: String? { Shortcut.current(for: .palette)?.display }
+
     /// A tappable view rather than a `Button`: a toolbar slot holding only a button is replaced by a native toolbar
     /// button, which loses this capsule.
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass").font(.system(size: 13, weight: .medium))
-            Text(compactLabel ? "Commands" : "Find items or run commands").font(.system(size: 13)).lineLimit(1)
-            Spacer()
-            Text(verbatim: "⌘K")
-                .font(.system(size: 10, weight: .medium))
-                .padding(.horizontal, 5).padding(.vertical, 1.5)
-                .background(.quaternary.opacity(0.6), in: .rect(cornerRadius: 4))
+            // The short label whenever the long one would be cut off (the shortcut hint can be wide: ⇧⌘Space).
+            ViewThatFits(in: .horizontal) {
+                if !compactLabel { Text("Find items or run commands") }
+                Text("Commands")
+            }
+            .font(.system(size: 13)).lineLimit(1)
+            Spacer(minLength: 0)
+            if let shortcut {
+                Text(verbatim: shortcut)
+                    .font(.system(size: 10, weight: .medium))
+                    .padding(.horizontal, 5).padding(.vertical, 1.5)
+                    .background(.quaternary.opacity(0.6), in: .rect(cornerRadius: 4))
+            }
         }
         .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
@@ -1108,7 +1118,7 @@ private struct PaletteTrigger: View {
         .contentShape(.capsule)
         .onTapGesture { model.openPalette() }
         .onHover { hovering = $0 }
-        .help(Text("Search or run a command (⌘K)"))
+        .help(shortcut.map { Text("Search or run a command (\($0))") } ?? Text("Search or run a command"))
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(Text("Search or run a command"))
