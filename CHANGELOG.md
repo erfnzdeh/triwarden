@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/sinhong2011/triwarden/compare/v0.2.0...v0.2.1) (2026-10-18)
+
+
+### Fixes
+
+* isolate palette copy closures to the main actor ([#69](https://github.com/sinhong2011/triwarden/issues/69)) ([71f919c](https://github.com/sinhong2011/triwarden/commit/71f919cd73542f5c464c01b59d129152b71abd51))
+
 ## [0.2.0](https://github.com/sinhong2011/triwarden/compare/v0.1.1...v0.2.0) (2026-10-18)
 
 
