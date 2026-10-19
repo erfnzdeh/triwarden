@@ -7,7 +7,8 @@ export const CHECKOUT_URL = "https://buy.stripe.com/8x2dRaaSJ1fS4y27r183C00";
 export const SITE = {
   name: "Triwarden",
   repo,
-  version: "0.2.1",
+  /** Fallback softwareVersion only. Home JSON-LD uses latestRelease() at build time; this applies when that lookup fails. The visible version is refreshed in the browser (scripts/release.ts). */
+  version: "0.4.0",
   /** One-time License price shown on the site. Must match Stripe and Komori before going live. */
   price: "US$19.99",
   // Fallback when the latest DMG can't be looked up (see release.ts).

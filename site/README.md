@@ -24,7 +24,7 @@ GitHub Actions CI/CD (`.github/workflows/site.yml`) uses:
   - `CLOUDFLARE_API_TOKEN`
   - `CLOUDFLARE_ACCOUNT_ID`
 
-- `src/config.ts`: one-time License price (US$19.99), download and Homebrew links, version, support email, and the live Stripe
+- `src/config.ts`: one-time License price (US$19.99), download and Homebrew links, `version` (fallback only when the latest-release lookup fails — the visible version, size, and notes are refreshed from GitHub in the browser), support email, and the live Stripe
   Payment Link (`CHECKOUT_URL`). `asset()` prefixes the deploy base.
 - `src/styles/global.css`: brand tokens in `@theme` (so `text-ink`, `bg-sky`, `font-serif` … exist as utilities),
   plus the bespoke widget styles (dial, vault window, palette, terminal) under `@layer components`.

@@ -7,7 +7,6 @@ import { latestRelease } from "../release";
 import { currentLocale, localeHref } from "../i18n";
 const rel = await latestRelease();
 const dmg = rel?.dmg ?? SITE.download;
-const refresh = !rel?.stable;
 
 const t = m as unknown as Record<string, (p?: Record<string, string>) => string>;
 const p = { price: SITE.price };
@@ -22,7 +21,6 @@ const tiers = [
     cta: m.tier_free_cta(),
     href: dmg,
     kind: "free" as const,
-    dmg: refresh,
   },
   {
     name: m.tier_license_name(),
@@ -71,7 +69,7 @@ const tiers = [
             <a
               class="btn btn--ghost w-full justify-center"
               href={tier.href}
-              data-dmg={tier.dmg ? "" : undefined}
+              data-dmg=""
             >
               {rel ? <>{tier.cta} · <span data-dmg-size>{formatSize(rel.size)}</span></> : tier.cta}
             </a>
