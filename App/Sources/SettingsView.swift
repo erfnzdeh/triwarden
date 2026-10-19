@@ -265,6 +265,7 @@ private struct GeneralSettings: View {
     @AppStorage(Pref.showMenuBar) private var showMenuBar = true
     @AppStorage(Pref.closeToMenuBar) private var closeToMenuBar = false
     @AppStorage(Pref.matchFrontTab) private var matchFrontTab = false
+    @AppStorage(Pref.rememberPalettePosition) private var rememberPalettePosition = false
 
     var body: some View {
         Form {
@@ -323,6 +324,19 @@ private struct GeneralSettings: View {
                      ? "With the window closed, Triwarden leaves the Dock and waits in the menu bar. Shortcuts, AutoFill and the command palette keep working."
                      : "Without the menu bar icon, open Triwarden from the Dock, Spotlight or its shortcuts.")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle(isOn: $rememberPalettePosition) {
+                    Text("Remember where the palette was moved")
+                    Text("Off: the palette opens in the middle of the screen under the pointer. On: it opens where you last dragged it.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .onChange(of: rememberPalettePosition) { _, on in
+                    if !on { UserDefaults.standard.removeObject(forKey: Pref.palettePosition) }
+                }
+            } header: {
+                Text("Command Palette")
             }
 
             Section {
