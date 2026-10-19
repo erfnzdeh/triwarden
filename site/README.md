@@ -53,3 +53,4 @@ App UI is only ever shown as real captures, never imitated in HTML. `public/asse
 light` (and `dark`), converted with `cwebp`; `src/shots.ts` lists their sizes and `<Shot>` shows the one matching the
 page's light/dark mode. Honours `prefers-reduced-motion`.
 Brand rule: the tail sky `#80C5EF` is a fill only; text and icons stay navy ink.
+
