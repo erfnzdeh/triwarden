@@ -10,6 +10,10 @@ on:
     paths:
       - "site/**"
       - ".github/workflows/site.yml"
+  # Publishing a release does not touch site/**, so the path filters above would skip it.
+  # Rebuild so baked version text matches the new release. The client script covers the gap before this finishes.
+  release:
+    types: [published]
 
 concurrency:
   group: site-${{ github.ref }}
@@ -19,6 +23,7 @@ permissions:
   contents: read
 
 jobs:
+  # Pull requests, main pushes, and published releases all build. Deploy is the step that is limited.
   build:
     name: Build site
     runs-on: ubuntu-latest
@@ -27,6 +32,23 @@ jobs:
         working-directory: site
     steps:
       - uses: actions/checkout@v4
+      # Same wait as deploy: the release event fires before Triwarden.dmg is uploaded.
+      - name: Wait for the release DMG
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          for i in $(seq 1 90); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx 'Triwarden.dmg'; then
+              echo "Triwarden.dmg is on $TAG"
+              exit 0
+            fi
+            echo "waiting for Triwarden.dmg on $TAG ($i/90)"
+            sleep 30
+          done
+          echo "Triwarden.dmg did not appear on $TAG within 45 minutes"
+          exit 1
       - uses: pnpm/action-setup@v4
         with:
           version: 12
@@ -45,7 +67,7 @@ jobs:
 
   deploy:
     name: Deploy to Cloudflare Pages
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'release' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: build
     runs-on: ubuntu-latest
     defaults:
@@ -53,6 +75,24 @@ jobs:
         working-directory: site
     steps:
       - uses: actions/checkout@v4
+      # release-please publishes the GitHub release before scripts/release.sh uploads Triwarden.dmg.
+      # Building before that asset exists makes latestRelease() return null and drops the version line.
+      - name: Wait for the release DMG
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          for i in $(seq 1 90); do
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx 'Triwarden.dmg'; then
+              echo "Triwarden.dmg is on $TAG"
+              exit 0
+            fi
+            echo "waiting for Triwarden.dmg on $TAG ($i/90)"
+            sleep 30
+          done
+          echo "Triwarden.dmg did not appear on $TAG within 45 minutes"
+          exit 1
       - uses: pnpm/action-setup@v4
         with:
           version: 12
