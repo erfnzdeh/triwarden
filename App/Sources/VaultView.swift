@@ -507,25 +507,46 @@ enum VaultSection: Hashable, CaseIterable {
     }
 }
 
-/// Native macOS sidebar (system source-list style, adapts to the OS look).
+/// The vault sidebar, drawn by the app (SidebarAccordion.swift): groups fold open and closed like an accordion, and
+/// a click anywhere on a group's row opens or closes it. From the keyboard, ↑ and ↓ move between rows, → opens a
+/// group and ← closes it (or, on a row inside one, goes up to it); Space or Return opens or closes the row's group.
 private struct Sidebar: View {
     @Environment(AppModel.self) private var model
     @Binding var section: SidebarSelection
 
     @AppStorage("sidebarTypesExpanded") private var typesExpanded = false
     @AppStorage("sidebarFoldersExpanded") private var foldersExpanded = true
+    /// Folders, shared vaults and shared folders that are closed (each starts open), by `SidebarEntry.key`.
+    @State private var closed: Set<String> = []
+    @FocusState private var focused: Bool
 
     private func count(_ selection: SidebarSelection) -> Int { model.vaultItems.filter(selection.includes).count }
 
-    private func row(_ s: VaultSection) -> some View {
-        SidebarLabel(s.title, symbol: s.symbol, tag: .section(s), count: count(.section(s)))
-            .tag(SidebarSelection.section(s))
-            .sidebarContextMenu(model.sidebarActions(for: .section(s)), selection: .section(s))
+    /// Whether a nested group is open.
+    private func open(_ key: String) -> Binding<Bool> {
+        Binding(get: { !closed.contains(key) }, set: { if $0 { closed.remove(key) } else { closed.insert(key) } })
+    }
+
+    private func row(_ s: VaultSection, depth: Int = 0, expanded: Binding<Bool>? = nil) -> some View {
+        SidebarRow(depth: depth, expanded: expanded, selected: section == .section(s), action: { pick(.section(s)) }) {
+            SidebarLabel(s.title, symbol: s.symbol, tag: .section(s), count: count(.section(s)))
+        }
+        .sidebarContextMenu(model.sidebarActions(for: .section(s)), selection: .section(s))
+        .id(SidebarSelection.section(s))
+    }
+
+    private func tool(_ title: LocalizedStringKey, symbol: String, _ destination: SidebarSelection, count: Int? = nil) -> some View {
+        SidebarRow(selected: section == destination, action: { pick(destination) }) {
+            SidebarLabel(title, symbol: symbol, tag: destination, count: count)
+        }
+        .sidebarContextMenu(model.sidebarActions(for: destination), selection: destination)
+        .id(destination)
     }
 
     /// A row picked. A vault with ⌘ held joins (or leaves) the vaults shown everywhere instead of opening; opening a
     /// vault the filter hides shows it again.
     private func pick(_ new: SidebarSelection) {
+        focused = true // the arrow keys carry on from the row clicked
         if let key = new.vaultKey {
             if NSEvent.modifierFlags.contains(.command) {
                 withAnimation(.snappy(duration: 0.25)) { model.toggleVault(key) }
@@ -539,83 +560,170 @@ private struct Sidebar: View {
         section = new
     }
 
-    var body: some View {
-        List(selection: Binding(get: { section }, set: { if let s = $0 { pick(s) } })) {
-            Section {
-                // All Items, with its narrower views folded under it (closed at first: the sidebar stays short).
-                DisclosureGroup(isExpanded: $typesExpanded) {
-                    ForEach(VaultSection.underAll, id: \.self) { row($0) }
-                } label: {
-                    row(.all)
-                }
-            } header: {
-                Text("Items").font(.system(size: 13, weight: .semibold))
-                    .frame(maxWidth: .infinity, minHeight: 26, alignment: .leading)
-                    .padding(.bottom, 6)
-            }
-            // Where items live: your own vault, then each shared vault (opening onto its shared folders). A click opens
-            // one; ⌘-click shows it alongside the others everywhere. Vaults the filter hides are dimmed.
-            if !model.visibleOrganizations.isEmpty {
-                Section("Vaults") {
-                    SidebarLabel("My vault", symbol: "person", tag: .myVault, count: count(.myVault))
-                        .tag(SidebarSelection.myVault)
-                        .sidebarContextMenu(model.sidebarActions(for: .myVault), selection: .myVault)
-                        .opacity(model.vaultShown(AppModel.VaultFilter.personalKey) ? 1 : 0.45)
-                    ForEach(model.visibleOrganizations) { org in
-                        SharedVaultRow(org: org, count: count)
-                            .opacity(model.vaultShown(org.id) ? 1 : 0.45)
-                    }
-                }
-            }
-            // Things to do with the vault, rather than kinds of items in it.
-            Section("Tools") {
-                SidebarLabel("Send", symbol: "paperplane", tag: .sends, count: model.sends.count)
-                    .tag(SidebarSelection.sends)
-                    .sidebarContextMenu(model.sidebarActions(for: .sends), selection: .sends)
-                SidebarLabel("One-Time Codes", symbol: "clock.badge.checkmark", tag: .codes,
-                             count: model.vaultItems.filter { !$0.isDeleted && !$0.isArchived && $0.totp != nil }.count)
-                    .tag(SidebarSelection.codes)
-                    .sidebarContextMenu(model.sidebarActions(for: .codes), selection: .codes)
-                SidebarLabel("Generator", symbol: "dice", tag: .generator)
-                    .tag(SidebarSelection.generator)
-                    .sidebarContextMenu(model.sidebarActions(for: .generator), selection: .generator)
-                SidebarLabel("Watchtower", symbol: "checkmark.shield", tag: .watchtower, count: model.watchtowerIssueCount)
-                    .tag(SidebarSelection.watchtower)
-                    .sidebarContextMenu(model.sidebarActions(for: .watchtower), selection: .watchtower)
-            }
-            // Your own ways of sorting items, and items set aside: kept (Archive) or on their way out (Trash).
-            Section("Manage") {
-                if model.folders.isEmpty {
-                    SidebarLabel("My Folders", symbol: "folder")
-                        .tag(SidebarSelection.folders)
-                        .sidebarContextMenu(model.sidebarActions(for: .folders), selection: .folders)
-                } else {
-                    DisclosureGroup(isExpanded: $foldersExpanded) {
-                        ForEach(FolderNode.tree(model.folders)) { node in
-                            FolderRow(node: node, count: count)
-                        }
-                    } label: {
-                        SidebarLabel("My Folders", symbol: "folder")
-                            .tag(SidebarSelection.folders)
-                            .sidebarContextMenu(model.sidebarActions(for: .folders), selection: .folders)
-                    }
-                }
-                row(.archive)
-                row(.trash)
+    // MARK: Keyboard
+
+    /// Every row on screen, top to bottom (the rows of a closed group left out), for the arrow keys.
+    private var entries: [SidebarEntry] {
+        var list: [SidebarEntry] = []
+        list.append(SidebarEntry(destination: .section(.all), expanded: $typesExpanded))
+        if typesExpanded { list += VaultSection.underAll.map { SidebarEntry(destination: .section($0), parent: .section(.all)) } }
+        if !model.visibleOrganizations.isEmpty {
+            list.append(SidebarEntry(destination: .myVault))
+            for org in model.visibleOrganizations {
+                let tree = FolderNode.tree(org.children)
+                let key = "org:" + org.id
+                list.append(SidebarEntry(destination: .organization(org.id), expanded: tree.isEmpty ? nil : open(key)))
+                if !tree.isEmpty, !closed.contains(key) { shared(tree, org: org, parent: .organization(org.id), into: &list) }
             }
         }
-        .listStyle(.sidebar)
+        list += [.sends, .codes, .generator, .watchtower].map { SidebarEntry(destination: $0) }
+        let folders = FolderNode.tree(model.folders)
+        list.append(SidebarEntry(destination: .folders, expanded: folders.isEmpty ? nil : $foldersExpanded))
+        if !folders.isEmpty, foldersExpanded { own(folders, parent: .folders, into: &list) }
+        list += [SidebarEntry(destination: .section(.archive)), SidebarEntry(destination: .section(.trash))]
+        return list
+    }
+
+    private func own(_ nodes: [FolderNode], parent: SidebarSelection, into list: inout [SidebarEntry]) {
+        for node in nodes {
+            let key = "folder:" + node.path
+            list.append(SidebarEntry(destination: .folder(node.path), parent: parent,
+                                     expanded: node.children.isEmpty ? nil : open(key)))
+            if !node.children.isEmpty, !closed.contains(key) { own(node.children, parent: .folder(node.path), into: &list) }
+        }
+    }
+
+    private func shared(_ nodes: [FolderNode], org: Grouping, parent: SidebarSelection, into list: inout [SidebarEntry]) {
+        for node in nodes {
+            let key = "collection:\(org.id):\(node.path)"
+            // A level that's only part of other names can't be picked; its folders still can, under the row above it.
+            let destination = node.folderIds.first.map(SidebarSelection.collection)
+            if let destination {
+                list.append(SidebarEntry(destination: destination, parent: parent,
+                                         expanded: node.children.isEmpty ? nil : open(key)))
+            }
+            if !node.children.isEmpty, !closed.contains(key) {
+                shared(node.children, org: org, parent: destination ?? parent, into: &list)
+            }
+        }
+    }
+
+    private func move(_ step: Int, scroll: ScrollViewProxy) -> KeyPress.Result {
+        let list = entries
+        guard !list.isEmpty else { return .ignored }
+        let index = list.firstIndex { $0.destination == section }
+        let next = index.map { min(max($0 + step, 0), list.count - 1) } ?? 0
+        guard next != index else { return .handled }
+        go(to: list[next].destination, scroll: scroll)
+        return .handled
+    }
+
+    private func go(to destination: SidebarSelection, scroll: ScrollViewProxy) {
+        pick(destination)
+        withAnimation(.easeOut(duration: 0.15)) { scroll.scrollTo(destination) }
+    }
+
+    /// → opens the row's group; ← closes it, or goes up to the group a row is in.
+    private func disclose(_ open: Bool, scroll: ScrollViewProxy) -> KeyPress.Result {
+        guard let entry = entries.first(where: { $0.destination == section }) else { return .ignored }
+        if let expanded = entry.expanded, expanded.wrappedValue != open {
+            withAnimation(SidebarMotion.animation) { expanded.wrappedValue = open }
+        } else if !open, let parent = entry.parent {
+            go(to: parent, scroll: scroll)
+        }
+        return .handled
+    }
+
+    private func toggle() -> KeyPress.Result {
+        guard let expanded = entries.first(where: { $0.destination == section })?.expanded else { return .ignored }
+        withAnimation(SidebarMotion.animation) { expanded.wrappedValue.toggle() }
+        return .handled
+    }
+
+    // MARK: Rows
+
+    var body: some View {
+        let folders = FolderNode.tree(model.folders)
+        ScrollViewReader { scroll in
+            ScrollView {
+                VStack(alignment: .leading, spacing: SidebarRow<EmptyView>.gap) {
+                    SidebarHeading(title: "Items")
+                    // All Items, with its narrower views folded under it (closed at first: the sidebar stays short).
+                    // A row and its fold sit together: the fold brings its own gap, so the stack's spacing would
+                    // double it (and leave one under a closed group).
+                    VStack(spacing: 0) {
+                        row(.all, expanded: $typesExpanded)
+                        SidebarFold(expanded: typesExpanded) {
+                            ForEach(VaultSection.underAll, id: \.self) { row($0, depth: 1) }
+                        }
+                    }
+                    // Where items live: your own vault, then each shared vault (opening onto its shared folders). A
+                    // click opens one; ⌘-click shows it alongside the others everywhere. Vaults the filter hides are
+                    // dimmed.
+                    if !model.visibleOrganizations.isEmpty {
+                        SidebarHeading(title: "Vaults")
+                        tool("My vault", symbol: "person", .myVault, count: count(.myVault))
+                            .opacity(model.vaultShown(AppModel.VaultFilter.personalKey) ? 1 : 0.45)
+                        ForEach(model.visibleOrganizations) { org in
+                            SharedVaultRow(org: org, section: section, pick: pick, count: count, open: open)
+                                .opacity(model.vaultShown(org.id) ? 1 : 0.45)
+                        }
+                    }
+                    // Things to do with the vault, rather than kinds of items in it.
+                    SidebarHeading(title: "Tools")
+                    tool("Send", symbol: "paperplane", .sends, count: model.sends.count)
+                    tool("One-Time Codes", symbol: "clock.badge.checkmark", .codes,
+                         count: model.vaultItems.filter { !$0.isDeleted && !$0.isArchived && $0.totp != nil }.count)
+                    tool("Generator", symbol: "dice", .generator)
+                    tool("Watchtower", symbol: "checkmark.shield", .watchtower, count: model.watchtowerIssueCount)
+                    // Your own ways of sorting items, and items set aside: kept (Archive) or on their way out (Trash).
+                    SidebarHeading(title: "Manage")
+                    VStack(spacing: 0) {
+                        SidebarRow(expanded: folders.isEmpty ? nil : $foldersExpanded, selected: section == .folders,
+                                   action: { pick(.folders) }) {
+                            SidebarLabel("My Folders", symbol: "folder")
+                        }
+                        .sidebarContextMenu(model.sidebarActions(for: .folders), selection: .folders)
+                        .id(SidebarSelection.folders)
+                        if !folders.isEmpty {
+                            SidebarFold(expanded: foldersExpanded) {
+                                ForEach(folders) {
+                                    FolderRow(node: $0, depth: 1, section: section, pick: pick, count: count, open: open)
+                                }
+                            }
+                        }
+                    }
+                    row(.archive)
+                    row(.trash)
+                }
+                .padding(.horizontal, 10)
+                .padding(.bottom, 8)
+            }
+            .focusable()
+            .focused($focused)
+            .focusEffectDisabled()
+            .accessibilityIdentifier("sidebar")
+            .onKeyPress(.downArrow) { move(1, scroll: scroll) }
+            .onKeyPress(.upArrow) { move(-1, scroll: scroll) }
+            .onKeyPress(.rightArrow) { disclose(true, scroll: scroll) }
+            .onKeyPress(.leftArrow) { disclose(false, scroll: scroll) }
+            .onKeyPress(.space) { toggle() }
+            .onKeyPress(.return) { toggle() }
+        }
         .thinScroller() // the app's slim scroller, not the system's wide track
         .environment(\.sidebarCurrent, section)
         // Switching accounts or vaults: sections and counts move rather than jump.
         .animation(.snappy(duration: 0.3), value: model.focusedAccountID)
         .animation(.snappy(duration: 0.3), value: model.vaultFilter)
-        .listItemTint(.monochrome) // icons in the text's own colour, not the brand blue
-        // Keep the accent available to selected text while SidebarCalmSelection draws the app's quieter card fill.
-        .tint(Color.sidebarSelection)
-        .background(SidebarCalmSelection())
         .safeAreaInset(edge: .bottom) { SidebarAccountCard().padding(10) }
     }
+}
+
+/// One row the arrow keys can land on: where it goes, the group it's in, and its own group's open state.
+private struct SidebarEntry {
+    let destination: SidebarSelection
+    var parent: SidebarSelection?
+    var expanded: Binding<Bool>?
 }
 
 /// Who's signed in, where, and how fresh the vault is — with sync and lock at hand. A click opens the account
@@ -993,29 +1101,33 @@ struct FolderNode: Identifiable, Hashable {
     }
 }
 
-/// Recursive folder row; items dropped on a real folder move into it.
 /// A shared vault in the sidebar: its name (all of its items), with its shared folders under it, and what you can do
 /// with it on a right-click.
 private struct SharedVaultRow: View {
     @Environment(AppModel.self) private var model
     let org: Grouping
+    let section: SidebarSelection
+    let pick: (SidebarSelection) -> Void
     let count: (SidebarSelection) -> Int
-    @State private var expanded = true
-
-    private var label: some View {
-        SidebarLabel(verbatim: org.name, symbol: "building.2", tag: .organization(org.id), count: count(.organization(org.id)))
-            .tag(SidebarSelection.organization(org.id))
-            .sidebarContextMenu(model.sidebarActions(for: .organization(org.id), name: org.name, organization: org), selection: .organization(org.id))
-    }
+    let open: (String) -> Binding<Bool>
 
     var body: some View {
         let tree = FolderNode.tree(org.children)
-        if tree.isEmpty {
-            label
-        } else {
-            DisclosureGroup(isExpanded: $expanded) {
-                ForEach(tree) { SharedFolderRow(node: $0, org: org, count: count) }
-            } label: { label }
+        let destination = SidebarSelection.organization(org.id)
+        let expanded = open("org:" + org.id)
+        VStack(spacing: 0) {
+            SidebarRow(expanded: tree.isEmpty ? nil : expanded, selected: section == destination, action: { pick(destination) }) {
+                SidebarLabel(verbatim: org.name, symbol: "building.2", tag: destination, count: count(destination))
+            }
+            .sidebarContextMenu(model.sidebarActions(for: destination, name: org.name, organization: org), selection: destination)
+            .id(destination)
+            if !tree.isEmpty {
+                SidebarFold(expanded: expanded.wrappedValue) {
+                    ForEach(tree) {
+                        SharedFolderRow(node: $0, org: org, depth: 1, section: section, pick: pick, count: count, open: open)
+                    }
+                }
+            }
         }
     }
 }
@@ -1026,54 +1138,77 @@ private struct SharedFolderRow: View {
     @Environment(AppModel.self) private var model
     let node: FolderNode
     let org: Grouping
+    let depth: Int
+    let section: SidebarSelection
+    let pick: (SidebarSelection) -> Void
     let count: (SidebarSelection) -> Int
-    @State private var expanded = true
-
-    @ViewBuilder private var label: some View {
-        if let id = node.folderIds.first {
-            SidebarLabel(verbatim: node.name, symbol: "rectangle.stack", tag: .collection(id), count: count(.collection(id)))
-                .tag(SidebarSelection.collection(id))
-                .sidebarContextMenu(model.sidebarActions(for: .collection(id), name: node.name, organization: org, collection: org.children.first { $0.id == id }), selection: .collection(id))
-        } else {
-            SidebarLabel(verbatim: node.name, symbol: "rectangle.stack")
-        }
-    }
+    let open: (String) -> Binding<Bool>
 
     var body: some View {
-        if node.children.isEmpty {
-            label
-        } else {
-            DisclosureGroup(isExpanded: $expanded) {
-                ForEach(node.children) { SharedFolderRow(node: $0, org: org, count: count) }
-            } label: { label }
+        let id = node.folderIds.first
+        let destination = id.map(SidebarSelection.collection)
+        let expanded = open("collection:\(org.id):\(node.path)")
+        VStack(spacing: 0) {
+            Group {
+                if let id, let destination {
+                    SidebarRow(depth: depth, expanded: node.children.isEmpty ? nil : expanded,
+                               selected: section == destination, action: { pick(destination) }) {
+                        SidebarLabel(verbatim: node.name, symbol: "rectangle.stack", tag: destination, count: count(destination))
+                    }
+                    .sidebarContextMenu(model.sidebarActions(for: destination, name: node.name, organization: org,
+                                                             collection: org.children.first { $0.id == id }), selection: destination)
+                    .id(destination)
+                } else {
+                    SidebarRow(depth: depth, expanded: node.children.isEmpty ? nil : expanded) {
+                        SidebarLabel(verbatim: node.name, symbol: "rectangle.stack")
+                    }
+                }
+            }
+            if !node.children.isEmpty {
+                SidebarFold(expanded: expanded.wrappedValue) {
+                    ForEach(node.children) {
+                        SharedFolderRow(node: $0, org: org, depth: depth + 1, section: section, pick: pick, count: count, open: open)
+                    }
+                }
+            }
         }
     }
 }
 
+/// One of your folders, with the ones nested under it; items dropped on a real folder move into it.
 private struct FolderRow: View {
     @Environment(AppModel.self) private var model
     let node: FolderNode
+    let depth: Int
+    let section: SidebarSelection
+    let pick: (SidebarSelection) -> Void
     let count: (SidebarSelection) -> Int
-    @State private var expanded = true
+    let open: (String) -> Binding<Bool>
     @State private var targeted = false
 
     var body: some View {
-        let label = SidebarLabel(verbatim: node.name, symbol: node.folderIds.isEmpty ? "folder.badge.questionmark" : "folder",
-                                 tag: .folder(node.path), count: count(.folder(node.path)))
-            .tag(SidebarSelection.folder(node.path))
-            .listRowBackground(targeted ? Color.brand.opacity(0.18).clipShape(.rect(cornerRadius: 6)) : nil)
+        let destination = SidebarSelection.folder(node.path)
+        let expanded = open("folder:" + node.path)
+        VStack(spacing: 0) {
+            SidebarRow(depth: depth, expanded: node.children.isEmpty ? nil : expanded, selected: section == destination,
+                       dropTargeted: targeted, action: { pick(destination) }) {
+                SidebarLabel(verbatim: node.name, symbol: node.folderIds.isEmpty ? "folder.badge.questionmark" : "folder",
+                             tag: destination, count: count(destination))
+            }
+            .sidebarContextMenu(model.sidebarActions(for: destination), selection: destination)
             .dropDestination(for: String.self) { ids, _ in
                 guard !node.folderIds.isEmpty else { return false }
                 Task { await model.move(itemIDs: ids, toFolderIn: node.folderIds) }
                 return true
             } isTargeted: { targeted = $0 }
-            .sidebarContextMenu(model.sidebarActions(for: .folder(node.path)), selection: .folder(node.path))
-        if node.children.isEmpty {
-            label
-        } else {
-            DisclosureGroup(isExpanded: $expanded) {
-                ForEach(node.children) { FolderRow(node: $0, count: count) }
-            } label: { label }
+            .id(destination)
+            if !node.children.isEmpty {
+                SidebarFold(expanded: expanded.wrappedValue) {
+                    ForEach(node.children) {
+                        FolderRow(node: $0, depth: depth + 1, section: section, pick: pick, count: count, open: open)
+                    }
+                }
+            }
         }
     }
 }
@@ -3751,7 +3886,7 @@ struct SidebarCalmSelection: NSViewRepresentable {
     final class Finder: NSView {
         /// The compact sidebar row height and the gap kept between neighbouring rows.
         static let pillHeight: CGFloat = 28
-        static let pillGap: CGFloat = 5
+        static let pillGap: CGFloat = 6
 
         private struct RowState {
             let emphasis: NSKeyValueObservation
