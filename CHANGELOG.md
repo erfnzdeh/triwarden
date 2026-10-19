@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/sinhong2011/triwarden/compare/v0.2.1...v0.3.0) (2026-10-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* ⌘K no longer opens the command palette; use ⇧⌘Space or the shortcut chosen in Settings › Shortcuts.
+
+### Features
+
+* open the command palette with ⇧⌘Space everywhere ([f929ae9](https://github.com/sinhong2011/triwarden/commit/f929ae9df73ba5e8dcc910f359306357892e7b36))
+* say on the sign-in screen that personal use is free ([c7fa9b4](https://github.com/sinhong2011/triwarden/commit/c7fa9b4c611f69f643032e78f25694d2ad513928))
+
+
+### Fixes
+
+* keep the one-time code's ring at the tile's edge, smaller and lower ([3a8a4db](https://github.com/sinhong2011/triwarden/commit/3a8a4db51092bc3b74e389999804cfb619b27342))
+* open the clicked row's context menu and use a native language picker ([e2d7824](https://github.com/sinhong2011/triwarden/commit/e2d78244f1d20c5cd0cb0fd11a847bfe144e392c))
+
 ## [0.2.1](https://github.com/sinhong2011/triwarden/compare/v0.2.0...v0.2.1) (2026-10-18)
 
 
