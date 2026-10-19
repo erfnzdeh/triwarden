@@ -8,6 +8,7 @@ let package = Package(
         .library(name: "TriCrypto", targets: ["TriCrypto"]),
         .library(name: "VaultwardenAPI", targets: ["VaultwardenAPI"]),
         .library(name: "SSHAgent", targets: ["SSHAgent"]),
+        .library(name: "SecretsAgent", targets: ["SecretsAgent"]),
     ],
     dependencies: [
         // Reference Argon2 (CC0 / Apache-2.0), pinned.
@@ -19,6 +20,8 @@ let package = Package(
                 resources: [.copy("Resources/eff_large_wordlist.txt")]),
         .target(name: "VaultwardenAPI", dependencies: ["TriCrypto"]),
         .target(name: "SSHAgent"),
+        .target(name: "SecretsAgent", dependencies: ["SSHAgent"]),
+        .testTarget(name: "SecretsAgentTests", dependencies: ["SecretsAgent"]),
         .testTarget(name: "SSHAgentTests", dependencies: ["SSHAgent"]),
         .testTarget(name: "TriCryptoTests", dependencies: ["TriCrypto"]),
         .testTarget(name: "VaultwardenAPITests", dependencies: ["VaultwardenAPI"]),

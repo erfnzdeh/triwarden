@@ -451,6 +451,7 @@ final class AppModel {
     /// Serves SSH key items to ssh/git while unlocked (Settings › SSH).
     @ObservationIgnored private(set) var sshAgent: SSHAgentService!
     @ObservationIgnored private(set) var cli: CLIBridge!
+    @ObservationIgnored private(set) var secrets: SecretsController!
     let updates: Updater
     /// Fork-style licensing: everything works unregistered; official builds remind now and then.
     let license = License()
@@ -470,6 +471,7 @@ final class AppModel {
             || ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" // Xcode canvas
         if !tooling, UserDefaults.standard.bool(forKey: Pref.sshAgent) { sshAgent.start() }
         cli = CLIBridge(model: self)
+        secrets = SecretsController(model: self, start: !tooling && !CommandLine.arguments.contains("--demo"))
         if !tooling { cli.refreshRunning() }
         if !tooling {
             trackForegroundApps()
@@ -957,6 +959,7 @@ final class AppModel {
     /// Sign one account out on this Mac: forget its session, cached vault, token and Touch ID.
     /// With no id: the account the unlock screen shows.
     func logOut(_ accountId: String? = nil) {
+        secrets?.reset()
         guard let id = accountId ?? unlockTarget?.id else { return }
         if let session = session(for: id) { session.close() }
         sessions.removeAll { $0.id == id }
@@ -1601,6 +1604,7 @@ final class AppModel {
 
     /// Locks one account; the others stay open.
     func lock(_ accountId: String) {
+        secrets?.reset()
         session(for: accountId)?.close()
         sessions.removeAll { $0.id == accountId }
         if accountFilter == accountId { accountFilter = nil }
@@ -2232,6 +2236,7 @@ final class AppModel {
         AttachmentFiles.wipe()
         sshAgent?.reset()
         cli?.reset()
+        secrets?.reset()
         breachCounts = nil
         breachesCheckedAt = nil
         sessions.forEach { $0.close() }

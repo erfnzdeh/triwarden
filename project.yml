@@ -43,6 +43,8 @@ targets:
         product: VaultwardenAPI
       - package: VaultCore
         product: SSHAgent
+      - package: VaultCore
+        product: SecretsAgent
       - package: Sparkle # signed, verified in-place updates
       - target: TriwardenAutoFill
         embed: true
@@ -215,6 +217,8 @@ targets:
     dependencies:
       - package: VaultCore
         product: SSHAgent
+      - package: VaultCore
+        product: SecretsAgent
     entitlements:
       path: CLI/tw.entitlements
       properties:

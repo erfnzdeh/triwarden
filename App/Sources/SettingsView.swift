@@ -9,7 +9,7 @@ import UniformTypeIdentifiers
 struct SettingsView: View {
     enum Pane: String, CaseIterable, Identifiable {
         // Everyday first, then who and how it's protected, then the keys, the connection, the tools, and about.
-        case general, accounts, security, shortcuts, server, developer, license, about
+        case general, accounts, security, shortcuts, server, developer, secrets, license, about
         var id: Self { self }
         var title: String {
             switch self {
@@ -18,6 +18,7 @@ struct SettingsView: View {
             case .shortcuts: String(localized: "Shortcuts")
             case .security: String(localized: "Security")
             case .developer: String(localized: "Developer")
+            case .secrets: String(localized: "Secrets")
             case .server: String(localized: "Server")
             case .license: String(localized: "License")
             case .about: String(localized: "About")
@@ -30,6 +31,7 @@ struct SettingsView: View {
             case .shortcuts: "keyboard"
             case .security: "lock.shield"
             case .developer: "terminal"
+            case .secrets: "key.horizontal"
             case .server: "server.rack"
             case .license: "checkmark.seal"
             case .about: "info.circle"
@@ -68,6 +70,7 @@ struct SettingsView: View {
                 case .shortcuts: ShortcutsSettings()
                 case .security: SecuritySettings()
                 case .developer: DeveloperSettings()
+                case .secrets: SecretsSettings()
                 case .server: ServerSettings()
                 case .license: LicenseSettings()
                 case .about: AboutSettings()

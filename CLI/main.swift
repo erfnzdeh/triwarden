@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import SSHAgent
+import SecretsAgent
 
 // `tw` — talks to the running Triwarden app. Secrets need the vault unlocked and an approval
 // (Touch ID or the Mac password) in the app.
@@ -8,6 +9,7 @@ import SSHAgent
 let usage = """
 usage: tw <command> [arguments]
 
+  run --profile NAME        launch the saved command with one vault credential (Settings › Secrets)
   status                    whether the vault is unlocked
   list [query]              items (name, username/site); needs approval
   get <item> [--field F]    print a field: password (default), username, uri, notes, totp, or a custom field
@@ -81,6 +83,35 @@ if first == "-h" || first == "--help" || first == "help" { print(usage); exit(0)
 if first == "install-chrome" {
     guard args.count == 2 else { fail("usage: tw install-chrome <extension-id>", code: 64) }
     installChromeHost(args[1])
+}
+if first == "run" {
+    do {
+        let name = try RunArguments.parse(Array(args.dropFirst()))
+        let store = SecretsProfileStore.shared
+        let profile = try store.load()
+        guard profile.enabled, profile.name == name else {
+            throw SecretsFailure("The requested profile is missing or disabled. Check Settings › Secrets.")
+        }
+        // Resolve only the saved absolute executable. A caller-supplied PATH cannot choose the target.
+        let identity = try LaunchIdentity.capture(profile)
+        let request = SecretsRunRequest(profile: profile, revision: try profile.revision(), launch: identity)
+        var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+        guard proc_pidpath(getpid(), &buffer, UInt32(buffer.count)) > 0 else {
+            throw SecretsFailure("Couldn't locate the running CLI. Use the tw bundled with Triwarden.")
+        }
+        let ownPath = URL(fileURLWithPath: String(cString: buffer)).resolvingSymlinksInPath()
+        guard ownPath.lastPathComponent == "tw", ownPath.deletingLastPathComponent().lastPathComponent == "MacOS" else {
+            throw SecretsFailure("Run the tw bundled inside Triwarden.app, or a symlink to it.")
+        }
+        let app = ownPath.deletingLastPathComponent().appendingPathComponent("Triwarden")
+        // Deliberately ignore TW_SOCKET for credential delivery. Authenticate the App, too.
+        let response = try SecretsClient.request(request, socket: store.socketURL, expectedApp: app)
+        let value = try response.validatedValue(for: request)
+        guard try store.load() == profile else { throw SecretsFailure("The profile changed during approval. Try again.") }
+        let environment = try LaunchPolicy.environment(parent: ProcessInfo.processInfo.environment,
+                                                        variable: profile.variable, value: value)
+        try SecretsExec.replace(profile: profile, identity: identity, environment: environment)
+    } catch { fail(error.localizedDescription) }
 }
 guard let command = CLIRequest.Command(rawValue: first) else { fail("unknown command “\(first)”\n\n" + usage, code: 64) }
 args.removeFirst()
