@@ -21,7 +21,7 @@ with the `accessibility` label.
 | Action | Keys |
 |---|---|
 | Filter the vault list | ⌘F |
-| Find items or run commands | ⌘K |
+| Find items or run commands | ⇧⌘Space |
 | Move through items | ↑ / ↓ in the item list |
 | New login / secure note / folder | ⌘N / ⇧⌘N / ⌥⌘N |
 | Edit item | ⌘E |

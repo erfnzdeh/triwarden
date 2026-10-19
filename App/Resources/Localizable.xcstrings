@@ -15556,6 +15556,34 @@
         }
       }
     },
+    "Free for personal use, with every feature. Work accounts need a license." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "個人利用は無料で、すべての機能を使えます。仕事用アカウントにはライセンスが必要です。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "个人使用免费，所有功能都可用。工作账户需要许可证。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "個人使用免費，所有功能都能用。工作帳號需要授權。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "個人使用免費，所有功能都可以用。工作帳戶需要授權。"
+          }
+        }
+      }
+    },
     "Free software under the GNU General Public License v3.0. Not affiliated with Bitwarden, Inc. or the Vaultwarden project." : {
       "localizations" : {
         "ja" : {
@@ -26988,30 +27016,30 @@
         }
       }
     },
-    "Search or run a command (⌘K)" : {
+    "Search or run a command (%@)" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "検索またはコマンドを実行（⌘K）"
+            "value" : "検索またはコマンドを実行（%@）"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜索或运行命令（⌘K）"
+            "value" : "搜索或运行命令（%@）"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜尋或執行命令（⌘K）"
+            "value" : "搜尋或執行命令（%@）"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜尋或執行指令（⌘K）"
+            "value" : "搜尋或執行指令（%@）"
           }
         }
       }
@@ -35549,30 +35577,30 @@
         }
       }
     },
-    "Works in every app. Called over a browser or an app, the palette puts its logins first, and ↵ types the username and password in (⌃↵ username, ⌥↵ password, ⇧ & submit). Typing needs Accessibility for “Triwarden Auto-Type”, a small helper inside the app, so Triwarden itself stays sandboxed. ⌘K and ⌘F also open the palette inside the vault window." : {
+    "Works in every app. Called over a browser or an app, the palette puts its logins first, and ↵ types the username and password in (⌃↵ username, ⌥↵ password, ⇧ & submit). Typing needs Accessibility for “Triwarden Auto-Type”, a small helper inside the app, so Triwarden itself stays sandboxed. The palette's shortcut works inside the vault window too." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "どのアプリでも使えます。ブラウザやアプリの上で呼び出すと、そのログインが先頭に表示され、↵ でユーザ名とパスワードを入力します（⌃↵ はユーザ名のみ、⌥↵ はパスワードのみ、⇧ & 送信）。入力にはアプリ内のヘルパー「Triwarden Auto-Type」へのアクセシビリティ許可が必要で、Triwarden 本体はサンドボックスのままです。保管庫ウインドウでは ⌘K と ⌘F でもパレットを開けます。"
+            "value" : "どのアプリでも使えます。ブラウザやアプリの上で呼び出すと、そのログインが先頭に表示され、↵ でユーザ名とパスワードを入力します（⌃↵ はユーザ名のみ、⌥↵ はパスワードのみ、⇧ & 送信）。入力にはアプリ内のヘルパー「Triwarden Auto-Type」へのアクセシビリティ許可が必要で、Triwarden 本体はサンドボックスのままです。このショートカットは保管庫ウインドウ内でも使えます。"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在任何 App 中都能使用。在浏览器或其他 App 上调出时，命令面板会先列出相关的登录信息，按 ↵ 会输入用户名和密码（⌃↵ 只输入用户名，⌥↵ 只输入密码，⇧ & 提交）。输入功能需要为 App 内的小助手“Triwarden Auto-Type”开启“辅助功能”权限，Triwarden 本身仍保持沙盒保护。在密码库窗口内，⌘K 和 ⌘F 也能打开命令面板。"
+            "value" : "在任何 App 中都能使用。在浏览器或其他 App 上调出时，命令面板会先列出相关的登录信息，按 ↵ 会输入用户名和密码（⌃↵ 只输入用户名，⌥↵ 只输入密码，⇧ & 提交）。输入功能需要为 App 内的小助手“Triwarden Auto-Type”开启“辅助功能”权限，Triwarden 本身仍保持沙盒保护。在密码库窗口内也能用这个快捷键打开命令面板。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在任何 App 中都能使用。在瀏覽器或其他 App 上叫出時，命令面板會先列出相關的登入資料，按 ↵ 會輸入使用者名稱和密碼（⌃↵ 只輸入使用者名稱，⌥↵ 只輸入密碼，⇧ & 送出）。輸入功能需要為 App 內的小幫手「Triwarden Auto-Type」開啟「輔助使用」權限，Triwarden 本身仍維持沙盒保護。在保險庫視窗內，⌘K 和 ⌘F 也能開啟命令面板。"
+            "value" : "在任何 App 中都能使用。在瀏覽器或其他 App 上叫出時，命令面板會先列出相關的登入資料，按 ↵ 會輸入使用者名稱和密碼（⌃↵ 只輸入使用者名稱，⌥↵ 只輸入密碼，⇧ & 送出）。輸入功能需要為 App 內的小幫手「Triwarden Auto-Type」開啟「輔助使用」權限，Triwarden 本身仍維持沙盒保護。在保險庫視窗內也能用這個快速鍵開啟命令面板。"
           }
         },
         "zh-HK" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "喺任何 App 都用得。喺瀏覽器或者其他 App 叫出嚟時，指令面板會先列出相關嘅登入資料，撳 ↵ 會輸入用戶名同密碼（⌃↵ 淨係輸入用戶名，⌥↵ 淨係輸入密碼，⇧ & 提交）。輸入功能要幫 App 入面嘅小幫手「Triwarden Auto-Type」開啟「輔助使用」權限，Triwarden 本身依然受沙盒保護。喺保險庫視窗入面，⌘K 同 ⌘F 都可以開指令面板。"
+            "value" : "喺任何 App 都用得。喺瀏覽器或者其他 App 叫出嚟時，指令面板會先列出相關嘅登入資料，撳 ↵ 會輸入用戶名同密碼（⌃↵ 淨係輸入用戶名，⌥↵ 淨係輸入密碼，⇧ & 提交）。輸入功能要幫 App 入面嘅小幫手「Triwarden Auto-Type」開啟「輔助使用」權限，Triwarden 本身依然受沙盒保護。喺保險庫視窗入面都可以用呢個快捷鍵開指令面板。"
           }
         }
       }

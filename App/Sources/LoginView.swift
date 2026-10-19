@@ -194,6 +194,11 @@ private struct LoginForm: View {
                 }
             }
             .padding(.top, 4)
+
+            // Unregistered official builds: say up front, quietly, what the launch reminder will ask about later.
+            if step == .credentials, !model.addingAccount, model.license.isConfigured, !model.license.isRegistered {
+                LicenseNote()
+            }
         }
         .frame(width: 380)
         .alert("Single sign-on", isPresented: $askingSSO) {
@@ -233,6 +238,26 @@ private struct LoginForm: View {
                 if !rememberEmail { UserDefaults.standard.removeObject(forKey: "email") }
             }
         }
+    }
+}
+
+/// One neutral line under the form: every feature is free for personal use; work accounts need a license.
+private struct LicenseNote: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Image(systemName: "heart").font(.system(size: 10, weight: .semibold))
+            Text("Free for personal use, with every feature. Work accounts need a license.")
+                .fixedSize(horizontal: false, vertical: true)
+            Button("Learn More") { model.license.openPricing() }
+                .buttonStyle(.plain)
+                .underline()
+        }
+        .font(.system(size: 11))
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity)
+        .multilineTextAlignment(.center)
     }
 }
 

@@ -1318,7 +1318,7 @@ private struct ShortcutRecorder: View {
 private struct ShortcutsSettings: View {
     /// The menu commands and their keys, as the app's menus define them.
     private static let inApp: [(LocalizedStringKey, String)] = [
-        ("Command Palette", "⌘K"), ("Triwarden Help", "⌘?"), ("Keyboard Shortcuts", "⌃⇧/"),
+        ("Triwarden Help", "⌘?"), ("Keyboard Shortcuts", "⌃⇧/"),
         ("New Login", "⌘N"), ("New Secure Note", "⇧⌘N"), ("New Folder", "⌥⌘N"),
         ("Edit", "⌘E"), ("Copy Username", "⇧⌘C"), ("Copy Password", "⌥⌘C"), ("Copy One-Time Code", "⌃⌘C"),
         ("Toggle Favorite", "⌘D"), ("Archive", "⌥⌘A"), ("Move to Trash", "⌘⌫"), ("Generator", "⌘G"),
@@ -1340,7 +1340,7 @@ private struct ShortcutsSettings: View {
             } header: {
                 Text("Anywhere")
             } footer: {
-                Text("Works in every app. Called over a browser or an app, the palette puts its logins first, and ↵ types the username and password in (⌃↵ username, ⌥↵ password, ⇧ & submit). Typing needs Accessibility for “Triwarden Auto-Type”, a small helper inside the app, so Triwarden itself stays sandboxed. ⌘K and ⌘F also open the palette inside the vault window.")
+                Text("Works in every app. Called over a browser or an app, the palette puts its logins first, and ↵ types the username and password in (⌃↵ username, ⌥↵ password, ⇧ & submit). Typing needs Accessibility for “Triwarden Auto-Type”, a small helper inside the app, so Triwarden itself stays sandboxed. The palette's shortcut works inside the vault window too.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -1390,19 +1390,14 @@ private struct LanguagePicker: View {
                         .buttonStyle(.appPrimarySmall)
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
-                ActionMenu(entries: Self.choices.map { choice in
-                    ActionMenuEntry(title: choice.name, checked: chosen == choice.code,
-                                    run: { chosen = choice.code })
-                }) {
-                    HStack(spacing: 6) {
-                        Text(verbatim: Self.choices.first { $0.code == chosen }?.name ?? Self.choices[0].name)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                Picker("Language", selection: $chosen) {
+                    ForEach(Self.choices.indices, id: \.self) { index in
+                        let choice = Self.choices[index]
+                        Text(verbatim: choice.name).tag(choice.code)
                     }
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(.primary.opacity(0.05), in: .capsule)
-                    .contentShape(.capsule)
                 }
+                .labelsHidden()
+                .pickerStyle(.menu)
                 .accessibilityLabel("Language")
                 .fixedSize()
             }

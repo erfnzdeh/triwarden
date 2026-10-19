@@ -201,6 +201,24 @@ final class ButtonTests: XCTestCase {
         app.typeKey(.escape, modifierFlags: [])
     }
 
+    func testContextMenuUsesTheClickedRowWhileDetailIsOpen() {
+        select("GitHub")
+
+        let proton = window.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Proton Mail")).firstMatch
+        XCTAssertTrue(proton.waitForExistence(timeout: 3))
+        proton.rightClick()
+        XCTAssertTrue(app.descendants(matching: .any)["Add to Favorites"].firstMatch.waitForExistence(timeout: 2),
+                      "item menu came from the open GitHub detail instead of Proton Mail")
+        app.typeKey(.escape, modifierFlags: [])
+
+        let logins = window.outlines.staticTexts["Logins"].firstMatch
+        XCTAssertTrue(logins.waitForExistence(timeout: 3))
+        logins.rightClick()
+        XCTAssertTrue(app.descendants(matching: .any)["New Login"].firstMatch.waitForExistence(timeout: 2),
+                      "sidebar menu came from another context-menu surface")
+        app.typeKey(.escape, modifierFlags: [])
+    }
+
     func testCardFieldsCopyWithoutRevealing() {
         select("Travel Visa")
         window.buttons["Copy Card number"].firstMatch.click()

@@ -57,7 +57,7 @@
   "cap_vault": "登录信息、卡片、笔记、身份和 SSH 密钥，使用文件夹和收藏夹整理。",
   "cap_codes": "所有一次性验证码一目了然，各自带着倒计时圆环。点一下就复制。",
   "cap_watchtower": "查看密码安全问题，打开相关网站更新密码。",
-  "cap_palette": "搜索保险库项目并运行 Triwarden 命令。App 内按 ⌘K，其他 App 中按 ⇧⌘Space。",
+  "cap_palette": "搜索保险库项目并运行 Triwarden 命令。在 Triwarden 或任何 App 中按 ⇧⌘Space。",
   "cap_generator": "生成密码、密码短语和用户名，并查看最近的生成记录。",
   "cap_menubar": "当前所在的网页、收藏和它们的验证码，在任何 App 里点一下就到。",
   "cap_signin": "自托管、Bitwarden 美国或 Bitwarden 欧洲 — 选一个就能登录。",

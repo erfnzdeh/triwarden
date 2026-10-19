@@ -57,7 +57,7 @@
   "cap_vault": "Logins, cards, notes, identities and SSH keys, organized with folders and favorites.",
   "cap_codes": "Every one-time code at a glance, each with its countdown ring. Click to copy.",
   "cap_watchtower": "Review security issues and open the affected site to update your password.",
-  "cap_palette": "Find vault items and run Triwarden commands. ⌘K in the app, ⇧⌘Space from other apps.",
+  "cap_palette": "Find vault items and run Triwarden commands. ⇧⌘Space, in Triwarden or any other app.",
   "cap_generator": "Generate passwords, passphrases and usernames, and review recent results.",
   "cap_menubar": "The page you’re on, your favorites and their codes, one click from any app.",
   "cap_signin": "Self-hosted, Bitwarden US or Bitwarden EU — pick one and sign in.",

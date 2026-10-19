@@ -639,7 +639,7 @@ final class AppModel {
         }
     }
 
-    /// Opens the command palette (set by the app; the search box, ⌘K/⌘F and the global shortcut all use it).
+    /// Opens the command palette (set by the app; the search box, the Help menu and the global shortcut all use it).
     @ObservationIgnored var openPalette: () -> Void = {}
     /// The vault window, so Help and Keyboard Shortcuts can sit in its center and dim it.
     @ObservationIgnored weak var mainWindow: NSWindow?

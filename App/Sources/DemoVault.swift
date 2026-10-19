@@ -481,7 +481,13 @@ enum DemoShots {
         let array = CFArrayCreate(nil, &ids, ids.count, nil)!
         guard let image = create(.null, array, 0)?.takeRetainedValue() else { return }
         do {
-            try NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
+            let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
+            // Streamed for callers that can't read the app's container (as with snapshots).
+            if ProcessInfo.processInfo.environment["TRIWARDEN_SNAPSHOT_STDOUT"] == "1", let png {
+                print("SHOT \(url.lastPathComponent) \(png.base64EncodedString())")
+                return
+            }
+            try png?.write(to: url)
             print("shot", url.lastPathComponent, image.width, image.height)
         } catch {
             print("shot failed", url.lastPathComponent, error.localizedDescription)

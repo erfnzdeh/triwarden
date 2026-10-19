@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw, ImageFilter
 HERE = os.path.dirname(os.path.abspath(__file__))
 SHOTS = os.path.join(HERE, "..", "public", "shots")
 SITE = os.path.join(HERE, "..", "..", "site", "public", "assets", "shots")
-PANEL = (648, 212, 2052, 1155)   # the palette panel in the 2704 × 2084 capture
+PANEL = (650, 458, 2054, 1466)   # the palette panel in the 2704 × 2084 capture
 RADIUS = 36                      # its corner radius
 BLUR = 18
 
