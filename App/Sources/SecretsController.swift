@@ -3,6 +3,7 @@ import Foundation
 import LocalAuthentication
 import Observation
 import SecretsAgent
+import Security
 import SwiftUI
 
 /// Owns approval, never launches the target. Only the authenticated bundled CLI receives the value.
@@ -12,6 +13,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
         let request: SecretsRunRequest
         let credential: String
         let account: String
+        let helper: String
     }
     private(set) var profile: SecretsProfile?
     private(set) var lastError: String?
@@ -19,21 +21,26 @@ final class SecretsController: NSObject, NSWindowDelegate {
     private(set) var authenticating = false
     @ObservationIgnored private weak var model: AppModel?
     @ObservationIgnored private let store: SecretsProfileStore
+    @ObservationIgnored private let configurationAllowed: Bool
     @ObservationIgnored private var server: SecretsServer?
     @ObservationIgnored private var gate = RunGate()
     @ObservationIgnored private var panel: NSPanel?
     @ObservationIgnored private var answer: CheckedContinuation<Bool, Never>?
     @ObservationIgnored private var authentication: LAContext?
+    @ObservationIgnored private var refreshWork: Task<Void, any Error>?
 
     init(model: AppModel, start: Bool = true) {
         self.model = model
+        configurationAllowed = start
         store = .shared
         super.init()
         if start { reload() }
     }
 
     func save(_ profile: SecretsProfile) throws {
+        guard configurationAllowed else { throw SecretsFailure("Saving a Secrets profile is disabled in demo and snapshot mode.") }
         try store.save(profile)
+        try approveRevision(profile.revision())
         reset()
         reload()
     }
@@ -42,12 +49,13 @@ final class SecretsController: NSObject, NSWindowDelegate {
         do {
             profile = try store.load()
             lastError = nil
-            guard profile?.enabled == true else { server?.stop(); server = nil; return }
+            guard let profile, profile.enabled else { server?.stop(); server = nil; return }
+            try profile.requireApprovedRevision(approvedRevision())
             guard server == nil else { return }
             let server = SecretsServer(socketURL: store.socketURL,
                                        expectedCLI: Bundle.main.bundleURL.appending(path: "Contents/MacOS/tw")) { [weak self] request, peer in
-                guard let self else { return .init(nonce: request.nonce, revision: request.revision, error: "Triwarden is quitting.") }
-                return await self.handle(request, peer: peer)
+                guard let self else { return }
+                await self.handle(request, peer: peer)
             }
             try server.start()
             self.server = server
@@ -58,8 +66,45 @@ final class SecretsController: NSObject, NSWindowDelegate {
         }
     }
 
+    // The CLI has no entitlement for this Data Protection Keychain access group.
+    // No legacy/non-protected fallback: failure to store or read the pin fails closed.
+    private var approvalQuery: [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: "io.github.sinhong2011.triwarden.secrets-profile-revision.v1",
+         kSecAttrAccount as String: "local-profile",
+         kSecAttrAccessGroup as String: Keychain.accessGroup,
+         kSecUseDataProtectionKeychain as String: true]
+    }
+
+    private func approvedRevision() -> String? {
+        var query = approvalQuery
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        query[kSecUseAuthenticationContext as String] = context
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private func approveRevision(_ revision: String) throws {
+        let data = Data(revision.utf8)
+        let update = SecItemUpdate(approvalQuery as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        if update == errSecSuccess { return }
+        guard update == errSecItemNotFound else { throw SecretsFailure("Couldn't confirm the profile in Keychain. No launch was enabled.") }
+        var query = approvalQuery
+        query[kSecValueData as String] = data
+        query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        guard SecItemAdd(query as CFDictionary, nil) == errSecSuccess else {
+            throw SecretsFailure("Couldn't confirm the profile in Keychain. No launch was enabled.")
+        }
+    }
+
     func reset() {
         gate.cancel()
+        refreshWork?.cancel()
         complete(false)
     }
 
@@ -68,7 +113,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
               let saved = try? store.load(), saved.enabled, saved == request.profile,
               (try? saved.revision()) == request.revision,
               model?.session(for: saved.accountID) != nil else { return false }
-        return true
+        return (try? saved.requireApprovedRevision(approvedRevision())) != nil
     }
 
     private func item(for profile: SecretsProfile) throws -> VaultItem {
@@ -85,17 +130,19 @@ final class SecretsController: NSObject, NSWindowDelegate {
         return matches[0]
     }
 
-    private func handle(_ request: SecretsRunRequest, peer: SecretsPeer) async -> SecretsRunResponse {
+    private func handle(_ request: SecretsRunRequest, peer: SecretsPeer) async {
         func failure(_ message: String) -> SecretsRunResponse { .init(nonce: request.nonce, revision: request.revision, error: message) }
         do {
             try peer.validate()
             try request.profile.validate()
             guard let saved = try? store.load(), saved.enabled, saved == request.profile,
                   try saved.revision() == request.revision else {
-                return failure("The profile changed or is disabled. Save it in Settings › Secrets and run the command again.")
+                peer.reply(failure("The profile changed or is disabled. Save it in Settings › Secrets and run the command again."))
+                return
             }
+            try saved.requireApprovedRevision(approvedRevision())
             try gate.begin(request.nonce)
-        } catch { return failure(error.localizedDescription) }
+        } catch { peer.reply(failure(error.localizedDescription)); return }
         defer { gate.finish(request.nonce); complete(false) }
         let deadline = ContinuousClock.now.advanced(by: .seconds(60))
         let watcher = Task { [weak self] in
@@ -113,13 +160,16 @@ final class SecretsController: NSObject, NSWindowDelegate {
                 throw SecretsFailure("Unlock the profile's account in Triwarden, then try again.")
             }
             // Online required: no silent cache fallback for the initial slice.
-            do { try await session.refresh() }
+            let refresh = Task { try await session.refresh() }
+            refreshWork = refresh
+            defer { refreshWork = nil }
+            do { try await refresh.value }
             catch { throw SecretsFailure("Couldn't refresh the vault online. No credential was supplied; check the account connection and try again.") }
             guard current(request, peer: peer), model?.session(for: session.id) === session else {
                 throw SecretsFailure("The request was cancelled, the account locked, or the profile changed.")
             }
             let selected = try item(for: request.profile)
-            pending = Prompt(request: request, credential: Self.display(selected.name), account: Self.display(session.account.email + " · " + session.account.serverSummary))
+            pending = Prompt(request: request, credential: Self.display(selected.name), account: Self.display(session.account.email + " · " + session.account.serverSummary), helper: peer.executable.path)
             let allowed = await withCheckedContinuation { continuation in
                 answer = continuation
                 showPanel()
@@ -134,12 +184,13 @@ final class SecretsController: NSObject, NSWindowDelegate {
             }
             let value = try request.profile.field.resolve(password: latest.password,
                 fields: latest.customFields.map { SecretField(name: $0.name, value: $0.value, hidden: $0.kind == .hidden) })
-            guard current(request, peer: peer) else { throw SecretsFailure("The launch was cancelled before delivery.") }
+            guard ContinuousClock.now < deadline, current(request, peer: peer) else { throw SecretsFailure("The launch was cancelled before delivery.") }
             model?.noteActivity()
-            return .init(nonce: request.nonce, revision: request.revision, value: value)
+            // Main actor: lock/reset cannot run between this check and the nonblocking send.
+            peer.reply(.init(nonce: request.nonce, revision: request.revision, value: value))
         } catch {
             gate.cancel()
-            return failure(error.localizedDescription)
+            peer.reply(failure(error.localizedDescription))
         }
     }
 
@@ -206,6 +257,7 @@ private struct SecretsApprovalView: View {
                         detail("Account", prompt.account)
                         detail("Credential", prompt.credential + " · " + prompt.request.profile.field.label)
                         detail("Environment variable", prompt.request.profile.variable)
+                        detail("Requesting helper", prompt.helper)
                         detail("Executable", prompt.request.launch.executable.path)
                         ForEach(Array(prompt.request.profile.arguments.enumerated()), id: \.offset) { index, argument in
                             detail("Argument \(index + 1)", argument.isEmpty ? "(empty argument)" : argument)

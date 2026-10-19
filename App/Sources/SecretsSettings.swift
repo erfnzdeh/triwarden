@@ -17,6 +17,12 @@ struct SecretsSettings: View {
     @State private var error: String?
     @State private var saved = false
 
+    private var draft: SecretsProfile {
+        SecretsProfile(name: name, accountID: accountID, itemID: itemID,
+                       field: field.hasPrefix("hidden:") ? .hidden(String(field.dropFirst(7))) : .password,
+                       variable: variable, executable: executable, arguments: arguments, directory: directory, enabled: enabled)
+    }
+
     private var items: [VaultItem] {
         model.session(for: accountID)?.items.filter { !$0.isDeleted && !$0.isArchived && $0.isSupported }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending } ?? []
@@ -39,12 +45,12 @@ struct SecretsSettings: View {
             } header: { Text("Local Secrets Agent") }
 
             Section {
-                Picker("Account", selection: $accountID) {
+                Picker("Account", selection: Binding(get: { accountID }, set: { accountID = $0; itemID = ""; field = "password"; saved = false })) {
                     Text("Choose an unlocked account").tag("")
                     ForEach(model.accounts) { account in
                         Text(verbatim: account.email + " · " + account.serverSummary).tag(account.id)
                     }
-                }.onChange(of: accountID) { _, _ in itemID = ""; field = "password"; saved = false }
+                }
                 if model.session(for: accountID) == nil {
                     Text("Unlock this account in the main window to select a credential.")
                         .font(.caption).foregroundStyle(.secondary)
@@ -53,7 +59,7 @@ struct SecretsSettings: View {
                     Text("Choose an item").tag("")
                     if !itemID.isEmpty, selectedItem == nil { Text("Saved item unavailable — select it again").tag(itemID) }
                     ForEach(items) { item in Text(verbatim: SecretsController.display(item.name)).tag(item.id) }
-                }.onChange(of: itemID) { _, _ in saved = false }
+                }.accessibilityIdentifier("secretsVaultItem").onChange(of: itemID) { _, _ in saved = false }
                 Picker("Field", selection: $field) {
                     Text("Password").tag("password")
                     if field.hasPrefix("hidden:"), !hiddenNames.contains(String(field.dropFirst(7))) {
@@ -116,6 +122,7 @@ struct SecretsSettings: View {
         .formStyle(.grouped)
         .thinScroller()
         .onAppear { load() }
+        .onChange(of: draft) { _, _ in saved = false }
     }
 
     private func load() {
@@ -142,8 +149,7 @@ struct SecretsSettings: View {
                     guard hiddenNames.contains(name) else { throw SecretsFailure("Select the hidden field again; its saved name is missing or duplicated.") }
                 }
             }
-            try model.secrets.save(SecretsProfile(name: name, accountID: accountID, itemID: itemID, field: selector,
-                variable: variable, executable: executable, arguments: arguments, directory: directory, enabled: enabled))
+            try model.secrets.save(draft)
             saved = true
         } catch { self.error = error.localizedDescription }
     }

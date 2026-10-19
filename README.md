@@ -183,6 +183,11 @@ sudo ln -sf /Applications/Triwarden.app/Contents/MacOS/tw /usr/local/bin/tw
 `tw get github | pbcopy`, `tw code github`, `tw list mail`, `tw generate --length 32`, `tw lock`.
 Reading from the vault asks for Touch ID in the app.
 
+For local API keys, configure one saved command and vault field in **Settings › Secrets**, then run
+`tw run --profile NAME`. Each launch refreshes the account online and asks for approval plus Touch ID
+or your Mac password. The command receives the key through its environment without a plaintext
+configuration file. See [Local API credentials](docs/local-secrets.md) for setup and security limits.
+
 ## Security
 
 Your master password and keys never leave the Mac; the server only ever sees encrypted data. Keys live in the

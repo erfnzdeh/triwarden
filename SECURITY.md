@@ -129,3 +129,18 @@ All primitives come from Apple CryptoKit / CommonCrypto, except Argon2id, which 
 implementation ([P-H-C/phc-winner-argon2](https://github.com/P-H-C/phc-winner-argon2), pinned by commit).
 The VaultCore test suite checks known-answer vectors for PBKDF2, Argon2id, HKDF stretching, EncString, TOTP
 (RFC 6238) and passkey signatures. Integration tests run against real Vaultwarden servers (see `DevServer/`).
+
+
+## Local Secrets Agent
+
+`tw run --profile NAME` has its own one-shot socket and native authorization scope, separate from generic CLI read grants. Credential values remain ordinary Bitwarden/Vaultwarden fields. Local profile files contain references only, are written with mode 0600, and are reloaded and revision-checked before delivery. The exact revision reviewed in the native settings page is pinned separately in the App's Data Protection Keychain access group. The CLI has no entitlement for that group; external profile-file edits invalidate the pin and require another native save. Keychain failures have no legacy fallback for this pin. Profiles remain configuration, not a sandbox against compromise of the App or user-approved UI automation.
+
+Both ends obtain `LOCAL_PEERTOKEN` from the socket, resolve the audit token with `SecCodeCopyGuestWithAttributes`, validate the running code, compare its canonical path and signing identity/code hash with the counterpart in the same bundle, and validate the sealed app bundle including nested code. Official signed peers must share the running process's Team ID. No PID-only, filename-only, or unsigned fallback is provided. Ad-hoc source builds rely on valid bundle seals and exact counterpart matching; they do not have a developer-team trust anchor.
+
+The initial implementation permits one saved command and one credential. It requires an unlocked account, a successful online refresh, explicit native approval and device-owner authentication. Command overrides are rejected. Concurrent requests do not share approval; lock, logout, profile change, disconnection and expiry cancel pending requests. The last lifecycle check and nonblocking socket write occur synchronously on the main actor, so lock cannot interleave between them. Delivery commits at that write; already-sent bytes cannot be revoked.
+
+The authenticated CLI briefly holds the plaintext value, closes IPC, rechecks the executable and directory identity, builds a restricted environment, and replaces itself with `execve`. It does not print the value, create a temporary `.env`, or alter the parent shell. Same-user process inspection can expose environment values beyond the child process tree. The receiving tool can exfiltrate its value, and locking cannot revoke it. Triwarden does not redact arbitrary child output.
+
+Canonical path, device/inode, permissions, high-resolution timestamps and content hashing detect target changes. Public macOS path-based exec leaves a final TOCTOU window; scripts, interpreters and project dependencies can execute arbitrary code. This feature assumes the user trusts the approved command and project, and does not isolate it from other processes running under the same user. A denylist of loader/startup variables and a restricted inherited environment reduce accidental exposure but cannot make arbitrary programs safe.
+
+A provider-key-protecting API proxy is a separate future feature, not a property of environment injection. See [Local API credentials](docs/local-secrets.md).

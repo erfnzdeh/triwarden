@@ -54,6 +54,27 @@ public enum SecretsPeerVerifier {
               let expected, SecStaticCodeCheckValidity(expected, [], nil) == errSecSuccess else {
             throw SecretsFailure("The bundled counterpart is not signed correctly. Rebuild or reinstall Triwarden and use its bundled tw.")
         }
+        // Anchor both peers to our running identity. Matching a replacement helper against
+        // itself on disk is insufficient: the app's sealed bundle and signer must also agree.
+        var own: SecCode?
+        var ownStatic: SecStaticCode?
+        var ownInfo: CFDictionary?
+        guard SecCodeCopySelf([], &own) == errSecSuccess, let own,
+              SecCodeCheckValidity(own, [], nil) == errSecSuccess,
+              SecCodeCopyStaticCode(own, [], &ownStatic) == errSecSuccess, let ownStatic,
+              SecCodeCopySigningInformation(ownStatic, SecCSFlags(rawValue: kSecCSSigningInformation), &ownInfo) == errSecSuccess,
+              let ownSigning = ownInfo as? [String: Any] else {
+            throw SecretsFailure("This copy of Triwarden could not verify its running signature.")
+        }
+        let bundle = expectedURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        if bundle.pathExtension == "app" {
+            var sealedBundle: SecStaticCode?
+            let strict = SecCSFlags(rawValue: kSecCSStrictValidate | kSecCSCheckNestedCode)
+            guard SecStaticCodeCreateWithPath(bundle as CFURL, [], &sealedBundle) == errSecSuccess,
+                  let sealedBundle, SecStaticCodeCheckValidity(sealedBundle, strict, nil) == errSecSuccess else {
+                throw SecretsFailure("The Triwarden app bundle was modified or its nested code is invalid. Rebuild or reinstall it.")
+            }
+        }
         var guestStatic: SecStaticCode?
         guard SecCodeCopyStaticCode(guest, [], &guestStatic) == errSecSuccess, let guestStatic else {
             throw SecretsFailure("Could not inspect the peer signature.")
@@ -67,6 +88,7 @@ public enum SecretsPeerVerifier {
               let actualHash = actual[kSecCodeInfoUnique as String] as? Data,
               let expectedHash = wanted[kSecCodeInfoUnique as String] as? Data,
               actualHash == expectedHash,
+              wanted[kSecCodeInfoTeamIdentifier as String] as? String == ownSigning[kSecCodeInfoTeamIdentifier as String] as? String,
               let actualPath = actual[kSecCodeInfoMainExecutable as String] as? URL,
               actualPath.resolvingSymlinksInPath() == expectedURL,
               actual[kSecCodeInfoIdentifier as String] as? String == wanted[kSecCodeInfoIdentifier as String] as? String,
@@ -93,6 +115,17 @@ public struct SecretsPeer: Sendable {
         // Extra bytes mean an unsolicited/replayed request: fail closed rather than queue it.
         return count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)
     }
+    /// Called synchronously by the owner of the authorization state, immediately after its
+    /// final check. One nonblocking write defines the irreversible delivery boundary.
+    /// A partial or failed write is rejected by the client's frame decoder and never retried.
+    @discardableResult
+    public func reply(_ response: SecretsRunResponse) -> Bool {
+        guard isConnected, let bytes = try? JSONEncoder().encode(response), bytes.count <= 262_144 else { return false }
+        let n = UInt32(bytes.count)
+        let frame = Data([UInt8(n >> 24), UInt8(n >> 16 & 255), UInt8(n >> 8 & 255), UInt8(n & 255)]) + bytes
+        return frame.withUnsafeBytes { send(fd, $0.baseAddress, frame.count, MSG_DONTWAIT) == frame.count }
+    }
+
     public func validate() throws {
         guard isConnected, try SecretsPeerVerifier.validate(fd: fd, expectedExecutable: executable) == auditToken else {
             throw SecretsFailure("The requesting CLI disconnected or changed identity.")
@@ -102,7 +135,7 @@ public struct SecretsPeer: Sendable {
 
 /// Small, one-request server, independent of general vault-read grants and browser IPC.
 public final class SecretsServer: @unchecked Sendable {
-    public typealias Handler = @Sendable (SecretsRunRequest, SecretsPeer) async -> SecretsRunResponse
+    public typealias Handler = @Sendable (SecretsRunRequest, SecretsPeer) async -> Void
     private let socketURL: URL
     private let expectedCLI: URL
     private let handler: Handler
@@ -164,18 +197,19 @@ public final class SecretsServer: @unchecked Sendable {
               let request = try? JSONDecoder().decode(SecretsRunRequest.self, from: data) else { return }
         let peer = SecretsPeer(fd: fd, auditToken: audit, executable: expectedCLI, serverAlive: { [weak self] in self?.isRunning == true })
         let done = DispatchSemaphore(value: 0)
-        nonisolated(unsafe) var result: SecretsRunResponse?
-        Task.detached { result = await self.handler(request, peer); done.signal() }
+        Task.detached { await self.handler(request, peer); done.signal() }
         done.wait()
-        guard peer.isConnected, let result, let bytes = try? JSONEncoder().encode(result) else { return }
-        _ = FramedSocketServer.writeFrame(fd, bytes)
-        // One reply, then close. A second request is never accepted on this connection.
+        // The handler commits its reply synchronously with its final lifecycle check.
+        // Never retain a plaintext reply on this thread for a later write.
+        // One request, then close; a second request is never accepted.
     }
 
     static func configure(_ fd: Int32, seconds: Int) {
         _ = fcntl(fd, F_SETFD, FD_CLOEXEC)
         var on: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
+        var sendBuffer: Int32 = 512 * 1024
+        setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sendBuffer, socklen_t(MemoryLayout<Int32>.size))
         var timeout = timeval(tv_sec: seconds, tv_usec: 0)
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))

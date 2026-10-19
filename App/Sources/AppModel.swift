@@ -471,7 +471,7 @@ final class AppModel {
             || ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" // Xcode canvas
         if !tooling, UserDefaults.standard.bool(forKey: Pref.sshAgent) { sshAgent.start() }
         cli = CLIBridge(model: self)
-        secrets = SecretsController(model: self, start: !tooling && !CommandLine.arguments.contains("--demo"))
+        secrets = SecretsController(model: self, start: !tooling && !CommandLine.arguments.contains(where: { $0.hasPrefix("--demo") }))
         if !tooling { cli.refreshRunning() }
         if !tooling {
             trackForegroundApps()

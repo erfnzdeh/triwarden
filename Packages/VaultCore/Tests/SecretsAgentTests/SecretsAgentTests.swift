@@ -85,3 +85,15 @@ extension SecretsAgentTests {
         #expect(throws: (any Error).self) { try SecretsExec.replace(profile: p, identity: identity, environment: [:]) }
     }
 }
+
+extension SecretsAgentTests {
+    @Test func profileEditsRequireNewNativeApproval() throws {
+        let approved = profile()
+        let revision = try approved.revision()
+        try approved.requireApprovedRevision(revision)
+        var changed = approved
+        changed.arguments = ["-c", "different command"]
+        #expect(throws: (any Error).self) { try changed.requireApprovedRevision(revision) }
+        #expect(throws: (any Error).self) { try approved.requireApprovedRevision(nil) }
+    }
+}

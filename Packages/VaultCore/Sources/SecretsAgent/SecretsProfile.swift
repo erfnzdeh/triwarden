@@ -80,6 +80,12 @@ public struct SecretsProfile: Codable, Equatable, Sendable {
         }
     }
 
+    public func requireApprovedRevision(_ approved: String?) throws {
+        guard let approved, try revision() == approved else {
+            throw SecretsFailure("This profile has not been confirmed here or was modified outside Triwarden. Review every setting and save it in Settings › Secrets before launching.")
+        }
+    }
+
     public func revision() throws -> String {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
         return SHA256.hash(data: try encoder.encode(self)).map { String(format: "%02x", $0) }.joined()

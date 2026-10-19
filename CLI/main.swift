@@ -99,7 +99,7 @@ if first == "run" {
         guard proc_pidpath(getpid(), &buffer, UInt32(buffer.count)) > 0 else {
             throw SecretsFailure("Couldn't locate the running CLI. Use the tw bundled with Triwarden.")
         }
-        let ownPath = URL(fileURLWithPath: String(cString: buffer)).resolvingSymlinksInPath()
+        let ownPath = URL(fileURLWithPath: String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)).resolvingSymlinksInPath()
         guard ownPath.lastPathComponent == "tw", ownPath.deletingLastPathComponent().lastPathComponent == "MacOS" else {
             throw SecretsFailure("Run the tw bundled inside Triwarden.app, or a symlink to it.")
         }

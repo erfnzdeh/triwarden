@@ -43,4 +43,19 @@ final class CISmokeTests: XCTestCase {
         XCTAssertTrue(cancel.waitForNonExistence(timeout: 5))
         XCTAssertFalse(editorName.exists)
     }
+
+    func testSecretsSettingsUsesReferences() {
+        let app = launchDemo()
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["GitHub"].firstMatch.waitForExistence(timeout: 15))
+        app.typeKey(",", modifierFlags: .command)
+        let secrets = app.outlines.staticTexts["Secrets"].firstMatch
+        XCTAssertTrue(secrets.waitForExistence(timeout: 5))
+        secrets.click()
+        XCTAssertTrue(app.textFields["secretsProfileName"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["saveSecretsProfile"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["secretsVaultItem"].firstMatch.exists)
+        XCTAssertEqual(app.secureTextFields.count, 0, "The profile editor should select references, not accept a plaintext key")
+    }
+
 }

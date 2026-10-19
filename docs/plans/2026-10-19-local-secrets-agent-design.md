@@ -1,7 +1,7 @@
 # Bitwarden-backed local Secrets Agent
 
 Date: 2026-10-19
-Status: Revised after audit; Stage 1 vertical slice is being implemented.
+Status: Stage 1 core implemented; interactive account/authentication and final GUI validation remain pending.
 
 ## Purpose
 
@@ -239,7 +239,7 @@ This document defines proposed behavior. Specific editor integrations and provid
 2. **Peer authentication:** mutually validate the socket audit token and exact signed counterpart. Connections are one-request and deadline-bounded, with liveness checked during approval and before delivery.
 3. **Agent-triggered requests:** command overrides are rejected entirely in the initial slice, including interactive overrides. The saved command is configured in the native UI. TTY is informational, never proof of a human. Only one approval may be pending; cancellation or timeout causes a cooldown to limit repeated prompts. Every launch still requires an explicit native confirmation and device-owner authentication.
 4. **Target continuity:** resolve a canonical absolute path and compare device/inode, size, mode, high-resolution modification/change times, and content digest immediately before exec. Include working-directory identity. This detects replacement but cannot eliminate the final path-based exec race on macOS; it is not protection against an attacker who can mutate the executable or project.
-5. **Profile integrity:** hash the complete canonical profile contents into the request revision and reload before release. Profile files contain only references and receive restrictive permissions. Keychain HMAC is deferred: it does not sandbox a same-user agent and adds key lifecycle complexity. No persistent trust is derived from an editable profile.
+5. **Profile integrity:** hash the complete canonical profile contents into the request revision and reload before release. Profile files contain only references and receive restrictive permissions. The App stores the exact reviewed profile revision separately in its Data Protection Keychain access group. The CLI cannot update that pin; an externally edited profile must be reviewed and saved again in the native UI. A protected revision pin provides tamper detection without a separate HMAC key. It is not a sandbox against compromise of the signed App or user-approved UI automation.
 6. **Approval reuse:** deferred. A process replaced by exec is no longer a reusable `tw` peer. Repeated runs use new CLI instances; any future reuse needs an authenticated parent-session design, not matching a PID or program name.
 7. **Stage 1 core:** one saved local profile, one existing password or uniquely named hidden custom field, a saved executable/argument array, restricted environment, native approval, and `tw run --profile NAME`. Credential creation uses the existing vault editor. No new cipher schema is necessary for this slice.
 8. **Stage 1.5:** richer profile editing, repair guidance, expanded tested environments and UI.
@@ -247,3 +247,11 @@ This document defines proposed behavior. Specific editor integrations and provid
 10. **Stage 3:** a real-client-tested proxy adapter and compatibility matrix.
 
 The earlier broad Stage 1 describes the intended end state; this ordered slice sequence supersedes its delivery size. No proxy, importer, GUI launching, or remembered grants are implied by the initial implementation. Protected items that require a master-password re-prompt must fail closed with repair guidance until that distinct prompt is integrated.
+
+## Stage 1 implementation status
+
+The worktree now contains one reference-only profile, one existing vault field, restricted environment delivery, mutually authenticated audit-token IPC, a native approval card, Keychain-pinned profile revisions, and CLI-owned exec. The final eligibility check and nonblocking response write run synchronously on the main actor; delivery commits at the socket write. A later lock cannot revoke bytes already sent.
+
+Source builds need valid bundle signatures and working Data Protection Keychain entitlements. Transport tests cover ad-hoc sealed bundles, but ad-hoc signing alone does not grant Keychain access.
+
+The initial slice does not include a new credential editor, remembered grants, a history UI, migration automation, multiple bindings, offline access, editor launch integration, or a provider proxy. Those remain subsequent stages. Device-owner authentication and online real-account launch require an interactive verification pass; synthetic transport/exec tests do not establish those integrations by themselves.
