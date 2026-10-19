@@ -6,7 +6,6 @@ import { latestRelease } from "../release";
 import { currentLocale, localeHref } from "../i18n";
 const rel = await latestRelease();
 const dmg = rel?.dmg ?? SITE.download;
-const refresh = !rel?.stable; // a fixed link never needs refreshing
 const pricing = localeHref(currentLocale(), "pricing/");
 ---
 <section id="close" class="mx-auto max-w-(--max) px-(--gutter) py-[clamp(56px,7vw,96px)]">
@@ -20,7 +19,7 @@ const pricing = localeHref(currentLocale(), "pricing/");
       <button class="btn btn--ghost btn--sm" data-copy-text={SITE.brew} data-copy-done={m.copied()} data-copy-fail={m.copy_failed()}><span data-copy-label>{m.copy()}</span></button>
     </div>
     <div class="flex flex-wrap gap-3">
-      <a class="btn btn--fill" href={dmg} data-dmg={refresh ? "" : undefined}>{m.hero_download()}</a>
+      <a class="btn btn--fill" href={dmg} data-dmg="">{m.hero_download()}</a>
       <a class="btn btn--ghost" href={pricing}>{m.buy_once({ price: SITE.price })}</a>
     </div>
     <DownloadMeta class="mt-5" />

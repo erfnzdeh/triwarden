@@ -49,9 +49,23 @@ $$("[data-copy-text]").forEach((btn) => btn.addEventListener("click", async () =
 
 // Speed numbers count up the first time they scroll into view.
 if (!reduce) $$("[data-count]").forEach((el) => {
-  const to = Number(el.dataset.count), digits = Number(el.dataset.digits ?? 0), o = { v: 0 };
+  const digits = Number(el.dataset.digits ?? 0), o = { v: 0 };
+  const live = () => Number(el.dataset.count);
   el.textContent = (0).toFixed(digits);
-  gsap.to(o, { v: to, duration: 1.6, ease: "expo.out", scrollTrigger: { trigger: el, start: "top 85%" }, onUpdate: () => (el.textContent = o.v.toFixed(digits)) });
+  // The download size is filled in again when the latest release arrives. Read it when the
+  // count starts, and if a newer figure lands mid-count, show that instead of the stale target.
+  if (el.hasAttribute("data-dmg-mb")) {
+    let end = live();
+    gsap.to(o, {
+      v: () => (end = live()),
+      duration: 1.6,
+      ease: "expo.out",
+      scrollTrigger: { trigger: el, start: "top 85%" },
+      onUpdate: () => (el.textContent = (live() !== end ? live() : o.v).toFixed(digits)),
+    });
+    return;
+  }
+  gsap.to(o, { v: live(), duration: 1.6, ease: "expo.out", scrollTrigger: { trigger: el, start: "top 85%" }, onUpdate: () => (el.textContent = o.v.toFixed(digits)) });
 });
 
 // Keep details open until the closing transition finishes. Reverse from the

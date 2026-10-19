@@ -38,6 +38,7 @@ const jsonLd = [
     description: m.meta_description(price),
     applicationCategory: "SecurityApplication",
     operatingSystem: "macOS 26 or later",
+    // Build-time release when the lookup works. SITE.version is only the fallback.
     softwareVersion: rel?.version ?? SITE.version,
     downloadUrl: rel?.dmg ?? SITE.download,
     image: `${Astro.site?.origin ?? ""}${import.meta.env.BASE_URL}assets/og.jpg`,

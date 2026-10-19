@@ -12,7 +12,6 @@ const home = page ? localeHref(locale) : "";
 
 const rel = await latestRelease();
 const dmg = rel?.dmg ?? SITE.download;
-const refresh = !rel?.stable; // a fixed link never needs refreshing
 const links = [
   [m.foot_download(), dmg],
   [m.foot_pricing(), localeHref(locale, "pricing/")],
@@ -29,7 +28,7 @@ const links = [
   </a>
   <nav class="flex flex-wrap gap-5" aria-label={m.foot_nav()}>
     {links.map(([label, href], i) => (
-      <a class="text-ink-2 no-underline hover:text-ink" href={href} data-dmg={i === 0 && refresh ? "" : undefined}>{label}</a>
+      <a class="text-ink-2 no-underline hover:text-ink" href={href} data-dmg={i === 0 ? "" : undefined}>{label}</a>
     ))}
   </nav>
   <span class="basis-full">{m.foot_disclaimer()} · © 2026 · GPL‑3.0</span>

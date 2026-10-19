@@ -1,8 +1,11 @@
-/** The newest GitHub release's DMG, looked up once per build.
-    Releases from now on also carry Triwarden.dmg (scripts/release.sh), so pages link the fixed
-    releases/latest/download/Triwarden.dmg — always the newest, nothing to refresh. Until the latest release has that
-    file, pages link its versioned DMG and scripts/release.ts keeps it current in the browser. If the lookup fails
-    entirely, the fixed link is still right once a release has it; before that, the releases page. */
+/** The newest GitHub release, looked up once per build.
+    When that release carries Triwarden.dmg (scripts/release.sh), pages link the fixed
+    releases/latest/download/Triwarden.dmg. That URL always names the newest file, but version, size,
+    and notes in the HTML are still from this lookup and go stale until the next site build.
+    scripts/release.ts refreshes those in the browser on every visit — do not skip it because `stable` is true.
+    Until the latest release has the stable-named file, pages link its versioned DMG and the client
+    script points download anchors at that asset. If the lookup fails entirely, the fixed link is still
+    right once a release has it; before that, the releases page. */
 import { SITE } from "./config";
 
 export type Release = { version: string; dmg: string; size: number; notes: string; stable: boolean };
