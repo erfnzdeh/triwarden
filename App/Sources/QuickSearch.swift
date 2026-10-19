@@ -190,6 +190,12 @@ final class QuickSearchController {
     private var holdingForFill = false
     private var fillWatch: Task<Void, Never>?
     private var preferredSize: CGSize?
+    /// The card's height when the palette opens (the empty query), so the next open centers that card.
+    private var openingHeight: CGFloat?
+    /// Set by show(): the first fit after it centers the card on this area, if the height turned out different.
+    private var openingArea: NSRect?
+    /// Where the controller last put the top edge's middle. If the panel's differs at close, the user dragged it.
+    private var placedAnchor: NSPoint?
     /// Shrink and grow share one ease. `animator().setFrame` only visibly grows a clear panel.
     private var frameTarget: NSRect?
     private var frameTimer: Timer?
@@ -218,7 +224,7 @@ final class QuickSearchController {
         self.panel = panel
         // Follow the app's Appearance setting, not just the system's.
         panel.appearance = AppearanceSetting.current.nsAppearance
-        center(panel)
+        place(panel)
         closing?.cancel(); closing = nil
         panel.ignoresMouseEvents = false
         // Over another app the panel takes the keyboard without activating Triwarden (it's a non-activating panel,
@@ -226,6 +232,11 @@ final class QuickSearchController {
         if fromOwnWindow { NSApp.activate() }
         panel.makeKeyAndOrderFront(nil)
         model.quickSearchNonce += 1 // resets query and focuses the field
+        // If the reset left the card's height unchanged, no fit arrives; don't let the first keystroke recenter it.
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            self?.openingArea = nil
+        }
     }
 
     /// Returns once the panel is gone (now, if it isn't closing).
@@ -234,6 +245,7 @@ final class QuickSearchController {
     /// The palette shrinks back to the top and fades (see CommandPalette), then the panel hides.
     func close() {
         guard let panel, panel.isVisible, closing == nil else { return }
+        rememberDraggedPosition(of: panel)
         resignWatch?.cancel(); resignWatch = nil
         fillWatch?.cancel(); fillWatch = nil
         holdingForFill = false
@@ -286,16 +298,23 @@ final class QuickSearchController {
         preferredSize = size
         guard let panel, panel.attachedSheet == nil, !holdingForFill else { return }
         let frame = panel.frame
+        // The first fit after opening is the empty query's card: center that one, and remember its height.
+        let opening = openingArea
+        if opening != nil { openingArea = nil; openingHeight = size.height }
         guard abs(frame.width - size.width) > 0.5 || abs(frame.height - size.height) > 0.5 else { return }
-        // Keep the card where the user put it; growth stays around that center.
-        var rect = NSRect(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2,
-                          width: size.width, height: size.height)
+        // Otherwise keep the top edge (the search field) where it is, so the results grow and shrink below it.
+        var rect = if let opening {
+            NSRect(x: opening.midX - size.width / 2, y: opening.midY - size.height / 2, width: size.width, height: size.height)
+        } else {
+            NSRect(x: frame.midX - size.width / 2, y: frame.maxY - size.height, width: size.width, height: size.height)
+        }
         if let bounds = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame {
-            rect.origin.x = min(max(rect.origin.x, bounds.minX), bounds.maxX - rect.width)
-            rect.origin.y = min(max(rect.origin.y, bounds.minY), bounds.maxY - rect.height)
+            rect.origin.x = min(max(rect.origin.x, bounds.minX), max(bounds.minX, bounds.maxX - rect.width))
+            rect.origin.y = min(max(rect.origin.y, bounds.minY), max(bounds.minY, bounds.maxY - rect.height))
         }
         // The first measurement just replaces the placeholder. Later changes ease in both directions.
-        let ease = panel.isVisible && !firstFit && Motion.plays && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if opening != nil { placedAnchor = NSPoint(x: rect.midX, y: rect.maxY) }
+        let ease = panel.isVisible && !firstFit && opening == nil && Motion.plays && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if ease {
             easeFrame(of: panel, to: rect)
         } else {
@@ -336,23 +355,48 @@ final class QuickSearchController {
         }
     }
 
-    /// Centered in the vault window when that window is in front, otherwise on the screen under the pointer.
-    private func center(_ panel: NSPanel) {
-        let size = preferredSize ?? panel.frame.size
-        let area: NSRect
-        if NSApp.isActive, let window = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain && $0 != panel }) {
-            area = window.frame
-        } else {
-            let mouse = NSEvent.mouseLocation
-            area = (NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main)?.visibleFrame
-                ?? panel.frame
+    /// Where the palette opens: where the user last dragged it (with Remember position on), otherwise centered on
+    /// the screen under the pointer.
+    private func place(_ panel: NSPanel) {
+        let size = CGSize(width: preferredSize?.width ?? panel.frame.width,
+                          height: openingHeight ?? preferredSize?.height ?? panel.frame.height)
+        if UserDefaults.standard.bool(forKey: Pref.rememberPalettePosition), let anchor = Self.savedAnchor,
+           let screen = NSScreen.screens.first(where: { NSMouseInRect(NSPoint(x: anchor.x, y: anchor.y - 1), $0.visibleFrame, false) }) {
+            openingArea = nil
+            setFrame(of: panel, NSRect(x: anchor.x - size.width / 2, y: anchor.y - size.height, width: size.width, height: size.height),
+                     within: screen.visibleFrame)
+            return
         }
-        var rect = NSRect(x: area.midX - size.width / 2, y: area.midY - size.height / 2, width: size.width, height: size.height)
-        if let bounds = panel.screen?.visibleFrame ?? NSScreen.main?.visibleFrame {
-            rect.origin.x = min(max(rect.origin.x, bounds.minX), max(bounds.minX, bounds.maxX - rect.width))
-            rect.origin.y = min(max(rect.origin.y, bounds.minY), max(bounds.minY, bounds.maxY - rect.height))
-        }
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        let area = screen?.visibleFrame ?? panel.frame
+        openingArea = area
+        setFrame(of: panel, NSRect(x: area.midX - size.width / 2, y: area.midY - size.height / 2, width: size.width, height: size.height),
+                 within: area)
+    }
+
+    private func setFrame(of panel: NSPanel, _ rect: NSRect, within bounds: NSRect) {
+        var rect = rect
+        rect.origin.x = min(max(rect.origin.x, bounds.minX), max(bounds.minX, bounds.maxX - rect.width))
+        rect.origin.y = min(max(rect.origin.y, bounds.minY), max(bounds.minY, bounds.maxY - rect.height))
+        frameTimer?.invalidate(); frameTimer = nil; frameTarget = nil
         panel.setFrame(rect, display: false)
+        placedAnchor = NSPoint(x: rect.midX, y: rect.maxY)
+    }
+
+    /// The top edge's middle, in screen coordinates: the top stays put while the results change, so that is the spot.
+    private static var savedAnchor: NSPoint? {
+        guard let value = UserDefaults.standard.string(forKey: Pref.palettePosition) else { return nil }
+        let parts = value.split(separator: ",").compactMap { Double($0) }
+        return parts.count == 2 ? NSPoint(x: parts[0], y: parts[1]) : nil
+    }
+
+    /// Only a drag counts: a palette that was never moved keeps opening on the screen under the pointer.
+    private func rememberDraggedPosition(of panel: NSPanel) {
+        guard UserDefaults.standard.bool(forKey: Pref.rememberPalettePosition), let placedAnchor else { return }
+        let anchor = NSPoint(x: panel.frame.midX, y: panel.frame.maxY)
+        guard hypot(anchor.x - placedAnchor.x, anchor.y - placedAnchor.y) > 2 else { return }
+        UserDefaults.standard.set("\(anchor.x),\(anchor.y)", forKey: Pref.palettePosition)
     }
 
     /// AppKit can attach the password sheet before its service has an on-screen window.

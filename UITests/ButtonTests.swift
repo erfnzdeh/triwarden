@@ -44,8 +44,15 @@ final class ButtonTests: XCTestCase {
         window.staticTexts["generatedValue"].label
     }
 
+    /// A sidebar row by its title (a row reads as its title, then its count).
+    private func sidebarRow(_ title: String) -> XCUIElement {
+        window.descendants(matching: .any)["sidebar"].descendants(matching: .any)
+            .matching(NSPredicate(format: "label == %@ OR label BEGINSWITH %@", title, title + ","))
+            .firstMatch
+    }
+
     private func sidebar(_ title: String) {
-        window.outlines.staticTexts[title].firstMatch.click()
+        sidebarRow(title).click()
     }
 
     /// Cancels the open confirmation dialog / alert (never confirms).
@@ -211,7 +218,7 @@ final class ButtonTests: XCTestCase {
                       "item menu came from the open GitHub detail instead of Proton Mail")
         app.typeKey(.escape, modifierFlags: [])
 
-        let logins = window.outlines.staticTexts["Logins"].firstMatch
+        let logins = sidebarRow("Logins")
         XCTAssertTrue(logins.waitForExistence(timeout: 3))
         logins.rightClick()
         XCTAssertTrue(app.descendants(matching: .any)["New Login"].firstMatch.waitForExistence(timeout: 2),

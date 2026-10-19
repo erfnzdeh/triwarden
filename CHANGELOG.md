@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/sinhong2011/triwarden/compare/v0.3.0...v0.4.0) (2026-10-19)
+
+
+### Features
+
+* fold sidebar groups open and closed like an accordion ([5addd2b](https://github.com/sinhong2011/triwarden/commit/5addd2b7ecddaf3eb7794b2f7d4ac474a8108b00))
+* fold sidebar groups open and closed like an accordion ([10e82e8](https://github.com/sinhong2011/triwarden/commit/10e82e82b139eef7b4ee323366e6e6ffe6939ff5))
+
+
+### Fixes
+
+* keep the command palette still while results change ([#77](https://github.com/sinhong2011/triwarden/issues/77)) ([b1272c1](https://github.com/sinhong2011/triwarden/commit/b1272c102977f56a1317a6e9a4d81ef5708bcdff))
+
 ## [0.3.0](https://github.com/sinhong2011/triwarden/compare/v0.2.1...v0.3.0) (2026-10-19)
 
 

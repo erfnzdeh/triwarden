@@ -27,12 +27,17 @@ enum Pref {
     static let matchFrontTab = "matchFrontTab"
     /// The menu bar and palette reminder was dismissed. Turning the feature off sets this too, so it does not return.
     static let matchFrontTabDismissed = "matchFrontTabDismissed"
+    /// Opt-in: the command palette opens where it was last dragged instead of centered on the screen.
+    static let rememberPalettePosition = "rememberPalettePosition"
+    /// That spot: the middle of the palette's top edge, "x,y" in screen coordinates. Cleared when the option goes off.
+    static let palettePosition = "palettePosition"
 
     static func register() {
         UserDefaults.standard.register(defaults: [
             appearance: "system", autoLockMinutes: 15, lockOnSleep: true, fullDoorAnimation: false, clipboardSeconds: 30,
             hideFromCapture: false, timeoutAction: "lock", // opt-in: some screen tools and recordings need the window
             showMenuBar: true, closeToMenuBar: false, matchFrontTab: false, matchFrontTabDismissed: false,
+            rememberPalettePosition: false,
         ])
         UserDefaults.standard.removeObject(forKey: "lockAnimations") // retired (see fullDoorAnimation)
     }
