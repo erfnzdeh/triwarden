@@ -459,7 +459,7 @@ final class AppModel {
     /// The app's live model, for App Intents and the CLI bridge.
     nonisolated(unsafe) static weak var current: AppModel?
 
-    init() {
+    init(secretsFactory: ((AppModel) -> SecretsController)? = nil) {
         // No updater while testing, rendering snapshots, previewing or showing the demo vault.
         let quiet = CommandLine.arguments.contains { ["--selftest", "--snapshot"].contains($0) || $0.hasPrefix("--selftest") || $0.hasPrefix("--demo") }
             || ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
@@ -471,7 +471,7 @@ final class AppModel {
             || ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1" // Xcode canvas
         if !tooling, UserDefaults.standard.bool(forKey: Pref.sshAgent) { sshAgent.start() }
         cli = CLIBridge(model: self)
-        secrets = SecretsController(model: self, start: !tooling && !CommandLine.arguments.contains(where: { $0.hasPrefix("--demo") }))
+        secrets = secretsFactory?(self) ?? SecretsController(model: self, start: !tooling && !CommandLine.arguments.contains(where: { $0.hasPrefix("--demo") }))
         if !tooling { cli.refreshRunning() }
         if !tooling {
             trackForegroundApps()

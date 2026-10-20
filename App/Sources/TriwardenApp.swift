@@ -27,6 +27,7 @@ struct TriwardenApp: App {
         Bench.runUnlockIfRequested()
         CompatibilitySelfTest.runIfRequested()
         SecretsSelfTest.runIfRequested()
+        SecretsOnlineSelfTest.runIfRequested()
         Snapshot.runIfRequested()
         SelfTest.runIfRequested()
         CloudSelfTest.runIfRequested()

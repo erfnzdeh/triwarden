@@ -1,7 +1,7 @@
 # Bitwarden-backed local Secrets Agent
 
 Date: 2026-10-19
-Status: Stage 1 core implemented; Settings UI and signed-app Keychain validation pass. Interactive real-account/device-owner authentication remains pending.
+Status: Stage 1 core implemented; signed-app Keychain and real dev-account cancellation checks pass. Settings UI passed on the active desktop; a later rerun could not enable XCTest automation. Successful device-owner authentication and native delivery remain pending.
 
 ## Purpose
 
@@ -254,6 +254,6 @@ The worktree now contains one reference-only profile, one existing vault field, 
 
 Source builds need valid bundle signatures and working Data Protection Keychain entitlements. Transport tests cover ad-hoc sealed bundles, but ad-hoc signing alone does not grant Keychain access.
 
-The signed Debug app also has an isolated native diagnostic that exercises actual Data Protection Keychain profile confirmation, external-edit rejection and bundled CLI read/write denial. It selects a disposable account namespace before constructing the model, uses a UUID-scoped Keychain service, and verifies cleanup before exiting. The Settings UI smoke test passes on an active desktop. These checks do not exercise a live online vault or device-owner authentication.
+The signed Debug app also has isolated native diagnostics that exercise actual Data Protection Keychain profile confirmation, external-edit rejection and bundled CLI read/write denial. They select a disposable account namespace before constructing the model and use UUID-scoped Keychain services. Native online tests use the documented dev account and real bundled CLI to check denial, disconnect, profile change and account-lock cancellation after online refresh, then confirm server and local cleanup. An opt-in interactive canary retains normal device-owner authentication; its successful delivery remains to be verified. The Settings UI smoke test passed on an active desktop, although a later run could not enable XCTest automation.
 
-The initial slice does not include a new credential editor, remembered grants, a history UI, migration automation, multiple bindings, offline access, editor launch integration, or a provider proxy. Those remain subsequent stages. Device-owner authentication and online real-account launch require an interactive verification pass; synthetic transport/exec tests do not establish those integrations by themselves.
+The initial slice does not include a new credential editor, remembered grants, a history UI, migration automation, multiple bindings, offline access, editor launch integration, or a provider proxy. Those remain subsequent stages. Device-owner authentication and a successful online real-account launch require an interactive verification pass; automated transport and cancellation tests do not establish successful authenticated delivery by themselves.

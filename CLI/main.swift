@@ -120,10 +120,27 @@ if first == "--selftest-secrets-keychain" {
     exit(readDenied && writeDenied ? 0 : 1)
 }
 #endif
-if first == "run" {
+var runStore = SecretsProfileStore.shared
+var runArguments = Array(args.dropFirst())
+var isRun = first == "run"
+#if DEBUG
+// Only a UUID-scoped disposable socket/profile can be selected by the native online diagnostic.
+// The regular run path still ignores caller-supplied sockets and always uses its saved profile.
+if first == "--selftest-secrets-run" {
+    guard args.count == 2, UUID(uuidString: args[1]) != nil else { fail("Expected a self-test UUID.", code: 64) }
+    let root = runStore.directory.deletingLastPathComponent().appendingPathComponent("S" + args[1].prefix(8))
+    guard (try? String(contentsOf: root.appendingPathComponent("test-id"), encoding: .utf8)) == args[1] else {
+        fail("The isolated self-test marker is missing.", code: 64)
+    }
+    runStore = SecretsProfileStore(directory: root.appendingPathComponent("p"))
+    runArguments = ["--profile", "canary"]
+    isRun = true
+}
+#endif
+if isRun {
     do {
-        let name = try RunArguments.parse(Array(args.dropFirst()))
-        let store = SecretsProfileStore.shared
+        let name = try RunArguments.parse(runArguments)
+        let store = runStore
         let profile = try store.load()
         guard profile.enabled, profile.name == name else {
             throw SecretsFailure("The requested profile is missing or disabled. Check Settings › Secrets.")

@@ -8,7 +8,7 @@ import SecretsAgent
 @MainActor
 enum SecretsSelfTest {
     static func prepareModelIfRequested() {
-        guard CommandLine.arguments.contains("--selftest-secrets") else { return }
+        guard CommandLine.arguments.contains("--selftest-secrets") || SecretsOnlineSelfTest.requested else { return }
         AccountStore.namespace = "SecretsSelfTest-" + UUID().uuidString
         AutoFillIdentities.isEnabled = false
     }
@@ -72,6 +72,18 @@ enum SecretsSelfTest {
             cli.waitUntilExit()
             check(cli.terminationStatus == 0, "bundled CLI cannot read or overwrite the App's existing profile confirmation")
             check(confirmation.read() == (try original.revision()), "CLI denial leaves the protected revision unchanged")
+
+            for (scope, message) in [("../Secrets", "Expected a self-test UUID."),
+                                      (UUID().uuidString, "The isolated self-test marker is missing.")] {
+                let probe = Process(), errors = Pipe()
+                probe.executableURL = cli.executableURL
+                probe.arguments = ["--selftest-secrets-run", scope]
+                probe.standardOutput = FileHandle.nullDevice
+                probe.standardError = errors
+                try probe.run(); probe.waitUntilExit()
+                let text = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                check(probe.terminationStatus == 64 && text.contains(message), "CLI diagnostic rejects unowned scope: " + message)
+            }
 
             let reopened = SecretsController(model: model, store: store, confirmation: confirmation)
             check(reopened.profile == original, "new controller retains the saved account, item and field")

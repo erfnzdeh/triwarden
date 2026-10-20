@@ -72,6 +72,16 @@ A future service-specific proxy can keep original provider keys out of supported
 
 Run `swift test --package-path Packages/VaultCore` for the launch policy and synthetic signed-process transport/exec tests. Run `make selftest-secrets` for actual Keychain and native profile checks in a signed Debug build. The diagnostic uses an empty, disposable account namespace and a UUID-scoped Keychain record, checks that the bundled CLI cannot read or overwrite the App's record, and removes its test data before exit. It does not open a real vault or request device-owner authentication.
 
+For native tests against the documented disposable Vaultwarden dev account, first forward the dev server to a loopback port in a separate terminal:
+
+```sh
+ssh -N -L 127.0.0.1:28880:127.0.0.1:18880 m1pro
+```
+
+Then run `make selftest-secrets-online`. It logs into the seeded `usagi@chiikawarden.test` dev account with the documented dev password, creates one uniquely named dummy credential, and exercises the real bundled CLI and native controller. Denial, CLI disconnection, profile changes and account locking must prevent exec. The test checks server-side item cleanup after online refresh, removes its local records, and restores the login preferences it changed. Each cancellation retains the normal cooldown.
+
+Run `make selftest-secrets-interactive` for the successful launch. Review the `canary` approval card and complete the normal Touch ID/Mac-password step yourself within 60 seconds. The child checks only the dummy value, writes a disposable success marker and exits with status 37; no provider API is called. Both commands are Debug-only and use a separate account namespace, profile/socket directory and Keychain service. They accept only a loopback dev server; `TRIWARDEN_SECRETS_TEST_PORT` can change its port. Stop the SSH tunnel when finished.
+
 Before release, verify the complete native flow with a disposable vault item:
 
 1. In a test account, create a Secure Note with a hidden field named `api-key` and the dummy value `triwarden-test-only`.
