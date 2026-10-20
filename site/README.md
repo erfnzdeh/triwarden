@@ -43,10 +43,9 @@ GitHub Actions CI/CD (`.github/workflows/site.yml`) uses:
   there when a preset starts using a new one.
 - `public/media/`: the film and its poster, rendered from `promo/`.
 - SEO: `layouts/Base.astro` writes the canonical URL, hreflang alternates, Open Graph and Twitter cards
-  (`public/assets/og.jpg`, 1200×630, cut from the film poster) and any `jsonLd` a page passes: the home page sends
+  (`public/assets/og.jpg`, 1200×630, the light vault window beside the brand lockup) and any `jsonLd` a page passes: the home page sends
   SoftwareApplication (with the price) and FAQPage, the guide TechArticle and BreadcrumbList. `@astrojs/sitemap`
-  writes `sitemap-index.xml` with the language alternates. A project site can't serve `robots.txt` (crawlers only
-  read it at the domain root), so submit the sitemap in Google Search Console and Bing Webmaster Tools instead.
+  writes `sitemap-index.xml` with the language alternates. `public/robots.txt` allows `/` and points crawlers at that sitemap index.
 
 App UI is only ever shown as real captures, never imitated in HTML. `public/assets/shots/<name>-light|dark.webp` come from
 `make build`, then `build/Build/Products/Debug/Triwarden.app/Contents/MacOS/Triwarden --demo-full --shoot -appearance
