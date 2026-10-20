@@ -9,9 +9,10 @@ import VaultwardenAPI
 @MainActor
 enum SecretsOnlineSelfTest {
     static var requested: Bool {
-        CommandLine.arguments.contains("--selftest-secrets-online") || interactive
+        CommandLine.arguments.contains("--selftest-secrets-online") || interactive || presentation
     }
     private static var interactive: Bool { CommandLine.arguments.contains("--selftest-secrets-interactive") }
+    private static var presentation: Bool { CommandLine.arguments.contains("--selftest-secrets-presentation") }
 
     static func runIfRequested() {
         guard requested else { return }
@@ -121,7 +122,27 @@ enum SecretsOnlineSelfTest {
             func noLaunch(_ status: Int32, _ label: String) {
                 check(status != 0 && status != 37 && !fm.fileExists(atPath: marker.path) && controller.pending == nil, label)
             }
-            if interactive {
+            if presentation {
+                let child = try launch(); try await pending(child)
+                try await Task.sleep(for: .milliseconds(500))
+                let panel = NSApp.windows.first { $0.title == String(localized: "Approve credential access") }
+                // Reproduce the caller retaining foreground focus, even if this activation happened to succeed.
+                guard let otherApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first else {
+                    throw SecretsFailure("The presentation probe needs a running Finder for cooperative focus handoff.")
+                }
+                NSApp.yieldActivation(to: otherApp)
+                _ = otherApp.activate()
+                let focusDeadline = ContinuousClock.now.advanced(by: .seconds(2))
+                while NSApp.isActive && .now < focusDeadline { try await Task.sleep(for: .milliseconds(50)) }
+                try await Task.sleep(for: .milliseconds(500))
+                check(!NSApp.isActive, "presentation probe places Triwarden in the background")
+                print("PRESENTATION active=\(NSApp.isActive) policy=\(NSApp.activationPolicy().rawValue) panelVisible=\(panel?.isVisible == true) key=\(panel?.isKeyWindow == true) onActiveSpace=\(panel?.isOnActiveSpace == true) unoccluded=\(panel?.occlusionState.contains(.visible) == true) hidesOnDeactivate=\(panel?.hidesOnDeactivate == true) frontmostIsSelf=\(NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid())")
+                fflush(stdout)
+                check(!NSApp.isActive && panel?.isVisible == true && panel?.isOnActiveSpace == true && panel?.occlusionState.contains(.visible) == true,
+                      "approval card remains visible on the active Space while Triwarden is inactive")
+                controller.deny()
+                noLaunch(try await finished(child), "presentation probe cancels without exec")
+            } else if interactive {
                 print("ACTION: Review the canary approval card, choose Allow This Launch, then use Touch ID or your Mac password. No real API key is involved."); fflush(stdout)
                 let child = try launch()
                 try await pending(child)

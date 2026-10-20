@@ -193,6 +193,8 @@ final class SecretsController: NSObject, NSWindowDelegate {
             panel.title = String(localized: "Approve credential access")
             panel.isReleasedWhenClosed = false
             panel.level = .floating
+            // The requester may keep focus; activation is cooperative and isn't guaranteed to succeed.
+            panel.hidesOnDeactivate = false
             panel.delegate = self
             panel.contentView = NSHostingView(rootView: SecretsApprovalView(controller: self))
             self.panel = panel

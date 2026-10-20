@@ -82,6 +82,10 @@ Then run `make selftest-secrets-online`. It logs into the seeded `usagi@chiikawa
 
 Run `make selftest-secrets-interactive` for the successful launch. Review the `canary` approval card and complete the normal Touch ID/Mac-password step yourself within 60 seconds. The child checks only the dummy value, writes a disposable success marker and exits with status 37; no provider API is called. Both commands are Debug-only and use a separate account namespace, profile/socket directory and Keychain service. They accept only a loopback dev server; `TRIWARDEN_SECRETS_TEST_PORT` can change its port. Stop the SSH tunnel when finished.
 
+Run `make selftest-secrets-presentation` on an unlocked GUI desktop to check that the card remains onscreen when Triwarden loses focus. It uses the same isolated dev-account flow, hands focus to Finder, checks the window's active-Space and occlusion state, then denies and cleans up. This does not test fullscreen or every Spaces arrangement. The card stays visible while another app is active; denial, timeout, disconnect and account locking still close it. A screenshot of the window by itself does not prove it is actually visible on the desktop.
+
+If no card appears, check that the Mac running Triwarden is unlocked and that a local or remote desktop session is available. Diagnostic runs report a Keychain status code if profile confirmation cannot be written; `-25308` means interaction was not allowed. No profile confirmation or credential delivery is bypassed when Keychain is unavailable.
+
 Before release, verify the complete native flow with a disposable vault item:
 
 1. In a test account, create a Secure Note with a hidden field named `api-key` and the dummy value `triwarden-test-only`.

@@ -35,13 +35,22 @@ struct SecretsProfileConfirmation {
         let data = Data(revision.utf8)
         let update = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if update == errSecSuccess { return }
-        guard update == errSecItemNotFound else { throw SecretsFailure("Couldn't confirm the profile in Keychain. No launch was enabled.") }
+        guard update == errSecItemNotFound else { throw writeFailure(update) }
         var query = query
         query[kSecValueData as String] = data
         query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-        guard SecItemAdd(query as CFDictionary, nil) == errSecSuccess else {
-            throw SecretsFailure("Couldn't confirm the profile in Keychain. No launch was enabled.")
+        let added = SecItemAdd(query as CFDictionary, nil)
+        guard added == errSecSuccess else { throw writeFailure(added) }
+    }
+
+    private func writeFailure(_ status: OSStatus) -> SecretsFailure {
+        #if DEBUG
+        if CommandLine.arguments.contains(where: { $0.hasPrefix("--selftest-secrets") }) {
+            // Report only the API status: never log the service, query, revision or credential.
+            print("DIAGNOSTIC Keychain write status \(status)")
         }
+        #endif
+        return SecretsFailure("Couldn't confirm the profile in Keychain. No launch was enabled.")
     }
 
     func delete() throws {
