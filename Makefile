@@ -16,7 +16,7 @@ XCB     := xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configurat
 DEV_CA  := $(CURDIR)/DevServer/data/root.crt
 
 .DEFAULT_GOAL := help
-.PHONY: help project build run site test bench screenshots license license-keys test-dev selftest selftest-compatibility selftest-cloud snapshots dev-up dev-seed dev-status dev-logs release clean
+.PHONY: help project build run site test bench screenshots license license-keys test-dev selftest selftest-compatibility selftest-secrets selftest-cloud snapshots dev-up dev-seed dev-status dev-logs release clean
 
 help: ## Show this list
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  \033[1m%-15s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -51,6 +51,9 @@ selftest: build ## In-app self-test against the dev server (isolated storage)
 
 selftest-compatibility: build ## Offline checks for unsupported item types (synthetic data, isolated storage)
 	@"$(BIN)" --selftest-compatibility
+
+selftest-secrets: build ## Signed-app Keychain and Secrets profile checks (isolated records, no real vault)
+	@"$(BIN)" --selftest-secrets
 
 selftest-security: build ## Self-test plus the steps that sign in again (sign-in approval, password and KDF changes)
 	@TRIWARDEN_SELFTEST_SECURITY=1 "$(BIN)" --selftest http://$(DEV_IP):18880 usagi@chiikawarden.test $(DEV_PASSWORD) \

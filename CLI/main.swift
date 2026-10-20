@@ -2,6 +2,10 @@ import Darwin
 import Foundation
 import SSHAgent
 import SecretsAgent
+#if DEBUG
+import LocalAuthentication
+import Security
+#endif
 
 // `tw` — talks to the running Triwarden app. Secrets need the vault unlocked and an approval
 // (Touch ID or the Mac password) in the app.
@@ -84,6 +88,38 @@ if first == "install-chrome" {
     guard args.count == 2 else { fail("usage: tw install-chrome <extension-id>", code: 64) }
     installChromeHost(args[1])
 }
+#if DEBUG
+// Diagnostic-only: verify that this helper cannot read or overwrite a disposable App-owned record.
+// Never accept a production service name, request a real credential, or print returned data.
+if first == "--selftest-secrets-keychain" {
+    let prefix = "io.github.sinhong2011.triwarden.secrets.selftest."
+    guard args.count == 2, args[1].hasPrefix(prefix), UUID(uuidString: String(args[1].dropFirst(prefix.count))) != nil else {
+        fail("Expected an isolated self-test Keychain service.", code: 64)
+    }
+    let context = LAContext()
+    context.interactionNotAllowed = true
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: args[1],
+        kSecAttrAccount as String: "local-profile",
+        kSecAttrAccessGroup as String: "FX3VR69P5K.io.github.sinhong2011.triwarden.shared",
+        kSecUseDataProtectionKeychain as String: true,
+        kSecUseAuthenticationContext as String: context,
+        kSecReturnData as String: true,
+        kSecMatchLimit as String: kSecMatchLimitOne
+    ]
+    var result: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &result)
+    var updateQuery = query
+    updateQuery.removeValue(forKey: kSecReturnData as String)
+    updateQuery.removeValue(forKey: kSecMatchLimit as String)
+    let updateStatus = SecItemUpdate(updateQuery as CFDictionary,
+                                    [kSecValueData as String: Data("synthetic-write-must-be-denied".utf8)] as CFDictionary)
+    let readDenied = status == errSecMissingEntitlement || status == errSecItemNotFound
+    let writeDenied = updateStatus == errSecMissingEntitlement || updateStatus == errSecItemNotFound
+    exit(readDenied && writeDenied ? 0 : 1)
+}
+#endif
 if first == "run" {
     do {
         let name = try RunArguments.parse(Array(args.dropFirst()))

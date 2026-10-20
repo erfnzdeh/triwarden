@@ -6,12 +6,16 @@ import VaultwardenAPI
 
 @main
 struct TriwardenApp: App {
-    @State private var model = AppModel()
+    @State private var model: AppModel
     @AppStorage(Pref.showMenuBar) private var showMenuBar = true
     @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
 
     init() {
         Pref.register()
+        #if DEBUG
+        // Select diagnostic storage before any AppModel stored-property initializer reads accounts.
+        SecretsSelfTest.prepareModelIfRequested()
+        #endif
         // Tips (the vault search's, once): not in renders, self-tests or benchmarks, which must look the same every run.
         if !CommandLine.arguments.contains(where: { $0 == "--snapshot" || $0.hasPrefix("--selftest") || $0.hasPrefix("--bench") }),
            !Bench.on {
@@ -22,9 +26,15 @@ struct TriwardenApp: App {
         #if DEBUG
         Bench.runUnlockIfRequested()
         CompatibilitySelfTest.runIfRequested()
+        SecretsSelfTest.runIfRequested()
         Snapshot.runIfRequested()
         SelfTest.runIfRequested()
         CloudSelfTest.runIfRequested()
+        #endif
+        // Construct explicitly after diagnostic setup; do not rely on SwiftUI State's lazy default.
+        let initialModel = AppModel()
+        _model = State(initialValue: initialModel)
+        #if DEBUG
         // `--demo`: open straight into the vault with demo items, for UI review. `--demo-full`: a lived-in vault of
         // 200+ items in folders, for screenshots.
         let full = CommandLine.arguments.contains("--demo-full")

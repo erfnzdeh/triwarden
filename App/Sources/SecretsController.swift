@@ -3,7 +3,6 @@ import Foundation
 import LocalAuthentication
 import Observation
 import SecretsAgent
-import Security
 import SwiftUI
 
 /// Owns approval, never launches the target. Only the authenticated bundled CLI receives the value.
@@ -22,6 +21,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
     @ObservationIgnored private weak var model: AppModel?
     @ObservationIgnored private let store: SecretsProfileStore
     @ObservationIgnored private let configurationAllowed: Bool
+    @ObservationIgnored private let confirmation: SecretsProfileConfirmation
     @ObservationIgnored private var server: SecretsServer?
     @ObservationIgnored private var gate = RunGate()
     @ObservationIgnored private var panel: NSPanel?
@@ -29,10 +29,12 @@ final class SecretsController: NSObject, NSWindowDelegate {
     @ObservationIgnored private var authentication: LAContext?
     @ObservationIgnored private var refreshWork: Task<Void, any Error>?
 
-    init(model: AppModel, start: Bool = true) {
+    init(model: AppModel, start: Bool = true, store: SecretsProfileStore = .shared,
+         confirmation: SecretsProfileConfirmation = SecretsProfileConfirmation()) {
         self.model = model
         configurationAllowed = start
-        store = .shared
+        self.store = store
+        self.confirmation = confirmation
         super.init()
         if start { reload() }
     }
@@ -40,7 +42,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
     func save(_ profile: SecretsProfile) throws {
         guard configurationAllowed else { throw SecretsFailure("Saving a Secrets profile is disabled in demo and snapshot mode.") }
         try store.save(profile)
-        try approveRevision(profile.revision())
+        try confirmation.write(profile.revision())
         reset()
         reload()
     }
@@ -50,7 +52,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
             profile = try store.load()
             lastError = nil
             guard let profile, profile.enabled else { server?.stop(); server = nil; return }
-            try profile.requireApprovedRevision(approvedRevision())
+            try profile.requireApprovedRevision(confirmation.read())
             guard server == nil else { return }
             let server = SecretsServer(socketURL: store.socketURL,
                                        expectedCLI: Bundle.main.bundleURL.appending(path: "Contents/MacOS/tw")) { [weak self] request, peer in
@@ -66,42 +68,6 @@ final class SecretsController: NSObject, NSWindowDelegate {
         }
     }
 
-    // The CLI has no entitlement for this Data Protection Keychain access group.
-    // No legacy/non-protected fallback: failure to store or read the pin fails closed.
-    private var approvalQuery: [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: "io.github.sinhong2011.triwarden.secrets-profile-revision.v1",
-         kSecAttrAccount as String: "local-profile",
-         kSecAttrAccessGroup as String: Keychain.accessGroup,
-         kSecUseDataProtectionKeychain as String: true]
-    }
-
-    private func approvedRevision() -> String? {
-        var query = approvalQuery
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-        let context = LAContext()
-        context.interactionNotAllowed = true
-        query[kSecUseAuthenticationContext as String] = context
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    private func approveRevision(_ revision: String) throws {
-        let data = Data(revision.utf8)
-        let update = SecItemUpdate(approvalQuery as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        if update == errSecSuccess { return }
-        guard update == errSecItemNotFound else { throw SecretsFailure("Couldn't confirm the profile in Keychain. No launch was enabled.") }
-        var query = approvalQuery
-        query[kSecValueData as String] = data
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-        guard SecItemAdd(query as CFDictionary, nil) == errSecSuccess else {
-            throw SecretsFailure("Couldn't confirm the profile in Keychain. No launch was enabled.")
-        }
-    }
-
     func reset() {
         gate.cancel()
         refreshWork?.cancel()
@@ -113,7 +79,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
               let saved = try? store.load(), saved.enabled, saved == request.profile,
               (try? saved.revision()) == request.revision,
               model?.session(for: saved.accountID) != nil else { return false }
-        return (try? saved.requireApprovedRevision(approvedRevision())) != nil
+        return (try? saved.requireApprovedRevision(confirmation.read())) != nil
     }
 
     private func item(for profile: SecretsProfile) throws -> VaultItem {
@@ -140,7 +106,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
                 peer.reply(failure("The profile changed or is disabled. Save it in Settings › Secrets and run the command again."))
                 return
             }
-            try saved.requireApprovedRevision(approvedRevision())
+            try saved.requireApprovedRevision(confirmation.read())
             try gate.begin(request.nonce)
         } catch { peer.reply(failure(error.localizedDescription)); return }
         defer { gate.finish(request.nonce); complete(false) }

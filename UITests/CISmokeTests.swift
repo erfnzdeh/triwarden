@@ -45,10 +45,14 @@ final class CISmokeTests: XCTestCase {
     }
 
     func testSecretsSettingsUsesReferences() {
+        continueAfterFailure = false
         let app = launchDemo()
         defer { app.terminate() }
         XCTAssertTrue(app.staticTexts["GitHub"].firstMatch.waitForExistence(timeout: 15))
-        app.typeKey(",", modifierFlags: .command)
+        // Close any Window-menu tracking left by launchDemo before opening the explicit menu action.
+        app.typeKey(.escape, modifierFlags: [])
+        app.menuBars.menuBarItems["Triwarden"].click()
+        app.menuBars.menuBarItems["Triwarden"].menus.menuItems["Settings…"].firstMatch.click()
         let secrets = app.outlines.staticTexts["Secrets"].firstMatch
         XCTAssertTrue(secrets.waitForExistence(timeout: 5))
         secrets.click()

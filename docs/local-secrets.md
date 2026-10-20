@@ -68,4 +68,23 @@ The current feature covers local environment injection. Multiple profiles/fields
 
 A future service-specific proxy can keep original provider keys out of supported tools. It requires endpoint compatibility testing and scoped local session credentials; it is not implemented by this launch feature. SSH private keys continue to use the existing SSH agent.
 
+## Developer validation
+
+Run `swift test --package-path Packages/VaultCore` for the launch policy and synthetic signed-process transport/exec tests. Run `make selftest-secrets` for actual Keychain and native profile checks in a signed Debug build. The diagnostic uses an empty, disposable account namespace and a UUID-scoped Keychain record, checks that the bundled CLI cannot read or overwrite the App's record, and removes its test data before exit. It does not open a real vault or request device-owner authentication.
+
+Before release, verify the complete native flow with a disposable vault item:
+
+1. In a test account, create a Secure Note with a hidden field named `api-key` and the dummy value `triwarden-test-only`.
+2. Save an enabled profile named `canary`, binding that field to `TRIWARDEN_TEST_KEY`. Select `/bin/sh` with working directory `/tmp` and two separate arguments: `-c`, then the following literal command:
+
+   ```sh
+   test "${TRIWARDEN_TEST_KEY:-}" = triwarden-test-only && printf '%s\n' 'credential received'
+   ```
+
+   This explicitly selected shell is only a test target. The command checks the dummy value without printing it or making an API request.
+3. Run `tw run --profile canary`, review the saved launch, allow it and complete Touch ID/Mac-password authentication. Expect `credential received` and exit status zero.
+4. Repeat and deny the request. After each cooldown, also check locking the account and closing the invoking terminal while approval is pending. None should launch the target or leave an approval available to a later request.
+5. Disconnect the network and confirm refresh failure prevents launch. Restore connectivity, rename the field in the vault, refresh, and confirm launch fails until the exact field is selected and saved again.
+6. Disable the profile and save, then delete the disposable vault item when finished. Automated checks do not replace this real-account and authentication pass.
+
 See the [design](plans/2026-10-19-local-secrets-agent-design.md) and [implementation plan](plans/2026-10-19-local-secrets-agent-implementation.md).

@@ -1,7 +1,7 @@
 # Bitwarden-backed local Secrets Agent
 
 Date: 2026-10-19
-Status: Stage 1 core implemented; interactive account/authentication and final GUI validation remain pending.
+Status: Stage 1 core implemented; Settings UI and signed-app Keychain validation pass. Interactive real-account/device-owner authentication remains pending.
 
 ## Purpose
 
@@ -253,5 +253,7 @@ The earlier broad Stage 1 describes the intended end state; this ordered slice s
 The worktree now contains one reference-only profile, one existing vault field, restricted environment delivery, mutually authenticated audit-token IPC, a native approval card, Keychain-pinned profile revisions, and CLI-owned exec. The final eligibility check and nonblocking response write run synchronously on the main actor; delivery commits at the socket write. A later lock cannot revoke bytes already sent.
 
 Source builds need valid bundle signatures and working Data Protection Keychain entitlements. Transport tests cover ad-hoc sealed bundles, but ad-hoc signing alone does not grant Keychain access.
+
+The signed Debug app also has an isolated native diagnostic that exercises actual Data Protection Keychain profile confirmation, external-edit rejection and bundled CLI read/write denial. It selects a disposable account namespace before constructing the model, uses a UUID-scoped Keychain service, and verifies cleanup before exiting. The Settings UI smoke test passes on an active desktop. These checks do not exercise a live online vault or device-owner authentication.
 
 The initial slice does not include a new credential editor, remembered grants, a history UI, migration automation, multiple bindings, offline access, editor launch integration, or a provider proxy. Those remain subsequent stages. Device-owner authentication and online real-account launch require an interactive verification pass; synthetic transport/exec tests do not establish those integrations by themselves.
