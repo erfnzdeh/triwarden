@@ -29,7 +29,7 @@ GitHub Actions CI/CD (`.github/workflows/site.yml`) uses:
 - `src/styles/global.css`: brand tokens in `@theme` (so `text-ink`, `bg-sky`, `font-serif` … exist as utilities),
   plus the bespoke widget styles (dial, vault window, palette, terminal) under `@layer components`.
 - i18n with [Paraglide JS](https://inlang.com/m/gerre34r/library-inlang-paraglideJs): messages in `messages/<locale>.json`
-  (en, zh-hant, zh-hk, zh-hans, ja — the app's five languages, using the app's own terms), compiled to
+  (en, zh-hant, zh-hk, zh-hans, ja, ko, fr, es, th — the app's languages, using the app's own terms), compiled to
   `src/paraglide/` on build. English is at `<base>/`, the rest at `<base>/<locale>/`; `src/middleware.ts` sets the
   locale per page and `src/i18n.ts` lists the languages. Add a string to every locale file, then use `m.key()`.
 - `src/components/*.astro`: one per section; each loads its own script from `src/scripts/`.

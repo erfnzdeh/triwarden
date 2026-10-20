@@ -193,7 +193,7 @@ to report a vulnerability privately.
 
 The app provides VoiceOver labels, keyboard shortcuts, Increase Contrast and Reduce Motion support.
 Validation limits and remaining gaps are documented in
-[ACCESSIBILITY.md](ACCESSIBILITY.md). The app speaks English, 繁體中文 (台灣), 繁體中文 (香港), 简体中文 and 日本語.
+[ACCESSIBILITY.md](ACCESSIBILITY.md). The app speaks English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español and ไทย.
 
 ## Support
 

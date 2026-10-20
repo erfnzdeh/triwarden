@@ -28,7 +28,7 @@ You can replace the official desktop app for **reading** your vault:
 | 8 | Search + filters + sidebar categories | Core jobs | ✅ |
 | 9 | Settings: appearance, auto-lock, lock on sleep, clipboard, custom CA, extra headers | Self-hosters and security defaults | ✅ |
 | 10 | Command palette (⇧⌘Space, global) + menu bar extra (codes, favorites, lock) | The reason to go native | ✅ |
-| 11 | Localized: en, zh-Hant, zh-HK, zh-Hans, ja | Day-one requirement | ✅ (kept current per change) |
+| 11 | Localized: en, zh-Hant, zh-HK, zh-Hans, ja, ko, fr, es, th | Day-one requirement | ✅ (kept current per change) |
 
 ## v0.2 — "use it instead of the browser extension"
 
@@ -72,7 +72,7 @@ The following capabilities are implemented; continued work focuses on reliabilit
 - Unit tests + dev-server integration tests pass (`DevServer/dev.sh test`)
 - In-app lifecycle self-test passes (`Triwarden --selftest <server> <email> <password>`)
 - Light **and** dark snapshots reviewed (`Triwarden --snapshot`)
-- All new strings translated in all five locales
+- All new strings translated in all nine locales
 - No secrets in logs, UserDefaults or the repo; secrets in Keychain or memory only
 
 ## Decisions log
