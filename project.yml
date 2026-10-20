@@ -182,11 +182,15 @@ targets:
 
   # Types logins into other apps for the palette. Not sandboxed, so it can hold Accessibility; the app stays
   # sandboxed and asks it over a socket in the App Group container (Helpers/AutoType/main.swift).
+  # Privacy & Security lists this bundle on its own. It needs Triwarden's Icon Composer icon; without one,
+  # System Settings shows the generic placeholder.
   TriwardenAutoType:
     type: application
     platform: macOS
     sources:
       - Helpers/AutoType
+      - path: Design/AppIcon/AppIcon.icon
+        buildPhase: resources
     dependencies:
       - package: VaultCore
         product: SSHAgent
@@ -198,6 +202,7 @@ targets:
       path: Helpers/AutoType/Info.plist
       properties:
         CFBundleDisplayName: Triwarden Auto-Type
+        CFBundleIconName: AppIcon
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSUIElement: true
@@ -205,7 +210,9 @@ targets:
       base:
         PRODUCT_NAME: Triwarden Auto-Type
         PRODUCT_BUNDLE_IDENTIFIER: io.github.sinhong2011.triwarden.autotype
+        GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
   tw:
     type: tool
