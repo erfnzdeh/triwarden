@@ -270,6 +270,13 @@ private struct GeneralSettings: View {
     var body: some View {
         Form {
             Section {
+                LanguagePicker()
+            } footer: {
+                Text("Triwarden is available in English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español and ไทย. The AutoFill panel follows the system's language.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            Section {
                 LabeledContent("Appearance") {
                     AppSegmented(options: [
                         (AppearanceSetting.system, "System"),
@@ -392,12 +399,6 @@ private struct GeneralSettings: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
 
-            Section {
-                LanguagePicker()
-            } footer: {
-                Text("Triwarden is available in English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español and ไทย. The AutoFill panel follows the system's language.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
