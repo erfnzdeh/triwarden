@@ -5,9 +5,19 @@ import sitemap from "@astrojs/sitemap";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
 
 // Keep in sync with project.inlang/settings.json and src/i18n.ts.
-const locales = ["en", "zh-hant", "zh-hk", "zh-hans", "ja"];
+const locales = ["en", "zh-hant", "zh-hk", "zh-hans", "ja", "ko", "fr", "es", "th"];
 // Their BCP 47 tags, as `lang` in src/i18n.ts (used for the sitemap's hreflang).
-const LANGS = { en: "en", "zh-hant": "zh-Hant-TW", "zh-hk": "zh-Hant-HK", "zh-hans": "zh-Hans", ja: "ja" };
+const LANGS = {
+  en: "en",
+  "zh-hant": "zh-Hant-TW",
+  "zh-hk": "zh-Hant-HK",
+  "zh-hans": "zh-Hans",
+  ja: "ja",
+  ko: "ko",
+  fr: "fr",
+  es: "es",
+  th: "th",
+};
 const siteUrl = process.env.SITE_URL;
 const basePath = process.env.SITE_BASE_PATH || "/";
 const integrations = [];

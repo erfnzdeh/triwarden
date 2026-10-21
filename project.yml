@@ -99,7 +99,7 @@ targets:
         NSAppleEventsUsageDescription: Triwarden reads the address of your browser's front tab, so the logins for that site come first. It never changes anything in the browser.
         LSApplicationCategoryType: public.app-category.productivity
         CFBundleDevelopmentRegion: en
-        CFBundleLocalizations: [en, zh-Hant, zh-HK, zh-Hans, ja]
+        CFBundleLocalizations: [en, zh-Hant, zh-HK, zh-Hans, ja, ko, fr, es, th]
         # Updates (Sparkle): appcast attached to the latest GitHub release; every update must carry an EdDSA
         # signature made with the private key matching SUPublicEDKey (set by `make sparkle-keys`).
         # Fork-style licence (App/Sources/License.swift): Stripe checkout, optional site /pricing/ for Learn More,
@@ -259,7 +259,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION) # extensions carry the app's version
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         CFBundleDevelopmentRegion: en
-        CFBundleLocalizations: [en, zh-Hant, zh-HK, zh-Hans, ja]
+        CFBundleLocalizations: [en, zh-Hant, zh-HK, zh-Hans, ja, ko, fr, es, th]
         NSExtension:
           NSExtensionPointIdentifier: com.apple.authentication-services-credential-provider-ui
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).CredentialProviderViewController
