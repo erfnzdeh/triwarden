@@ -281,12 +281,12 @@ struct CommandPalette: View {
         }
         var choices = grants.enumerated().map { index, grant in
             SSHPaletteChoice(id: "ssh-\(index)", prompt: prompt, title: grant.1, symbol: grant.2, showsIdentity: index == 0) {
-                agent.choose(.allow(grant.0))
+                agent.choose(.allow(grant.0), promptID: prompt.id)
                 close()
             }
         }
         choices.append(SSHPaletteChoice(id: "ssh-deny", prompt: prompt, title: "Deny", symbol: "xmark.circle", showsIdentity: false) {
-            agent.choose(.deny)
+            agent.choose(.deny, promptID: prompt.id)
             close()
         })
         return Section(title: String(localized: "SSH request"), entries: choices.map(Entry.ssh))

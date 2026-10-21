@@ -1449,7 +1449,7 @@ private struct SSHRequestsPopover: View {
             }
             if let prompt = agent.pending {
                 SSHApprovalCard(prompt: prompt, leadsWithUntilLock: agent.pendingLeadsWithUntilLock) { choice in
-                    agent.choose(choice)
+                    agent.choose(choice, promptID: prompt.id)
                 }
             }
             if !agent.trustedUntilLock.isEmpty {

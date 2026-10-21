@@ -16,7 +16,7 @@ struct MenuBarContent: View {
         VStack(spacing: 8) {
             if let pending = model.sshAgent.pending {
                 SSHApprovalCard(prompt: pending, leadsWithUntilLock: model.sshAgent.pendingLeadsWithUntilLock) { choice in
-                    model.sshAgent.choose(choice)
+                    model.sshAgent.choose(choice, promptID: pending.id)
                 }
             }
             topRow

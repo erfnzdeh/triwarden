@@ -64,6 +64,10 @@ selftest-secrets-interactive: build ## Dummy-key native CLI launch; requires you
 selftest-secrets-presentation: build ## Check approval-card visibility while Triwarden is in the background (GUI desktop required)
 	@"$(BIN)" --selftest-secrets-presentation
 
+.PHONY: selftest-ssh-presentation
+selftest-ssh-presentation: build ## Check standalone SSH approval without opening the vault (synthetic data, GUI desktop required)
+	@"$(BIN)" --selftest-ssh-presentation
+
 selftest-security: build ## Self-test plus the steps that sign in again (sign-in approval, password and KDF changes)
 	@TRIWARDEN_SELFTEST_SECURITY=1 "$(BIN)" --selftest http://$(DEV_IP):18880 usagi@chiikawarden.test $(DEV_PASSWORD) \
 		hachiware@chiikawarden.test $(DEV_PASSWORD) 2>&1

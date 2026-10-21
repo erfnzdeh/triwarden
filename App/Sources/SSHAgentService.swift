@@ -38,6 +38,10 @@ final class SSHAgentService {
     private var sessionStarted = Date()
     private var watching = false
     private var authenticating = false
+    private var authentication: LAContext?
+    private var authorizationGeneration = UUID()
+    private var pendingDeadline: ContinuousClock.Instant?
+    private let approvalPanel = SSHApprovalPanel()
     private weak var model: AppModel?
     /// Self-test hook: skip the card and Touch ID. Arguments stay (key name, peer process name).
     var approveOverride: ((String, String) -> Bool)?
@@ -68,6 +72,7 @@ final class SSHAgentService {
     }
 
     func stop() {
+        reset()
         server?.stop()
         server = nil
         isRunning = false
@@ -81,15 +86,16 @@ final class SSHAgentService {
         return SSHApprovalEmphasis.leadsWithUntilLock(priorAsks: accessLog.priorAsks(trustKey: pending.trustKey, since: sessionStarted))
     }
 
-    func choose(_ choice: SSHChoice) {
-        Task { await prompts.resolveFront(choice) }
+    func choose(_ choice: SSHChoice, promptID: UUID) {
+        guard pending?.id == promptID else { return }
+        if case .allow = choice, authenticating { return }
+        approvalPanel.hide()
+        Task { await prompts.resolve(choice, for: promptID) }
     }
 
     /// The menu bar or a notification tap brings the waiting card back.
     func reveal() {
-        guard pending != nil else { return }
-        MenuBarOpener.isOpen = false
-        MenuBarOpener.open()
+        presentPending(reveal: true)
     }
 
     func revokeTrust(id: String) {
@@ -105,11 +111,17 @@ final class SSHAgentService {
 
     /// Forget approvals and parsed keys (on lock). The access log stays.
     func reset() {
+        authorizationGeneration = UUID()
+        authentication?.invalidate()
+        approvalPanel.hide()
+        pending = nil
+        pendingCount = 0
+        pendingDeadline = nil
         parsed = [:]
         trust.reset()
         trustedUntilLock = []
         sessionStarted = .now
-        Task { await prompts.denyAll() }
+        Task { await prompts.denyAll(); await refreshPending() }
     }
 
     // MARK: Agent callbacks
@@ -168,6 +180,7 @@ final class SSHAgentService {
         let prompt = SSHPrompt(id: UUID(), trustKey: requester.trustKey, displayName: requester.displayName,
                                via: requester.via, path: requester.peerPath, keyID: identity.id, keyName: identity.name,
                                appPath: requester.appPath)
+        let generation = authorizationGeneration
         let task = Task { @MainActor in
             async let choice = self.prompts.ask(prompt)
             await Task.yield()
@@ -175,7 +188,7 @@ final class SSHAgentService {
             SSHApprovalNotifier.arm(prompt)
             let decided = await choice
             SSHApprovalNotifier.cancel(prompt.id)
-            let ok = await self.authenticate(decided, requester: requester, identity: identity)
+            let ok = await self.authenticate(decided, requester: requester, identity: identity, generation: generation)
             await self.refreshPending()
             return (ok, decided)
         }
@@ -189,15 +202,18 @@ final class SSHAgentService {
         return ok
     }
 
-    private func authenticate(_ choice: SSHChoice, requester: SSHRequester, identity: SSHAgentServer.Identity) async -> Bool {
-        guard case .allow(let grant) = choice else { return false }
+    private func authenticate(_ choice: SSHChoice, requester: SSHRequester, identity: SSHAgentServer.Identity, generation: UUID) async -> Bool {
+        guard case .allow(let grant) = choice, !authenticating, generation == authorizationGeneration,
+              model?.isUnlocked == true else { return false }
         authenticating = true
-        defer { authenticating = false }
+        approvalPanel.hide()
+        defer { authenticating = false; authentication = nil }
         let context = LAContext()
+        authentication = context
         context.localizedCancelTitle = String(localized: "Deny")
         let reason = String(localized: "allow “\(requester.displayName)” to sign with the SSH key “\(identity.name)”")
         let ok = (try? await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)) == true
-        guard ok, model?.isUnlocked == true else { return false }
+        guard ok, model?.isUnlocked == true, generation == authorizationGeneration else { return false }
         if grant == .always {
             var list = allowlist
             list.add(SSHAllowlistEntry(trustKey: requester.trustKey, displayName: requester.displayName))
@@ -228,12 +244,21 @@ final class SSHAgentService {
 
     private func refreshPending() async {
         let snap = await prompts.snapshot()
-        let previous = pending?.id
         pending = snap.current
         pendingCount = snap.count
+        pendingDeadline = snap.deadline
         if pending != nil { ensureWatch() }
-        if let id = pending?.id, id != previous {
-            MenuBarOpener.open()
+        presentPending()
+    }
+
+    private func presentPending(reveal: Bool = false) {
+        guard !authenticating, let prompt = pending, let deadline = pendingDeadline else {
+            approvalPanel.hide()
+            return
+        }
+        approvalPanel.show(prompt, deadline: deadline, pendingCount: pendingCount,
+                           leadsWithUntilLock: pendingLeadsWithUntilLock, reveal: reveal) { [weak self] choice in
+            self?.choose(choice, promptID: prompt.id)
         }
     }
 

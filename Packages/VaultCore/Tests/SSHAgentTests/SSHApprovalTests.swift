@@ -70,20 +70,65 @@ import Testing
     #expect(store.untilLock.isEmpty)
 }
 
-@Test func theFrontPromptTimesOutWithoutReleasingTheQueue() async {
+@Test func theFrontPromptTimesOutWithoutReleasingTheQueue() async throws {
     let queue = SSHApprovalQueue()
     let first = SSHPrompt(id: UUID(), trustKey: "a", displayName: "Cursor", via: "git", path: nil, keyID: "1", keyName: "work")
     let second = SSHPrompt(id: UUID(), trustKey: "b", displayName: "Terminal", via: "ssh", path: nil, keyID: "1", keyName: "work")
-    async let one = queue.ask(first)
-    async let two = queue.ask(second)
+    let one = Task { await queue.ask(first) }
+    while await queue.snapshot().count < 1 { await Task.yield() }
+    let two = Task { await queue.ask(second) }
     while await queue.snapshot().count < 2 { await Task.yield() }
-    await queue.expire(now: Date().addingTimeInterval(61))
-    #expect(await one == .timedOut)
+    let deadline = try #require(await queue.snapshot().deadline)
+    await queue.expire(now: deadline.advanced(by: .milliseconds(-1)))
+    #expect(await queue.snapshot().current?.id == first.id)
+    await queue.expire(now: deadline)
+    #expect(await one.value == .timedOut)
     let waiting = await queue.snapshot()
     #expect(waiting.current?.displayName == "Terminal")
     #expect(waiting.count == 1)
+    #expect(waiting.deadline == deadline.advanced(by: SSHApprovalQueue.timeout))
     await queue.resolveFront(.deny)
-    #expect(await two == .deny)
+    #expect(await two.value == .deny)
+}
+
+@Test func aStalePanelCannotAnswerTheNextPrompt() async {
+    let queue = SSHApprovalQueue()
+    let first = SSHPrompt(id: UUID(), trustKey: "a", displayName: "Cursor", via: "git", path: nil, keyID: "1", keyName: "work")
+    let second = SSHPrompt(id: UUID(), trustKey: "b", displayName: "Terminal", via: "ssh", path: nil, keyID: "1", keyName: "work")
+    let one = Task { await queue.ask(first) }
+    while await queue.snapshot().count < 1 { await Task.yield() }
+    let two = Task { await queue.ask(second) }
+    while await queue.snapshot().count < 2 { await Task.yield() }
+    await queue.resolve(.deny, for: first.id)
+    #expect(await one.value == .deny)
+    await queue.resolve(.allow(.always), for: first.id)
+    #expect(await queue.snapshot().current?.id == second.id)
+    await queue.resolve(.deny, for: second.id)
+    #expect(await two.value == .deny)
+}
+
+@Test func joiningSignaturesDoesNotRestartTheCountdown() async throws {
+    let queue = SSHApprovalQueue()
+    let prompt = SSHPrompt(id: UUID(), trustKey: "a", displayName: "Terminal", via: "ssh", path: nil, keyID: "1", keyName: "work")
+    let answer = Task { await queue.ask(prompt) }
+    while await queue.snapshot().count < 1 { await Task.yield() }
+    let original = try #require(await queue.snapshot().deadline)
+    await queue.noteJoined(prompt.id)
+    #expect(await queue.snapshot().deadline == original)
+    #expect(await queue.snapshot().current?.waitingCount == 2)
+    await queue.denyAll()
+    #expect(await answer.value == .deny)
+    #expect(await queue.snapshot().deadline == nil)
+}
+
+@Test func anExpiredCardCannotAllowBeforeTheNextWatcherTick() async throws {
+    let queue = SSHApprovalQueue()
+    let prompt = SSHPrompt(id: UUID(), trustKey: "a", displayName: "Terminal", via: "ssh", path: nil, keyID: "1", keyName: "work")
+    let answer = Task { await queue.ask(prompt) }
+    while await queue.snapshot().count < 1 { await Task.yield() }
+    let deadline = try #require(await queue.snapshot().deadline)
+    await queue.resolve(.allow(.always), for: prompt.id, now: deadline)
+    #expect(await answer.value == .timedOut)
 }
 
 @Test func aRepeatAskLeadsWithTrustUntilLock() {

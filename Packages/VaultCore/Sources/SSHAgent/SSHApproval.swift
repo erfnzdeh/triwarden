@@ -160,10 +160,10 @@ public struct SSHPrompt: Equatable, Sendable, Identifiable {
 }
 
 public actor SSHApprovalQueue {
-    public let timeout: TimeInterval = 60
+    public static let timeout: Duration = .seconds(60)
     private struct Waiting {
         var prompt: SSHPrompt
-        var shownAt: Date?
+        var deadline: ContinuousClock.Instant?
         var resume: CheckedContinuation<SSHChoice, Never>
     }
     private var order: [UUID] = []
@@ -171,13 +171,14 @@ public actor SSHApprovalQueue {
 
     public init() {}
 
-    public func snapshot() -> (current: SSHPrompt?, count: Int) {
-        (order.first.flatMap { waiting[$0]?.prompt }, order.count)
+    public func snapshot() -> (current: SSHPrompt?, count: Int, deadline: ContinuousClock.Instant?) {
+        let front = order.first.flatMap { waiting[$0] }
+        return (front?.prompt, order.count, front?.deadline)
     }
 
     public func ask(_ prompt: SSHPrompt) async -> SSHChoice {
         await withCheckedContinuation { continuation in
-            waiting[prompt.id] = Waiting(prompt: prompt, shownAt: order.isEmpty ? .now : nil, resume: continuation)
+            waiting[prompt.id] = Waiting(prompt: prompt, deadline: order.isEmpty ? .now.advanced(by: Self.timeout) : nil, resume: continuation)
             order.append(prompt.id)
         }
     }
@@ -189,10 +190,17 @@ public actor SSHApprovalQueue {
         waiting[id] = item
     }
 
-    public func resolveFront(_ choice: SSHChoice) {
+    /// A decision belongs only to the card that was reviewed, including close and Escape.
+    public func resolve(_ choice: SSHChoice, for id: UUID, now: ContinuousClock.Instant = .now) {
+        guard order.first == id else { return }
+        let expired = waiting[id]?.deadline.map { now >= $0 } ?? true
+        resolveFront(expired ? .timedOut : choice, now: now)
+    }
+
+    public func resolveFront(_ choice: SSHChoice, now: ContinuousClock.Instant = .now) {
         guard let id = order.first, let item = waiting.removeValue(forKey: id) else { return }
         order.removeFirst()
-        revealFront()
+        revealFront(now: now)
         // Resuming inline deadlocks: the waiter re-enters this actor before resolveFront returns.
         let resume = item.resume
         Task.detached { resume.resume(returning: choice) }
@@ -203,14 +211,14 @@ public actor SSHApprovalQueue {
         while !order.isEmpty { resolveFront(.deny) }
     }
 
-    public func expire(now: Date) {
-        guard let id = order.first, let shown = waiting[id]?.shownAt, now.timeIntervalSince(shown) >= timeout else { return }
-        resolveFront(.timedOut)
+    public func expire(now: ContinuousClock.Instant = .now) {
+        guard let id = order.first, let deadline = waiting[id]?.deadline, now >= deadline else { return }
+        resolveFront(.timedOut, now: now)
     }
 
-    private func revealFront() {
+    private func revealFront(now: ContinuousClock.Instant) {
         guard let id = order.first, var item = waiting[id] else { return }
-        item.shownAt = item.shownAt ?? .now
+        item.deadline = item.deadline ?? now.advanced(by: Self.timeout)
         waiting[id] = item
     }
 }

@@ -13,6 +13,33 @@ import SecretsAgent
 /// to PNGs, so UI can be reviewed without screen-recording permission. Exits when done.
 @MainActor
 enum Snapshot {
+    /// Standalone SSH forms only; no vault, private key, agent socket or device authentication.
+    static func runSSHIfRequested() {
+        guard CommandLine.arguments.contains("--selftest-ssh-preview") else { return }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ssh-preview-" + UUID().uuidString)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let cases: [(String, NSAppearance.Name, CGSize, Bool, Bool, Int)] = [
+            ("light", .aqua, CGSize(width: 560, height: 660), false, false, 60),
+            ("dark", .darkAqua, CGSize(width: 560, height: 660), false, false, 38),
+            ("compact", .aqua, CGSize(width: 500, height: 460), false, false, 24),
+            ("repeat", .darkAqua, CGSize(width: 560, height: 660), true, false, 18),
+            ("long", .aqua, CGSize(width: 560, height: 660), false, true, 12),
+            ("urgent", .darkAqua, CGSize(width: 500, height: 460), false, false, 5)
+        ]
+        for (name, appearance, size, repeated, long, seconds) in cases {
+            let prompt = SSHPrompt(id: UUID(), trustKey: "synthetic", displayName: long ? "Local development assistant with a long application name" : "Terminal",
+                via: "ssh", path: long ? "/Users/alex/Projects/development-assistant/tools/isolated-environment/bin/ssh" : "/usr/bin/ssh",
+                keyID: "synthetic", keyName: long ? "Development signing key for documentation and customer support projects" : "GitHub · development",
+                appPath: long ? nil : "/System/Applications/Utilities/Terminal.app", waitingCount: repeated ? 3 : 1)
+            render(SSHApprovalView(prompt: prompt, deadline: .now.advanced(by: .seconds(seconds)),
+                                   pendingCount: repeated ? 2 : 1, leadsWithUntilLock: repeated, choose: { _ in })
+                .environment(\.colorScheme, appearance == .darkAqua ? .dark : .light),
+                size: size, appearance: appearance, to: dir.appendingPathComponent("ssh-approval-" + name + ".png"))
+        }
+        print(dir.path)
+        exit(0)
+    }
+
     /// Reference-only previews: no AppModel, vault, Keychain, live socket or authentication is opened.
     static func runSecretsIfRequested() {
         guard CommandLine.arguments.contains("--selftest-secrets-preview") else { return }

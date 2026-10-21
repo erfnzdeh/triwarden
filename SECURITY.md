@@ -48,7 +48,10 @@ with `completeUntilFirstUserAuthentication` file protection, and both the app an
   process (bundle id and Team ID when the signature is readable, otherwise the executable path). The person
   allows it once, for 10 minutes, until the vault locks, or always for that app. macOS then asks for Touch ID
   or the Mac login password, which Triwarden never receives. Short grants live in memory and are cleared on
-  lock. Allowing once also covers the same app and key for 15 seconds. Always is an app allowlist in
+  lock. Requests appear in a standalone panel without opening the vault or menu-bar window. Its countdown
+  uses the queue's monotonic 60-second decision deadline; close or Escape denies the displayed request.
+  Decisions are bound to that request's ID. Device authentication is cancelled on reset or agent stop.
+  Allowing once also covers the same app and key for 15 seconds. Always is an app allowlist in
   `ssh-allowlist.json`: it survives lock and quit, and while the vault is unlocked those apps sign with no
   further prompt. Every request is appended to `ssh-access-log.json` in the
   App Group container (newest 200; app, tool, path, key name, outcome; no key material and no signed payload).

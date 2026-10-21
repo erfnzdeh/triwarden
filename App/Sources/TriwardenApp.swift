@@ -24,6 +24,8 @@ struct TriwardenApp: App {
         // One window with its own toolbar: no system tab bar (and no View › Show Tab Bar to turn it on).
         NSWindow.allowsAutomaticWindowTabbing = false
         #if DEBUG
+        Snapshot.runSSHIfRequested()
+        SSHApprovalSelfTest.runIfRequested()
         Snapshot.runSecretsIfRequested()
         Bench.runUnlockIfRequested()
         CompatibilitySelfTest.runIfRequested()

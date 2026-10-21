@@ -1,5 +1,7 @@
 # SSH approval: who is asking, and a local record
 
+Presentation update (2026-10-21): [Standalone SSH approval](2026-10-21-ssh-approval-panel.md) supersedes the menu-bar presentation and close behavior below. Requests now open an independent nonactivating panel using the Secrets approval form/countdown style; closing or Escape denies its displayed request. Notification reveal does not open the vault or menu-bar window. Grant durations and macOS authentication remain as described here.
+
 ## Goal
 
 When a program asks the Triwarden SSH agent to sign, the person sees which app is asking, chooses how long that app may sign, and can look the request up later. The macOS password dialog still appears after they allow it. A card shown first explains that the password is the Mac login password, confirmed by macOS, and never read by Triwarden.
