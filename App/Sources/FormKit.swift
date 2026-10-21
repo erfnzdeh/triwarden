@@ -151,6 +151,8 @@ struct FormFooter<Note: View>: View {
     let action: LocalizedStringKey
     var cancelTitle: LocalizedStringKey = "Cancel"
     var defaultAction = true
+    /// The surrounding view may supply one separator for a larger footer group.
+    var showsSeparator = true
     var busy = false
     var disabled = false
     let cancel: () -> Void
@@ -172,7 +174,9 @@ struct FormFooter<Note: View>: View {
             .disabled(disabled || busy)
         }
         .padding(.horizontal, 18).padding(.vertical, 12)
-        .background(alignment: .top) { Divider().opacity(0.5) }
+        .background(alignment: .top) {
+            if showsSeparator { Divider().opacity(0.5) }
+        }
     }
 }
 

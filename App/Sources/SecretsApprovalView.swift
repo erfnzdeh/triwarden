@@ -69,7 +69,7 @@ struct SecretsApprovalView: View {
                     .font(.system(size: 12)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 24).padding(.top, 14).padding(.bottom, 2)
-                FormFooter(action: "Allow This Launch…", cancelTitle: "Deny", defaultAction: false, busy: authenticating,
+                FormFooter(action: "Allow This Launch…", cancelTitle: "Deny", defaultAction: false, showsSeparator: false, busy: authenticating,
                            cancel: deny, submit: allow) {
                     DeadlineCountdown(deadline: prompt.deadline, duration: SecretsController.approvalTimeout)
                 }

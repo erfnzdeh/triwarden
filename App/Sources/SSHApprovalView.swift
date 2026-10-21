@@ -73,7 +73,7 @@ struct SSHApprovalView: View {
                     .font(.system(size: 12)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 24).padding(.top, 14).padding(.bottom, 2)
-                FormFooter(action: "Allow Signing…", cancelTitle: "Deny", defaultAction: false,
+                FormFooter(action: "Allow Signing…", cancelTitle: "Deny", defaultAction: false, showsSeparator: false,
                            cancel: { choose(.deny) }, submit: { choose(.allow(grant)) }) {
                     DeadlineCountdown(deadline: deadline, duration: SSHApprovalQueue.timeout)
                 }
