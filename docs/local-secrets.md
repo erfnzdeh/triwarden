@@ -19,6 +19,8 @@ This initial version supports **one local profile and one password or hidden cus
 
 7. Review the account, field, executable, every argument and working directory in the approval card. Choose **Allow This Launch…** and authenticate with macOS.
 
+The approval window uses the same forms and buttons as the rest of Triwarden. Resize it or scroll to inspect long commands; each argument is shown separately without truncation. Expand **Requesting helper** to inspect its full path. The actions stay at the bottom, and Return does not approve a launch. Escape or **Deny** cancels it.
+
 The CLI replaces itself with the saved program. Interactive input, Ctrl-C and the program's exit code behave as they do in an ordinary terminal launch. The Secrets profile has its own enable switch and authorization; the general “Answer the tw command” setting and its cached approvals do not grant `tw run` access.
 
 Use the `tw` inside the same app bundle as the running Triwarden. A symlink to it is supported. Copied, unsigned, modified or mismatched helpers fail signature validation. The transport accepts correctly sealed ad-hoc counterpart signatures; signed official builds additionally require matching Team IDs. Source builds also need valid Data Protection Keychain entitlements to save the profile confirmation. Ad-hoc signing alone does not grant that access.
@@ -85,6 +87,8 @@ Run `make selftest-secrets-interactive` for the successful launch. Review the `c
 Run `make selftest-secrets-presentation` on an unlocked GUI desktop to check that the card remains onscreen when Triwarden loses focus. It uses the same isolated dev-account flow, hands focus to Finder, checks the window's active-Space and occlusion state, then denies and cleans up. This does not test fullscreen or every Spaces arrangement. The card stays visible while another app is active; denial, timeout, disconnect and account locking still close it. A screenshot of the window by itself does not prove it is actually visible on the desktop.
 
 If no card appears, check that the Mac running Triwarden is unlocked and that a local or remote desktop session is available. Diagnostic runs report a Keychain status code if profile confirmation cannot be written; `-25308` means interaction was not allowed. No profile confirmation or credential delivery is bypassed when Keychain is unavailable.
+
+The signed Debug binary's `--selftest-secrets-preview` mode renders synthetic light, dark, compact, long-command and authentication-in-progress layouts. It opens no vault, Keychain or socket and never authenticates. Use `TRIWARDEN_SNAPSHOT_STDOUT=1` with the existing snapshot stream to export these images without accessing the App container directly.
 
 Before release, verify the complete native flow with a disposable vault item:
 

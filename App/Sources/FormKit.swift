@@ -149,6 +149,8 @@ struct SoftMenu<Value: Hashable>: View {
 /// The footer every form ends with: a note on the left, Cancel and the primary action on the right.
 struct FormFooter<Note: View>: View {
     let action: LocalizedStringKey
+    var cancelTitle: LocalizedStringKey = "Cancel"
+    var defaultAction = true
     var busy = false
     var disabled = false
     let cancel: () -> Void
@@ -159,14 +161,14 @@ struct FormFooter<Note: View>: View {
         HStack(spacing: 10) {
             note
             Spacer()
-            Button("Cancel", action: cancel).buttonStyle(.appSecondary).keyboardShortcut(.cancelAction)
+            Button(cancelTitle, action: cancel).buttonStyle(.appSecondary).keyboardShortcut(.cancelAction)
             Button(action: submit) {
                 HStack(spacing: 6) {
                     if busy { ProgressView().controlSize(.small).tint(.white) }
                     Text(action)
                 }
             }
-            .buttonStyle(.appPrimary).keyboardShortcut(.defaultAction)
+            .buttonStyle(.appPrimary).keyboardShortcut(defaultAction ? .defaultAction : nil)
             .disabled(disabled || busy)
         }
         .padding(.horizontal, 18).padding(.vertical, 12)

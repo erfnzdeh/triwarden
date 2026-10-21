@@ -1,0 +1,9 @@
+# Secrets approval alignment
+
+The approval window should use Triwarden's existing form language: `FormHeader`, `FormCard`, `FormFooter`, capsule actions and `WindowBackdrop`. Use normal text for account/item names and monospace only for paths, environment variables and argv. Group the credential reference separately from the command. Keep every argument individually readable without truncation; place helper provenance in an inspectable disclosure. Keep permission consequences and authentication requirements visible, and pin actions outside the scrollable content.
+
+Use a resizable native panel with a sensible minimum size. Preserve background visibility, explicit denial/approval, device-owner authentication, the existing deadline and cancellation behavior. Extract the presentation from the controller so synthetic previews can render light/dark, long-command, compact and busy states without opening a vault or invoking authentication.
+
+Also complete the independently reproduced launch-path fix: use Darwin `realpath`, retaining `/private`, for executable and cwd identities. Keep `O_NOFOLLOW`, identity/digest comparisons and final execution checks. Two regressions must fail before the fix and pass afterward, including real exec with `/tmp` as cwd.
+
+Validation completed on 2026-10-21: 152 VaultCore tests, signed Debug build and signature verification, 18 native Keychain/profile checks, eight native online cancellation checks, and visual inspection of five synthetic light/dark/compact/long/busy previews. The user-assisted canary passed through the redesigned card, normal macOS device-owner authentication, dummy-key delivery and real CLI exec with exit status 37. The diagnostic exited 0 and confirmed server item deletion and local file/Keychain cleanup. It used the disposable Vaultwarden dev account, not Bitwarden cloud.

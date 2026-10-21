@@ -7,11 +7,45 @@ import TriCrypto
 import SwiftUI
 import TipKit
 import VaultwardenAPI
+import SecretsAgent
 
 /// Debug-only: `Triwarden --snapshot` renders key screens offscreen in light and dark
 /// to PNGs, so UI can be reviewed without screen-recording permission. Exits when done.
 @MainActor
 enum Snapshot {
+    /// Reference-only previews: no AppModel, vault, Keychain, live socket or authentication is opened.
+    static func runSecretsIfRequested() {
+        guard CommandLine.arguments.contains("--selftest-secrets-preview") else { return }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("secrets-preview-" + UUID().uuidString)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            for (name, appearance, size, busy, long) in [
+                ("light", NSAppearance.Name.aqua, CGSize(width: 600, height: 720), false, false),
+                ("dark", .darkAqua, CGSize(width: 600, height: 720), false, false),
+                ("compact", .aqua, CGSize(width: 540, height: 520), false, false),
+                ("long", .aqua, CGSize(width: 600, height: 720), false, true),
+                ("busy", .darkAqua, CGSize(width: 600, height: 720), true, false)
+            ] {
+                let profile = SecretsProfile(name: "agent-dev", accountID: "synthetic", itemID: "synthetic", field: .hidden("api-key"),
+                    variable: "ANTHROPIC_API_KEY", executable: "/usr/bin/env",
+                    arguments: long ? ["node", "./packages/development-assistant/scripts/run-local-agent-with-project-configuration.mjs", "--project", "/Users/alex/Projects/assistant/experiments/customer-support-and-document-search", ""] : ["node", "scripts/agent.mjs"],
+                    directory: "/tmp")
+                let request = SecretsRunRequest(profile: profile, revision: try profile.revision(), launch: try LaunchIdentity.capture(profile))
+                let prompt = SecretsController.Prompt(request: request,
+                    credential: long ? "Development API credential for the local documentation and customer support assistant" : "Anthropic · development",
+                    account: "alex@example.com · vault.example.com", helper: "/Applications/Triwarden.app/Contents/MacOS/tw")
+                render(SecretsApprovalView(prompt: prompt, authenticating: busy, deny: {}, allow: {})
+                    .environment(\.colorScheme, appearance == .darkAqua ? .dark : .light),
+                    size: size, appearance: appearance, to: dir.appendingPathComponent("secrets-approval-" + name + ".png"))
+            }
+            print(dir.path)
+            exit(0)
+        } catch {
+            print("Secrets preview failed: \(error.localizedDescription)")
+            exit(1)
+        }
+    }
+
     /// `make snapshots ONLY=login,send`: render only screens whose file name contains one of these (all when empty).
     static let only: [String] = (ProcessInfo.processInfo.environment["TRIWARDEN_SNAPSHOT_ONLY"] ?? "")
         .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }

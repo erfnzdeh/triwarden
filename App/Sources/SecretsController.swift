@@ -188,15 +188,19 @@ final class SecretsController: NSObject, NSWindowDelegate {
 
     private func showPanel() {
         if panel == nil {
-            let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 560, height: 560),
-                                styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            let height = min(720, max(520, (NSScreen.main?.visibleFrame.height ?? 800) - 80))
+            let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 600, height: height),
+                                styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             panel.title = String(localized: "Approve credential access")
+            panel.titleVisibility = .hidden
+            panel.titlebarAppearsTransparent = true
+            panel.contentMinSize = NSSize(width: 540, height: 520)
             panel.isReleasedWhenClosed = false
             panel.level = .floating
             // The requester may keep focus; activation is cooperative and isn't guaranteed to succeed.
             panel.hidesOnDeactivate = false
             panel.delegate = self
-            panel.contentView = NSHostingView(rootView: SecretsApprovalView(controller: self))
+            panel.contentView = NSHostingView(rootView: SecretsApprovalPanelContent(controller: self))
             self.panel = panel
         }
         NSApp.activate()
@@ -208,53 +212,5 @@ final class SecretsController: NSObject, NSWindowDelegate {
 
     static func display(_ value: String) -> String {
         String(value.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) && $0.properties.generalCategory != .format }.prefix(512))
-    }
-}
-
-private struct SecretsApprovalView: View {
-    @Bindable var controller: SecretsController
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if let prompt = controller.pending {
-                Text("Provide a credential to this command?").font(.title2.bold())
-                Text("A local program requested this launch. A terminal or an AI agent may be the requester.")
-                    .font(.callout).foregroundStyle(.secondary)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 12) {
-                        detail("Profile", prompt.request.profile.name)
-                        detail("Account", prompt.account)
-                        detail("Credential", prompt.credential + " · " + prompt.request.profile.field.label)
-                        detail("Environment variable", prompt.request.profile.variable)
-                        detail("Requesting helper", prompt.helper)
-                        detail("Executable", prompt.request.launch.executable.path)
-                        ForEach(Array(prompt.request.profile.arguments.enumerated()), id: \.offset) { index, argument in
-                            detail("Argument \(index + 1)", argument.isEmpty ? "(empty argument)" : argument)
-                        }
-                        detail("Working directory", prompt.request.launch.directory)
-                        Text("Only basic terminal settings and this credential are passed. The tool, its child processes, and potentially other processes running as you can read the value. Locking Triwarden cannot recall it.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Text("You are approving a launch command. Scripts, plugins, and project code it runs are not verified by Triwarden.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }.frame(maxWidth: .infinity, alignment: .leading)
-                }
-                HStack {
-                    Button("Deny") { controller.deny() }.keyboardShortcut(.cancelAction)
-                    Spacer()
-                    if controller.authenticating { ProgressView().controlSize(.small) }
-                    Button("Allow This Launch…") { controller.allow() }
-                        .buttonStyle(.borderedProminent).disabled(controller.authenticating)
-                }
-                Text("macOS will ask for Touch ID or your Mac login password. This request expires after 60 seconds.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-        }
-        .padding(24)
-        .frame(width: 560, height: 560)
-    }
-    private func detail(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(verbatim: value).font(.system(.body, design: .monospaced)).textSelection(.enabled)
-        }
     }
 }
