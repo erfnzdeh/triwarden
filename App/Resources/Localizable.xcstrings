@@ -18,7 +18,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "不支援的項目"
+            "value": "唔支援嘅項目"
           }
         },
         "zh-Hans": {
@@ -134,7 +134,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "暫時未支援這種項目類型。請用已更新的 Bitwarden 用戶端修改。"
+            "value": "暫時未支援呢種項目類型。請用更新咗嘅 Bitwarden 用戶端修改。"
           }
         },
         "zh-Hans": {
@@ -192,7 +192,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "這個保管庫有不支援的項目類型。請用已更新的 Bitwarden 用戶端匯出，保留所有資料。"
+            "value": "呢個保險庫有唔支援嘅項目類型。請用更新咗嘅 Bitwarden 用戶端匯出，保留晒所有資料。"
           }
         },
         "zh-Hans": {
@@ -308,7 +308,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "部分操作未能完成"
+            "value": "部分操作完成唔到"
           }
         },
         "zh-Hans": {
@@ -366,7 +366,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "重試失敗的操作前，請先同步並檢查保管庫。"
+            "value": "重試失敗嘅操作之前，請先同步同檢查保險庫。"
           }
         },
         "zh-Hans": {
@@ -482,7 +482,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "同步此範圍的帳戶"
+            "value": "同步呢個範圍嘅帳戶"
           }
         },
         "zh-Hans": {
@@ -540,7 +540,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "帳戶已鎖定"
+            "value": "帳戶已經鎖定"
           }
         },
         "zh-Hans": {
@@ -888,7 +888,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "請在網站或 App 中建立通行密鑰"
+            "value": "請喺網站或者 App 入面建立通行密鑰"
           }
         },
         "zh-Hans": {
@@ -1062,7 +1062,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "開啟機構網頁保管庫"
+            "value": "開啟機構嘅網頁保險庫"
           }
         },
         "zh-Hans": {
@@ -1120,7 +1120,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "此集合只供讀取"
+            "value": "呢個集合只供讀取"
           }
         },
         "zh-Hans": {
@@ -1178,7 +1178,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "在網頁保管庫管理⋯"
+            "value": "喺網頁保險庫管理⋯"
           }
         },
         "zh-Hans": {
@@ -1352,7 +1352,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "顯示已到期的 Send"
+            "value": "顯示到期咗嘅 Send"
           }
         },
         "zh-Hans": {
@@ -1468,7 +1468,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "新增含 TOTP 的登入項目"
+            "value": "新增含 TOTP 嘅登入項目"
           }
         },
         "zh-Hans": {
@@ -1758,7 +1758,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "檢視重複使用的密碼"
+            "value": "檢視重複使用嘅密碼"
           }
         },
         "zh-Hans": {
@@ -1816,7 +1816,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "檢視已外洩的密碼"
+            "value": "檢視外洩咗嘅密碼"
           }
         },
         "zh-Hans": {
@@ -1874,7 +1874,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "還原此範圍的項目⋯"
+            "value": "還原呢個範圍嘅項目⋯"
           }
         },
         "zh-Hans": {
@@ -1932,7 +1932,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "清空此範圍的垃圾桶⋯"
+            "value": "清空呢個範圍嘅垃圾桶⋯"
           }
         },
         "zh-Hans": {
@@ -1990,7 +1990,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "只會還原上述已計數的項目。"
+            "value": "只會還原上面數過嘅項目。"
           }
         },
         "zh-Hans": {
@@ -2048,7 +2048,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "部分項目已變更，已略過。"
+            "value": "部分項目已經變更，所以略過咗。"
           }
         },
         "zh-Hans": {
@@ -2164,7 +2164,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "選擇保管庫⋯"
+            "value": "選擇保險庫⋯"
           }
         },
         "zh-Hans": {
@@ -2338,7 +2338,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "請選擇小於 1 MB、UTF-8 編碼且未加密的私密金鑰。"
+            "value": "請選擇少過 1 MB、UTF-8 編碼、冇加密嘅私密金鑰。"
           }
         },
         "zh-Hans": {
@@ -2396,7 +2396,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "此私密金鑰已加密或不受支援。"
+            "value": "呢個私密金鑰已經加密或者唔支援。"
           }
         },
         "zh-Hans": {
@@ -2512,7 +2512,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "執行檢查以查詢外洩密碼。"
+            "value": "執行檢查去查外洩嘅密碼。"
           }
         },
         "zh-Hans": {
@@ -2628,7 +2628,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已完成 %lld 個項目"
+            "value": "完成咗 %lld 個項目"
           }
         },
         "zh-Hans": {
@@ -2686,7 +2686,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "搵項目或執行指令"
+            "value": "搵項目或者執行指令"
           }
         },
         "zh-Hans": {
@@ -2744,7 +2744,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "匯入已停止。再次匯入之前，請先同步並檢查保管庫。"
+            "value": "匯入已經停止。再次匯入之前，請先同步同檢查保險庫。"
           }
         },
         "zh-Hans": {
@@ -2802,7 +2802,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "匯入已儲存，但同步失敗；請勿再次匯入呢個檔案。"
+            "value": "匯入已經儲存，但同步失敗；唔好再次匯入呢個檔案。"
           }
         },
         "zh-Hans": {
@@ -2918,7 +2918,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "請重新登入以同步呢個帳戶。仍可使用已儲存嘅保管庫。"
+            "value": "請重新登入去同步呢個帳戶。已儲存嘅保險庫仍然可以用。"
           }
         },
         "zh-Hans": {
@@ -3107,7 +3107,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "app 來要求簽名時可以選擇「一律允許」。只要這部保險庫是解鎖的，它就可以簽名，包括上鎖後再打開。"
+            "value": "app 嚟要求簽名時，可以選擇「一律允許」。只要呢個保險庫係解鎖緊嘅，佢就可以簽名，包括上鎖之後再打開。"
           }
         },
         "ko": {
@@ -3165,7 +3165,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "依開啟的網站對應登入"
+            "value": "跟開啟咗嘅網站對應登入"
           }
         },
         "ko": {
@@ -3275,7 +3275,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "預設關閉。開啟後，選單列和指令面板會讀取瀏覽器最前面分頁的網址，把這個網站的登入排在前面。只保留 http 或 https 網址。不會讀取網頁，也不會在瀏覽器裡點按或更改任何內容。"
+            "value": "預設關閉。開啟之後，選單列同指令面板會讀取瀏覽器最前面分頁嘅網址，將呢個網站嘅登入排喺最前面。只保留 http 或 https 網址。唔會讀取網頁，都唔會喺瀏覽器入面點按或者更改任何內容。"
           }
         },
         "ko": {
@@ -3333,7 +3333,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "打開開關本身不會授權。下次在瀏覽器前面打開選單列或指令面板時，macOS 會詢問是否允許 Triwarden 控制該瀏覽器。系統會說這項「自動化」權限可以取用瀏覽器裡的文稿和資料，並在其中執行動作。那是系統對這項權限的說明，比這次請求更廣。Triwarden 只問一個問題：最前面分頁的網址。每個瀏覽器只問一次。選擇「不允許」不影響其他功能，只是不會對應該瀏覽器的分頁。關閉開關後就不再詢問。若要移除已經允許的權限，請到「系統設定 › 私隱與保安 › 自動化」。"
+            "value": "打開開關本身唔會授權。下次喺瀏覽器前面打開選單列或指令面板時，macOS 會問會唔准 Triwarden 控制嗰個瀏覽器。系統會講呢項「自動化」權限可以取用瀏覽器入面嘅文稿同資料，仲可以喺入面執行動作。嗰個係系統對呢項權限嘅說明，比是次請求更闊。Triwarden 只問一個問題：最前面分頁嘅網址。每個瀏覽器只問一次。選擇「不允許」唔會影響其他功能，只係唔會對應嗰個瀏覽器嘅分頁。關閉開關之後就唔會再問。如果要移除已經允許嘅權限，請去「系統設定 › 私隱與保安 › 自動化」。"
           }
         },
         "ko": {
@@ -3391,7 +3391,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "要讀取 %1$@ 最前面的分頁嗎？"
+            "value": "要讀取 %1$@ 最前面嘅分頁嗎？"
           }
         },
         "ko": {
@@ -3449,7 +3449,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "Triwarden 可以讀取 %1$@ 最前面分頁的網址，把這個網站的登入排在前面。macOS 會詢問是否允許 Triwarden 控制該瀏覽器。「自動化」可以取用文稿並執行動作；Triwarden 只詢問最前面分頁的 http 或 https 網址。它不會讀取網頁，也不會更改瀏覽器。"
+            "value": "Triwarden 可以讀取 %1$@ 最前面分頁嘅網址，將呢個網站嘅登入排喺最前面。macOS 會問會唔准 Triwarden 控制嗰個瀏覽器。「自動化」可以取用文稿同執行動作；Triwarden 只會問最前面分頁嘅 http 或 https 網址。佢唔會讀取網頁，都唔會更改瀏覽器。"
           }
         },
         "ko": {
@@ -3507,7 +3507,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ 想要簽名"
+            "value": "%1$@ 想簽名"
           }
         },
         "ko": {
@@ -3565,7 +3565,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "經由 %1$@ · %2$@"
+            "value": "經 %1$@ · %2$@"
           }
         },
         "ko": {
@@ -3623,7 +3623,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "這次只做一次 SSH 簽名。私鑰留在保險庫裡。"
+            "value": "呢次只做一次 SSH 簽名。私鑰會留喺保險庫入面。"
           }
         },
         "ko": {
@@ -3681,7 +3681,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "這個 app 先前來要過簽名。"
+            "value": "呢個 app 之前嚟要過簽名。"
           }
         },
         "ko": {
@@ -3739,7 +3739,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS 接著會要求 Touch ID 或這部 Mac 的登入密碼。這組密碼只留在 macOS。"
+            "value": "macOS 跟著會要求 Touch ID 或者呢部 Mac 嘅登入密碼。呢組密碼只會留喺 macOS。"
           }
         },
         "ko": {
@@ -3855,7 +3855,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "允許多久"
+            "value": "允許幾耐"
           }
         },
         "ko": {
@@ -3913,7 +3913,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "只允許這次"
+            "value": "只允許呢次"
           }
         },
         "ko": {
@@ -4029,7 +4029,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "直到上鎖前信任"
+            "value": "上鎖前都信任"
           }
         },
         "ko": {
@@ -4087,7 +4087,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "直到保險庫上鎖前信任"
+            "value": "保險庫上鎖前都信任"
           }
         },
         "ko": {
@@ -4145,7 +4145,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "app 來要求簽名時，可以從提示裡信任它。信任持續到保險庫上鎖。"
+            "value": "app 嚟要求簽名時，可以喺提示入面信任佢。信任會維持到保險庫上鎖。"
           }
         },
         "ko": {
@@ -4255,7 +4255,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "需要處理"
+            "value": "要處理"
           }
         },
         "ko": {
@@ -4313,7 +4313,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "沒有待處理的事。"
+            "value": "冇待處理嘅事。"
           }
         },
         "ko": {
@@ -4371,7 +4371,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "同步失敗。這部 Mac 上的保險庫沒有改動。"
+            "value": "同步失敗。呢部 Mac 上面嘅保險庫冇改動。"
           }
         },
         "ko": {
@@ -4603,7 +4603,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "還沒有 SSH 請求。"
+            "value": "仲未有 SSH 請求。"
           }
         },
         "ko": {
@@ -4719,7 +4719,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "沿用剛才的允許"
+            "value": "沿用咗剛才嘅允許"
           }
         },
         "ko": {
@@ -4777,7 +4777,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "只允許了這次"
+            "value": "只允許咗呢次"
           }
         },
         "ko": {
@@ -4835,7 +4835,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "允許了 10 分鐘"
+            "value": "允許咗 10 分鐘"
           }
         },
         "ko": {
@@ -4893,7 +4893,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "直到上鎖前信任"
+            "value": "上鎖前都信任"
           }
         },
         "ko": {
@@ -4951,7 +4951,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已拒絕"
+            "value": "拒絕咗"
           }
         },
         "ko": {
@@ -5067,7 +5067,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已解鎖帳戶裡的 SSH 金鑰會提供給 ssh 和 git。每次簽名都會先問你，再由 macOS 要求 Touch ID 或這部 Mac 的登入密碼。金鑰不會離開這個 app。"
+            "value": "已解鎖帳戶入面嘅 SSH 金鑰會提供畀 ssh 同 git。每次簽名都會先問你，再由 macOS 要求 Touch ID 或者呢部 Mac 嘅登入密碼。金鑰唔會離開呢個 app。"
           }
         },
         "ko": {
@@ -5125,7 +5125,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "Triwarden，正在等待 SSH 簽名"
+            "value": "Triwarden，等緊 SSH 簽名"
           }
         },
         "ko": {
@@ -5335,7 +5335,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "「%@」有舊式附件，請喺網頁版保險庫移動。"
+            "value": "「%@」有舊式附件，請喺網頁版保險庫移動佢。"
           }
         },
         "ko": {
@@ -5388,7 +5388,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "「%@」有附件，請喺網頁版保險庫移動。"
+            "value": "「%@」有附件，請喺網頁版保險庫移動佢。"
           }
         },
         "ko": {
@@ -5596,7 +5596,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "「%@」不是有效的網址。"
+            "value": "「%@」唔係有效嘅網址。"
           }
         },
         "ko": {
@@ -5703,7 +5703,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已複製%@"
+            "value": "已複製咗%@"
           }
         },
         "ko": {
@@ -5755,7 +5755,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已複製%1$@ · %2$lld 秒後清除"
+            "value": "已複製咗%1$@ · %2$lld 秒後清除"
           }
         },
         "ko": {
@@ -6549,7 +6549,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "%2$lld 個登入資料中有 %1$lld 個需要處理。"
+            "value": "%2$lld 個登入資料入面有 %1$lld 個要處理。"
           }
         },
         "ko": {
@@ -6705,7 +6705,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已選取 %lld 項"
+            "value": "選咗 %lld 項"
           }
         },
         "ko": {
@@ -8647,7 +8647,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "為 Vaultwarden 與 Bitwarden 打造的原生 Mac App。"
+            "value": "為 Vaultwarden 同 Bitwarden 打造嘅原生 Mac App。"
           }
         },
         "ko": {
@@ -8751,7 +8751,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "付款卡，可用嚟自動填寫。"
+            "value": "一張隨時可以用 AutoFill 嘅付費卡。"
           }
         },
         "ko": {
@@ -10311,7 +10311,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "若伺服器使用私有或自簽憑證，請加入你的 CA（PEM 或 DER）。"
+            "value": "如果你嘅伺服器用緊私有或者自簽嘅憑證，請加入你嘅 CA（PEM 或 DER）。"
           }
         },
         "ko": {
@@ -11992,7 +11992,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "同另一部裝置上面嘅短語一致先好批准。"
+            "value": "同另一部裝置上面嘅短語一致先批准。"
           }
         },
         "ko": {
@@ -12566,7 +12566,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "叫對方讀出佢哋嘅指紋短語（設定 › 帳戶），一致先好確認。"
+            "value": "叫對方讀出佢哋嘅指紋短語（設定 › 帳戶），一致先確認。"
           }
         },
         "ko": {
@@ -13243,7 +13243,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "避免容易混淆的字元"
+            "value": "避免容易混淆嘅字元"
           }
         },
         "ko": {
@@ -13610,7 +13610,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bitwarden 要求驗證碼挑戰。請先在這個網路下登入一次 vault.bitwarden.com，再重試。"
+            "value": "Bitwarden 要求驗證碼挑戰。請先喺呢個網路登入一次 vault.bitwarden.com，再試過。"
           }
         },
         "ko": {
@@ -14131,7 +14131,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bitwarden 淨係容許喺佢嘅網頁版保險庫開啟或者關閉兩步驟登入，佢自己嘅桌面版都係咁。驗證器嘅驗證碼喺度照用得。"
+            "value": "Bitwarden 淨係得佢嘅網頁版保險庫先可以開啟或者關閉兩步驟登入，佢自己嘅桌面版都係咁。驗證器嘅驗證碼喺呢度照用得。"
           }
         },
         "ko": {
@@ -14397,7 +14397,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法連線到這台伺服器"
+            "value": "連唔到呢部伺服器"
           }
         },
         "ko": {
@@ -15080,7 +15080,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "在系統設定中更改…"
+            "value": "喺系統設定入面更改…"
           }
         },
         "ko": {
@@ -16537,7 +16537,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在檢查伺服器…"
+            "value": "檢查緊伺服器…"
           }
         },
         "ko": {
@@ -16641,7 +16641,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "請選擇 500 MB 以內的檔案。"
+            "value": "請揀一個 500 MB 以內嘅檔案。"
           }
         },
         "ko": {
@@ -16798,7 +16798,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "選擇保險庫所在的位置。"
+            "value": "揀保險庫存放喺邊度。"
           }
         },
         "ko": {
@@ -17736,7 +17736,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已清除剪貼簿"
+            "value": "已清除咗剪貼簿"
           }
         },
         "ko": {
@@ -17788,7 +17788,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "剪貼簿即將清除"
+            "value": "剪貼簿就嚟清除"
           }
         },
         "ko": {
@@ -17841,7 +17841,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "剪貼簿 %lld 秒後清除"
+            "value": "剪貼簿 %lld 秒後會清除"
           }
         },
         "ko": {
@@ -18517,7 +18517,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "令 git 透過 Triwarden SSH 代理程式用此密鑰簽署提交的指令"
+            "value": "令 git 透過 Triwarden SSH 代理程式用呢個密鑰簽署提交嘅指令"
           }
         },
         "ko": {
@@ -19246,7 +19246,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "複製的機密資料會標記為隱藏，剪貼簿管理工具不會記錄。"
+            "value": "複製嘅機密資料會標記做隱藏，剪貼簿管理工具唔會記錄。"
           }
         },
         "ko": {
@@ -19298,7 +19298,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已複製 %@ 的密碼。"
+            "value": "已複製咗 %@ 嘅密碼。"
           }
         },
         "ko": {
@@ -19350,7 +19350,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "複製項目的密碼，並喺 Triwarden 設定的時間後從剪貼簿清除。"
+            "value": "複製項目嘅密碼。Triwarden 設定嘅時間一到，就會喺剪貼簿清除。"
           }
         },
         "ko": {
@@ -20183,7 +20183,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "複製 ${item} 的密碼"
+            "value": "複製 ${item} 嘅密碼"
           }
         },
         "ko": {
@@ -20392,7 +20392,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法檢查更新。"
+            "value": "檢查唔到更新。"
           }
         },
         "ko": {
@@ -20496,7 +20496,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "攞唔到對方嘅金鑰。"
+            "value": "喺伺服器攞唔到對方嘅金鑰。"
           }
         },
         "ko": {
@@ -20756,7 +20756,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法連線到 Have I Been Pwned，請稍後再試。"
+            "value": "連唔到 Have I Been Pwned，請遲啲再試。"
           }
         },
         "ko": {
@@ -20912,7 +20912,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "讀唔到密碼庫。請先同步再試。"
+            "value": "讀唔到保險庫。請先同步再試。"
           }
         },
         "ko": {
@@ -20964,7 +20964,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "儲存唔到檔案喺嗰度。"
+            "value": "喺嗰度儲存唔到檔案。"
           }
         },
         "ko": {
@@ -21016,7 +21016,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法儲存通行密鑰：%@"
+            "value": "儲存唔到通行密鑰：%@"
           }
         },
         "ko": {
@@ -21068,7 +21068,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法傳送提示，請檢查伺服器後再試一次。"
+            "value": "傳送唔到提示，請檢查伺服器之後再試一次。"
           }
         },
         "ko": {
@@ -21224,7 +21224,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法啟動命令行橋接：%@"
+            "value": "啟動唔到命令行橋接：%@"
           }
         },
         "ko": {
@@ -21276,7 +21276,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法啟動 SSH 代理程式：%@"
+            "value": "啟動唔到 SSH 代理程式：%@"
           }
         },
         "ko": {
@@ -21328,7 +21328,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法啟動 SSH 代理程式：通訊端路徑超過 macOS 上限（104 位元組），通常係因為用戶名稱太長。"
+            "value": "啟動唔到 SSH 代理程式：通訊端路徑超過 macOS 上限（104 位元組），通常係因為用戶名稱太長。"
           }
         },
         "ko": {
@@ -21380,7 +21380,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法開啟 Touch ID"
+            "value": "開啟唔到 Touch ID"
           }
         },
         "ko": {
@@ -21992,7 +21992,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已複製驗證碼"
+            "value": "已複製咗驗證碼"
           }
         },
         "zh-Hans": {
@@ -23357,7 +23357,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已刪除「%@」"
+            "value": "已刪除咗「%@」"
           }
         },
         "ko": {
@@ -23461,7 +23461,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已永久刪除 %lld 個項目"
+            "value": "已永久刪除咗 %lld 個項目"
           }
         },
         "ko": {
@@ -24554,7 +24554,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "將檔案拖放到呢度，即可加密附加。"
+            "value": "將檔案拖放到呢度，就會加密附加。"
           }
         },
         "ko": {
@@ -24606,7 +24606,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "放開以附加"
+            "value": "放低就附加"
           }
         },
         "ko": {
@@ -25595,7 +25595,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "電子郵件驗證碼"
+            "value": "電郵驗證碼"
           }
         },
         "ko": {
@@ -25907,7 +25907,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已更改加密金鑰設定"
+            "value": "更改咗加密金鑰設定"
           }
         },
         "ko": {
@@ -26011,7 +26011,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "請輸入有效的伺服器網址。"
+            "value": "請輸入有效嘅伺服器網址。"
           }
         },
         "ko": {
@@ -26063,7 +26063,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "輸入驗證器 App 中的 6 位數驗證碼。"
+            "value": "輸入驗證器 App 入面嘅 6 位數驗證碼。"
           }
         },
         "ko": {
@@ -26324,7 +26324,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "輸入主密碼以繼續。"
+            "value": "輸入主密碼先可以繼續。"
           }
         },
         "ko": {
@@ -26898,7 +26898,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "你守護的一切，\n一鍵即達。"
+            "value": "你守護嘅所有嘢，\n一按就搞掂。"
           }
         },
         "ko": {
@@ -27054,7 +27054,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已到期"
+            "value": "到期咗"
           }
         },
         "ko": {
@@ -27366,7 +27366,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "匯出呢個帳戶嘅密碼庫"
+            "value": "匯出呢個帳戶嘅保險庫"
           }
         },
         "ko": {
@@ -27418,7 +27418,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "匯出密碼庫"
+            "value": "匯出保險庫"
           }
         },
         "ko": {
@@ -27470,7 +27470,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "匯出密碼庫⋯"
+            "value": "匯出保險庫⋯"
           }
         },
         "ko": {
@@ -27574,7 +27574,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已匯出 %lld 個項目"
+            "value": "匯出咗 %lld 個項目"
           }
         },
         "ko": {
@@ -27626,7 +27626,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已匯出 %lld 個項目 · %lld 個 CSV 唔支援"
+            "value": "匯出咗 %lld 個項目 · %lld 個 CSV 唔支援"
           }
         },
         "ko": {
@@ -27730,7 +27730,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "曾在資料外洩中曝光"
+            "value": "喺資料外洩入面曝光過"
           }
         },
         "ko": {
@@ -28452,7 +28452,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "填入並提交"
+            "value": "填入再提交"
           }
         },
         "zh-Hans": {
@@ -28620,7 +28620,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 Safari、Chrome 與 App 中填入密碼和驗證碼。請在「系統設定 › 一般 › 自動填寫與密碼」中開啟 Triwarden。"
+            "value": "喺 Safari、Chrome 同 App 入面填入密碼同驗證碼。請喺「系統設定 › 一般 › 自動填寫與密碼」入面開啟 Triwarden。"
           }
         },
         "ko": {
@@ -30024,7 +30024,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已建立資料夾"
+            "value": "建立咗資料夾"
           }
         },
         "ko": {
@@ -30076,7 +30076,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已改資料夾名"
+            "value": "改咗資料夾名"
           }
         },
         "ko": {
@@ -30388,7 +30388,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "以 GNU 通用公共授權條款第 3 版發佈嘅自由軟件。同 Bitwarden, Inc. 及 Vaultwarden 項目無關。"
+            "value": "用 GNU 通用公共授權條款第 3 版發佈嘅自由軟件。同 Bitwarden, Inc. 同埋 Vaultwarden 項目無關。"
           }
         },
         "ko": {
@@ -30846,7 +30846,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "產生的密碼短語"
+            "value": "產生嘅密碼短語"
           }
         },
         "zh-Hans": {
@@ -30898,7 +30898,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "產生的密碼"
+            "value": "產生嘅密碼"
           }
         },
         "zh-Hans": {
@@ -31119,7 +31119,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "取得 ${item} 的一次性驗證碼"
+            "value": "取得 ${item} 嘅一次性驗證碼"
           }
         },
         "ko": {
@@ -31483,7 +31483,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已有通行密鑰"
+            "value": "有通行密鑰"
           }
         },
         "ko": {
@@ -31691,7 +31691,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "對收件人隱藏我的電郵地址"
+            "value": "對收件人隱藏我嘅電郵地址"
           }
         },
         "ko": {
@@ -31854,7 +31854,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "收件人顯示之前隱藏文字"
+            "value": "喺收件人撳開之前都隱藏文字"
           }
         },
         "ko": {
@@ -32270,7 +32270,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "圖示來自你自己的伺服器（bitwarden.com 帳戶則來自 Bitwarden），其他人無從得知你使用哪些網站。快取的圖示會加密。"
+            "value": "圖示來自你自己嘅伺服器（bitwarden.com 帳戶就係 Bitwarden），其他人唔會知道你用邊啲網站。快取嘅圖示會加密。"
           }
         },
         "ko": {
@@ -32426,7 +32426,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "如果此帳戶設有提示，已寄到你的收件箱。"
+            "value": "如果呢個帳戶有設提示，已經寄咗去你嘅收件箱。"
           }
         },
         "ko": {
@@ -32686,7 +32686,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已匯入 %lld 個項目"
+            "value": "已匯入咗 %lld 個項目"
           }
         },
         "ko": {
@@ -32738,7 +32738,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "喺垃圾桶入面，Bitwarden 會喺 %@ 永久刪除。還原就可以再用。"
+            "value": "喺垃圾桶入面，Bitwarden 會喺 %@ 永久刪走佢。還原返就可以再用。"
           }
         },
         "ko": {
@@ -32790,7 +32790,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "位於垃圾桶。還原後即可再次使用，或將其永久刪除。"
+            "value": "喺垃圾桶入面。還原返就可以再用，或者永久刪走佢。"
           }
         },
         "ko": {
@@ -33518,7 +33518,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "之後唔會再傳送，個值亦會喺鑰匙圈刪除。"
+            "value": "之後唔會再傳送，個值都會喺鑰匙圈刪走。"
           }
         },
         "ko": {
@@ -33674,7 +33674,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已建立項目"
+            "value": "已建立咗項目"
           }
         },
         "ko": {
@@ -33986,7 +33986,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "入面嘅項目唔會被刪除，只會移出資料夾。"
+            "value": "入面嘅項目唔會畀刪走，只會移出資料夾。"
           }
         },
         "ko": {
@@ -34456,7 +34456,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "改密碼時由伺服器保留：最近五個。"
+            "value": "改密碼時伺服器會保留：最近五個。"
           }
         },
         "ko": {
@@ -35499,7 +35499,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "列出你的保險庫項目"
+            "value": "列出你嘅保險庫項目"
           }
         },
         "ko": {
@@ -36123,7 +36123,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "鎖定 Triwarden 中的所有帳戶。"
+            "value": "鎖定晒 Triwarden 入面所有帳戶。"
           }
         },
         "ko": {
@@ -36175,7 +36175,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "鎖定所有帳戶。"
+            "value": "鎖定晒所有帳戶。"
           }
         },
         "ko": {
@@ -36333,7 +36333,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用單一登入…"
+            "value": "用單一登入…"
           }
         },
         "ko": {
@@ -36801,7 +36801,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "狀況良好"
+            "value": "冇問題"
           }
         },
         "ko": {
@@ -37120,7 +37120,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已更改主密碼"
+            "value": "已更改咗主密碼"
           }
         },
         "ko": {
@@ -37900,7 +37900,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "移至共享保險庫"
+            "value": "移去共享保險庫"
           }
         },
         "ko": {
@@ -37952,7 +37952,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "移至共享保險庫…"
+            "value": "移去共享保險庫…"
           }
         },
         "ko": {
@@ -38108,7 +38108,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "移至資料夾"
+            "value": "移去資料夾"
           }
         },
         "ko": {
@@ -38629,7 +38629,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已將 %lld 個項目移至 %@"
+            "value": "已將 %lld 個項目移去 %@"
           }
         },
         "ko": {
@@ -39150,7 +39150,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "需要確認"
+            "value": "要確認"
           }
         },
         "ko": {
@@ -39878,7 +39878,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "再次輸入新主密碼"
+            "value": "再輸入新主密碼"
           }
         },
         "ko": {
@@ -40710,7 +40710,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "沒有發現問題。"
+            "value": "冇發現問題。"
           }
         },
         "ko": {
@@ -40762,7 +40762,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "未選取項目"
+            "value": "未揀項目"
           }
         },
         "ko": {
@@ -40814,7 +40814,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "沒有項目"
+            "value": "冇項目"
           }
         },
         "ko": {
@@ -40866,7 +40866,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "此網站沒有登入資料"
+            "value": "呢個網站冇登入資料"
           }
         },
         "ko": {
@@ -40970,7 +40970,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "此網站沒有通行密鑰"
+            "value": "呢個網站冇通行密鑰"
           }
         },
         "ko": {
@@ -41074,7 +41074,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "沒有結果"
+            "value": "冇結果"
           }
         },
         "ko": {
@@ -41126,7 +41126,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "沒有結果"
+            "value": "冇結果"
           }
         },
         "ko": {
@@ -41179,7 +41179,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "未揀選 Send"
+            "value": "未揀 Send"
           }
         },
         "ko": {
@@ -41336,7 +41336,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "沒有弱、重複或不安全的密碼。檢查一下是否外洩會更安心。"
+            "value": "冇弱、重複同埋唔安全嘅密碼。檢查下有冇外洩會更安心。"
           }
         },
         "ko": {
@@ -41752,7 +41752,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "尚未登入"
+            "value": "未登入"
           }
         },
         "ko": {
@@ -41960,7 +41960,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "未有記錄"
+            "value": "仲未有記錄"
           }
         },
         "ko": {
@@ -42012,7 +42012,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "暫時未有。"
+            "value": "暫時仲未有。"
           }
         },
         "ko": {
@@ -42168,7 +42168,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已關閉 · 保險庫有 %lld 條密鑰"
+            "value": "熄咗 · 保險庫入面有 ^[%lld 條密鑰](inflect: true)"
           }
         },
         "ko": {
@@ -42221,7 +42221,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "離線 · 已儲存的保險庫"
+            "value": "離線 · 已儲存嘅保險庫"
           }
         },
         "ko": {
@@ -42533,7 +42533,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "一次外洩就會波及所有共用密碼的網站。請為每個網站設定不同密碼。"
+            "value": "一次外洩就會波及所有共用密碼嘅網站。請為每個網站設定唔同密碼。"
           }
         },
         "ko": {
@@ -43159,7 +43159,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "僅在各項服務位於不同網址時使用。留空則使用伺服器網址。"
+            "value": "只係你啲服務喺唔同網址先用得上。留空就用伺服器網址。"
           }
         },
         "ko": {
@@ -43732,7 +43732,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "以 MIT 授權開放原始碼。與 Bitwarden, Inc. 或 Vaultwarden 項目無關。"
+            "value": "以 MIT 授權開放原始碼。同 Bitwarden, Inc. 或者 Vaultwarden 項目無關。"
           }
         },
         "ko": {
@@ -43888,7 +43888,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "請先打開 Triwarden 並登入。"
+            "value": "請先打開 Triwarden 再登入。"
           }
         },
         "ko": {
@@ -43940,7 +43940,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "請開啟 Triwarden 並重新登入此帳戶。"
+            "value": "請打開 Triwarden 再重新登入呢個帳戶。"
           }
         },
         "ko": {
@@ -43992,7 +43992,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "請先打開 Triwarden 一次以下載保險庫。"
+            "value": "請先打開 Triwarden 一次，下載返你嘅保險庫。"
           }
         },
         "ko": {
@@ -44044,7 +44044,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "請開啟 Triwarden 一次以更新保險庫。"
+            "value": "請先打開 Triwarden 一次，更新返你嘅保險庫。"
           }
         },
         "ko": {
@@ -44097,7 +44097,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "打開 Triwarden 以解鎖"
+            "value": "打開 Triwarden 先解鎖到"
           }
         },
         "ko": {
@@ -44202,7 +44202,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "打開網頁版密碼庫"
+            "value": "打開網頁版保險庫"
           }
         },
         "ko": {
@@ -44516,7 +44516,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "或在下方輸入主密碼。"
+            "value": "或者喺下面輸入你嘅主密碼。"
           }
         },
         "ko": {
@@ -44568,7 +44568,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "或只用於一個 Shell"
+            "value": "或者只用喺一個 Shell"
           }
         },
         "ko": {
@@ -44672,7 +44672,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "otpauth://… 或 base32 密碼匙"
+            "value": "otpauth://… 或者 base32 密碼匙"
           }
         },
         "ko": {
@@ -44987,7 +44987,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "通行密鑰或安全金鑰"
+            "value": "通行密鑰或者安全金鑰"
           }
         },
         "ko": {
@@ -45144,7 +45144,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "你用 Triwarden 儲存的通行密鑰會顯示喺呢度。"
+            "value": "你用 Triwarden 儲存嘅通行密鑰會顯示喺呢度。"
           }
         },
         "ko": {
@@ -45928,7 +45928,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "密碼、密碼匙、驗證碼與 SSH 金鑰，原生於你的 Mac。"
+            "value": "密碼、密碼匙、驗證碼同 SSH 金鑰，你部 Mac 原生支援。"
           }
         },
         "ko": {
@@ -46448,7 +46448,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "PIN 碼解鎖已經冇設定。請用主密碼。"
+            "value": "PIN 碼解鎖已經取消咗。請改用主密碼。"
           }
         },
         "ko": {
@@ -47445,7 +47445,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "讀取「%2$@」的%1$@"
+            "value": "讀取「%2$@」嘅 %1$@"
           }
         },
         "ko": {
@@ -47602,7 +47602,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "最近的請求"
+            "value": "最近嘅請求"
           }
         },
         "ko": {
@@ -47654,7 +47654,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "最近的 SSH 請求"
+            "value": "最近嘅 SSH 請求"
           }
         },
         "ko": {
@@ -48278,7 +48278,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "從最愛中移除"
+            "value": "移出最愛"
           }
         },
         "ko": {
@@ -48590,7 +48590,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "喺呢部 Mac 移除帳戶同佢儲存咗嘅保險庫。你嘅資料仍然留喺伺服器。"
+            "value": "喺呢部 Mac 移除帳戶同埋儲存咗嘅保險庫。你嘅資料會繼續留喺伺服器。"
           }
         },
         "ko": {
@@ -48798,7 +48798,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "喺 %@ 被取代"
+            "value": "喺 %@ 畀人取代咗"
           }
         },
         "ko": {
@@ -48954,7 +48954,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "由 Triwarden 瀏覽器擴充功能要求。"
+            "value": "Triwarden 瀏覽器擴充功能要求嘅。"
           }
         },
         "ko": {
@@ -49110,7 +49110,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "重設為 %@"
+            "value": "重設做 %@"
           }
         },
         "ko": {
@@ -49410,7 +49410,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "撳 Return 填入第一個登入資料 · 停留睇更多"
+            "value": "撳 Return 填入第一個登入資料 · 指住睇更多"
           }
         },
         "zh-Hans": {
@@ -49474,7 +49474,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "傳回項目目前的一次性驗證碼並複製。"
+            "value": "傳回項目而家嘅一次性驗證碼，再複製佢。"
           }
         },
         "ko": {
@@ -49578,7 +49578,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "在 %lld 個項目中重複使用"
+            "value": "喺 %lld 個項目入面重複使用"
           }
         },
         "ko": {
@@ -49630,7 +49630,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "重複使用的密碼"
+            "value": "重複使用嘅密碼"
           }
         },
         "ko": {
@@ -49740,7 +49740,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "顯示（⌥⌘R，或按住 ⌥）"
+            "value": "顯示（⌥⌘R，或者撳住 ⌥）"
           }
         },
         "ko": {
@@ -49844,7 +49844,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "按住時顯示"
+            "value": "撳住時顯示"
           }
         },
         "ko": {
@@ -50416,7 +50416,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "Safari：喺 Safari › 設定 › 擴充功能開啟 Triwarden。Chromium 瀏覽器：用「載入未封裝擴充功能」載入資料夾，再執行 tw install-chrome <擴充功能 ID>。建議只顯示名稱；填入需要 Touch ID，儲存前會先問你。"
+            "value": "Safari：喺 Safari › 設定 › 擴充功能開啟 Triwarden。Chromium 瀏覽器：用「載入未封裝擴充功能」載入資料夾，再執行 tw install-chrome <擴充功能 ID>。建議只顯示名稱；填入要 Touch ID，儲存前會先問你。"
           }
         },
         "ko": {
@@ -50676,7 +50676,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "另存為…"
+            "value": "另存新檔…"
           }
         },
         "ko": {
@@ -50780,7 +50780,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "要將呢個登入資料儲存到 Triwarden 嗎？%@"
+            "value": "要將呢個登入資料存入 Triwarden 嗎？%@"
           }
         },
         "ko": {
@@ -50832,7 +50832,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "儲存至"
+            "value": "儲存到"
           }
         },
         "ko": {
@@ -50936,7 +50936,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "加密儲存喺你嘅保險庫，並同步到你其他裝置。"
+            "value": "加密儲存喺你嘅保險庫，同步到你其他裝置。"
           }
         },
         "ko": {
@@ -51040,7 +51040,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "儲存喺你嘅保險庫，所有裝置都用到。"
+            "value": "存入你嘅保險庫，每部裝置都用到。"
           }
         },
         "ko": {
@@ -51144,7 +51144,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "由螢幕上面嘅視窗或者複製咗嘅圖片掃描 QR 碼"
+            "value": "由螢幕上面嘅視窗或者複製咗嘅圖片入面掃描 QR 碼"
           }
         },
         "ko": {
@@ -51249,7 +51249,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "封得密實，\n只為你打開。"
+            "value": "封得好密實，\n淨係為你打開。"
           }
         },
         "ko": {
@@ -51561,7 +51561,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "搜尋或執行指令"
+            "value": "搜尋或者執行指令"
           }
         },
         "ko": {
@@ -51613,7 +51613,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "搜尋或執行指令（%@）"
+            "value": "搜尋或者執行指令（%@）"
           }
         },
         "ko": {
@@ -51717,7 +51717,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "搜尋以從任何項目填入。"
+            "value": "搜尋之後可以喺任何項目填入。"
           }
         },
         "ko": {
@@ -52029,7 +52029,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "喺 %lld 次資料外洩出現過"
+            "value": "喺 %lld 次資料外洩入面出現過"
           }
         },
         "ko": {
@@ -52601,7 +52601,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "只會把每個密碼 SHA-1 雜湊的前 5 個字元傳給 Have I Been Pwned，密碼本身不會離開這部 Mac。"
+            "value": "只會將每個密碼 SHA-1 雜湊嘅頭 5 個字元傳畀 Have I Been Pwned，密碼本身唔會離開呢部 Mac。"
           }
         },
         "ko": {
@@ -52705,7 +52705,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "每個請求都會附上，例如 Cloudflare Access 服務權杖。儲存在你的鎖匙圈。"
+            "value": "每個請求都會附上，例如 Cloudflare Access 服務權杖。會儲存喺你嘅鎖匙圈。"
           }
         },
         "ko": {
@@ -52965,7 +52965,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "幫對方帳戶設定新嘅主密碼，再用佢登入。"
+            "value": "幫對方帳戶設定新嘅主密碼，再用呢個密碼登入。"
           }
         },
         "ko": {
@@ -53435,7 +53435,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "透過會到期的加密連結，同任何人分享文字或檔案。"
+            "value": "用會失效嘅加密連結，同任何人分享文字或者檔案。"
           }
         },
         "ko": {
@@ -53487,7 +53487,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "同共享保險庫嘅成員共享呢啲項目。"
+            "value": "將呢啲項目分享畀共享保險庫嘅成員。"
           }
         },
         "ko": {
@@ -53539,7 +53539,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "同共享保險庫嘅成員共享呢個項目。"
+            "value": "將呢個項目分享畀共享保險庫嘅成員。"
           }
         },
         "ko": {
@@ -53851,7 +53851,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "與其他 %lld 個項目共用"
+            "value": "同其他 %lld 個項目共用"
           }
         },
         "ko": {
@@ -53903,7 +53903,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "過短或過於簡單的密碼容易被猜中。請產生更長的密碼。"
+            "value": "太短或者太簡單嘅密碼好易畀人猜到。試下產生長啲嘅密碼。"
           }
         },
         "ko": {
@@ -54163,7 +54163,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "顯示隱藏的值"
+            "value": "顯示隱藏嘅值"
           }
         },
         "ko": {
@@ -54267,7 +54267,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "喺安全監測顯示"
+            "value": "喺安全監測入面顯示"
           }
         },
         "ko": {
@@ -54371,7 +54371,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "呢個專注模式開咗嘅時候只顯示一個保險庫，例如團隊嘅共享保險庫。"
+            "value": "呢個專注模式開咗嘅時候淨係顯示一個保險庫，例如團隊嘅共享保險庫。"
           }
         },
         "ko": {
@@ -55055,7 +55055,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用通行密鑰登入"
+            "value": "用通行密鑰登入"
           }
         },
         "ko": {
@@ -55523,7 +55523,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已用 %@ 登入。你的主密碼會喺呢部 Mac 上解密保險庫。"
+            "value": "已用 %@ 登入。你嘅主密碼會喺呢部 Mac 上解密保險庫。"
           }
         },
         "ko": {
@@ -55575,7 +55575,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已喺其他所有裝置登出"
+            "value": "喺其他所有裝置登出咗"
           }
         },
         "ko": {
@@ -56304,7 +56304,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已解鎖帳戶中的 SSH 密鑰項目會提供俾 ssh 同 git 使用。每次簽署都需要 Touch ID 或 Mac 密碼；密鑰永遠唔會離開 App。"
+            "value": "已解鎖帳戶嘅 SSH 密鑰項目會畀 ssh 同 git 使用。每次簽署都要 Touch ID 或者你嘅 Mac 密碼；密鑰永遠唔會離開 App。"
           }
         },
         "ko": {
@@ -56916,7 +56916,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "登入 Triwarden 以搜尋你嘅保險庫"
+            "value": "登入 Triwarden 去搜尋你嘅保險庫"
           }
         },
         "zh-Hans": {
@@ -57084,7 +57084,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "此密鑰類型 Triwarden 無法使用"
+            "value": "呢種密鑰類型 Triwarden 用唔到"
           }
         },
         "ko": {
@@ -57606,7 +57606,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "剛剛同步"
+            "value": "啱啱同步咗"
           }
         },
         "ko": {
@@ -58126,7 +58126,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "這看起來不是有效的一次性驗證碼密匙。"
+            "value": "呢個睇落唔似有效嘅一次性驗證碼密匙。"
           }
         },
         "ko": {
@@ -58178,7 +58178,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "該檔案不是憑證。"
+            "value": "呢個檔案唔係憑證。"
           }
         },
         "ko": {
@@ -58282,7 +58282,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "該項目沒有一次性驗證碼。"
+            "value": "呢個項目冇一次性驗證碼。"
           }
         },
         "ko": {
@@ -58334,7 +58334,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "該項目沒有密碼。"
+            "value": "呢個項目冇密碼。"
           }
         },
         "ko": {
@@ -58386,7 +58386,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "該項目已經唔喺你的保險庫。"
+            "value": "呢個項目已經唔喺你嘅保險庫入面。"
           }
         },
         "ko": {
@@ -58750,7 +58750,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "檔案會從你所有裝置上的保險庫中移除。"
+            "value": "檔案會從你所有裝置嘅保險庫入面移除。"
           }
         },
         "ko": {
@@ -59062,7 +59062,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "PIN 碼只係喺 Triwarden 結束之前有效，而且永遠唔會寫入磁碟。"
+            "value": "PIN 碼用到 Triwarden 熄咗就得，而且永遠唔會寫落磁碟。"
           }
         },
         "ko": {
@@ -59218,7 +59218,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "伺服器傳回不安全的金鑰衍生設定，已停止登入。"
+            "value": "伺服器傳回唔安全嘅金鑰衍生設定，已經停止登入。"
           }
         },
         "ko": {
@@ -59270,7 +59270,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "今次登入冇被批准。"
+            "value": "今次登入冇人批准。"
           }
         },
         "ko": {
@@ -59374,7 +59374,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "呢度列出嘅值會被清除，已儲存嘅項目唔受影響。"
+            "value": "呢度列出嘅值會清走，已經儲存嘅項目唔受影響。"
           }
         },
         "ko": {
@@ -59530,7 +59530,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "這些密碼出現在已知的外洩資料中，請到各網站更改。"
+            "value": "呢啲密碼出現喺已知嘅外洩資料入面，請去每個網站改返。"
           }
         },
         "ko": {
@@ -59582,7 +59582,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "這些網站以 http:// 儲存，密碼會以未加密方式傳送。"
+            "value": "呢啲網站用 http:// 儲存，密碼傳送時冇加密。"
           }
         },
         "ko": {
@@ -59738,7 +59738,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "對方之後唔可以再申請存取你嘅密碼庫。之後可以再邀請。"
+            "value": "對方唔可以再申請存取你嘅保險庫。你之後可以再邀請佢哋。"
           }
         },
         "ko": {
@@ -59842,7 +59842,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "佢哋可以設定新嘅主密碼同使用你嘅帳戶。"
+            "value": "佢哋可以設定新主密碼，仲可以用你嘅帳戶。"
           }
         },
         "ko": {
@@ -59946,7 +59946,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "此帳戶使用 Argon2id，目前尚未支援。"
+            "value": "呢個帳戶用緊 Argon2id，暫時未支援。"
           }
         },
         "ko": {
@@ -59998,7 +59998,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "此動作無法復原。"
+            "value": "呢個做唔返轉頭。"
           }
         },
         "ko": {
@@ -60207,7 +60207,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "這部 Mac 沒有可用的 Touch ID。"
+            "value": "呢部 Mac 冇可用嘅 Touch ID。"
           }
         },
         "ko": {
@@ -60259,7 +60259,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "伺服器未認得呢部 Mac。請先用主密碼登入一次。"
+            "value": "伺服器仲未認得呢部 Mac。請先用主密碼登入一次。"
           }
         },
         "ko": {
@@ -60311,7 +60311,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "無法喺度使用呢個通行密鑰。"
+            "value": "呢個通行密鑰喺呢度用唔到。"
           }
         },
         "ko": {
@@ -60363,7 +60363,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "這會從這部 Mac 移除此帳戶及其儲存的保險庫，伺服器上的資料不受影響。"
+            "value": "呢個操作會喺呢部 Mac 移走呢個帳戶同埋儲存咗嘅保險庫。你嘅資料會保留喺伺服器。"
           }
         },
         "ko": {
@@ -60415,7 +60415,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "這會取代該登入項目上已儲存的通行密鑰。"
+            "value": "咁樣會取代嗰個登入項目入面已經儲存嘅通行密鑰。"
           }
         },
         "ko": {
@@ -60571,7 +60571,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "此網站需要 Triwarden 無法建立的密鑰類型。"
+            "value": "呢個網站要一種 Triwarden 建立唔到嘅密鑰類型。"
           }
         },
         "ko": {
@@ -60883,7 +60883,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "PIN 碼錯得太多次，已經停用 PIN 碼。請用主密碼。"
+            "value": "PIN 碼錯得太多次，已經關咗 PIN 碼。請用主密碼。"
           }
         },
         "ko": {
@@ -61093,7 +61093,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "Touch ID 會把每個帳戶的密碼匙封存在安全隔離區。先解鎖帳戶一次即可開啟；之後按一下就能打開所有已啟用的帳戶。"
+            "value": "Touch ID 會將每個帳戶嘅密碼匙封存喺安全隔離區。先解鎖帳戶一次就開到；之後按一下就能打開所有開咗嘅帳戶。"
           }
         },
         "ko": {
@@ -61145,7 +61145,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用 Touch ID 解鎖"
+            "value": "用 Touch ID 解鎖"
           }
         },
         "ko": {
@@ -61279,123 +61279,6 @@
         }
       }
     },
-    "Triwarden is available in English, 繁體中文, 繁體中文（香港）, 简体中文 and 日本語.": {
-      "extractionState": "stale",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden is available in English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español and ไทย."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden は English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español、ไทย に対応しています。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden 支持 English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español 和 ไทย。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden 支援 English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español 與 ไทย。"
-          }
-        },
-        "zh-HK": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden 支援 English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español 同 ไทย。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden은 English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español, ไทย을 지원합니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden est disponible en English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español et ไทย."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden está disponible en English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español y ไทย."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden รองรับ English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español และ ไทย"
-          }
-        }
-      }
-    },
-    "Triwarden is available in English, 繁體中文, 繁體中文（香港）, 简体中文 and 日本語. The AutoFill panel follows the system's language.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden is available in English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español and ไทย. The AutoFill panel follows the system's language."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden は English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español、ไทย に対応しています。自動入力パネルはシステムの言語に従います。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden 支持 English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español 和 ไทย。自动填充面板跟随系统语言。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden 支援 English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español 與 ไทย。自動填寫面板會依照系統語言。"
-          }
-        },
-        "zh-HK": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden 支援 English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español 同 ไทย。自動填寫面板會跟系統語言。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden은 English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español, ไทย을 지원합니다. 자동 완성 패널은 시스템 언어를 따릅니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden est disponible en English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español et ไทย. Le panneau de remplissage automatique suit la langue du système."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden está disponible en English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español y ไทย. El panel de autorrelleno sigue el idioma del sistema."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden รองรับ English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español และ ไทย แผงการป้อนอัตโนมัติจะใช้ภาษาของระบบ"
-          }
-        }
-      }
-    },
     "Triwarden is locked.": {
       "localizations": {
         "ja": {
@@ -61419,7 +61302,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "Triwarden 已鎖定。"
+            "value": "Triwarden 已經鎖定。"
           }
         },
         "ko": {
@@ -61471,7 +61354,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "Triwarden 已鎖定，請先解鎖。"
+            "value": "Triwarden 已經鎖定，要先解鎖。"
           }
         },
         "ko": {
@@ -61523,7 +61406,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "信任的憑證"
+            "value": "信任嘅憑證"
           }
         },
         "ko": {
@@ -62043,7 +61926,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在轉動鎖芯…"
+            "value": "轉緊鎖芯…"
           }
         },
         "ko": {
@@ -62095,7 +61978,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "tw get github · tw code github · tw list · tw generate。從保險庫讀取任何資料都需要先解鎖，並使用 Touch ID 或 Mac 密碼。"
+            "value": "tw get github · tw code github · tw list · tw generate。喺保險庫攞任何資料都要先解鎖，仲要用 Touch ID 或 Mac 密碼。"
           }
         },
         "ko": {
@@ -63499,7 +63382,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "解鎖以填入"
+            "value": "解鎖先填入"
           }
         },
         "ko": {
@@ -63551,7 +63434,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "解鎖以儲存通行密鑰"
+            "value": "解鎖先儲存通行密鑰"
           }
         },
         "ko": {
@@ -63591,7 +63474,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "解鎖以搜尋"
+            "value": "解鎖先搜尋"
           }
         },
         "zh-Hans": {
@@ -63655,7 +63538,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "解鎖以登入"
+            "value": "解鎖先登入"
           }
         },
         "ko": {
@@ -63811,7 +63694,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "解鎖你的保險庫"
+            "value": "解鎖你嘅保險庫"
           }
         },
         "ko": {
@@ -63863,7 +63746,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "解鎖你的保險庫"
+            "value": "解鎖你嘅保險庫"
           }
         },
         "ko": {
@@ -63967,7 +63850,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已解鎖"
+            "value": "已經解鎖"
           }
         },
         "ko": {
@@ -64007,7 +63890,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在解鎖…"
+            "value": "解鎖緊…"
           }
         },
         "zh-Hans": {
@@ -64071,7 +63954,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "取消置頂（由喜愛項目移除）"
+            "value": "取消置頂（移出喜愛項目）"
           }
         },
         "ko": {
@@ -64123,7 +64006,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "不安全的網站"
+            "value": "唔安全嘅網站"
           }
         },
         "ko": {
@@ -64280,7 +64163,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "更新卡"
+            "value": "更新呢張卡"
           }
         },
         "ko": {
@@ -64338,7 +64221,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "要更新「%1$@」（%2$@）的密碼嗎？"
+            "value": "要更新「%1$@」（%2$@）嘅密碼嗎？"
           }
         },
         "ko": {
@@ -64599,7 +64482,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用 / 建立子資料夾，例如 工作/伺服器。"
+            "value": "用 / 建立子資料夾，例如 工作/伺服器。"
           }
         },
         "ko": {
@@ -64651,7 +64534,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "互聯網上的伺服器請使用 https://，http:// 只允許用於區域網絡。"
+            "value": "互聯網上嘅伺服器請用 https://，http:// 只可以喺你嘅區域網絡用。"
           }
         },
         "ko": {
@@ -64755,7 +64638,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用此密碼"
+            "value": "用呢個密碼"
           }
         },
         "ko": {
@@ -64911,7 +64794,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用 Triwarden 作為 SSH 代理程式"
+            "value": "用 Triwarden 做 SSH 代理程式"
           }
         },
         "ko": {
@@ -64963,7 +64846,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用用戶名稱"
+            "value": "用用戶名稱"
           }
         },
         "ko": {
@@ -65119,7 +65002,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用系統信任的憑證。"
+            "value": "使用系統信任嘅憑證。"
           }
         },
         "ko": {
@@ -65327,7 +65210,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "你複製或使用嘅值會顯示喺呢度，直到保險庫鎖定。"
+            "value": "你複製或用過嘅值會顯示喺呢度，到保險庫鎖定為止。"
           }
         },
         "ko": {
@@ -65483,7 +65366,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "保險庫已鎖定"
+            "value": "保險庫鎖定咗"
           }
         },
         "ko": {
@@ -65535,7 +65418,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "保險庫已鎖定：請先解鎖 Triwarden 再搜尋"
+            "value": "保險庫鎖定咗：要先解鎖 Triwarden 先至搜尋到"
           }
         },
         "ko": {
@@ -65903,7 +65786,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "驗證這台 Mac"
+            "value": "驗證呢部 Mac"
           }
         },
         "ko": {
@@ -66060,7 +65943,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "非常強"
+            "value": "好強"
           }
         },
         "ko": {
@@ -66950,7 +66833,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "拖移以調整順序"
+            "value": "拖曳就可以改順序"
           }
         },
         "ko": {
@@ -67274,7 +67157,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已複製網站"
+            "value": "已複製咗網站"
           }
         },
         "zh-Hans": {
@@ -67390,7 +67273,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "歡迎回來"
+            "value": "歡迎返嚟"
           }
         },
         "ko": {
@@ -67546,7 +67429,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "時間到之後"
+            "value": "時間到嘅時候"
           }
         },
         "ko": {
@@ -67962,7 +67845,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "電郵或主密碼錯誤。"
+            "value": "電郵或者主密碼唔啱。"
           }
         },
         "ko": {
@@ -68014,7 +67897,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "主密碼錯誤。"
+            "value": "主密碼唔啱。"
           }
         },
         "ko": {
@@ -68378,7 +68261,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld 日內可以喺垃圾桶還原。"
+            "value": "%lld 日內可以喺垃圾桶攞返。"
           }
         },
         "ko": {
@@ -68430,7 +68313,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "之後可以喺垃圾桶還原。"
+            "value": "之後可以喺垃圾桶攞返。"
           }
         },
         "ko": {
@@ -68482,7 +68365,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "之後可以喺垃圾桶還原。"
+            "value": "之後可以喺垃圾桶攞返佢哋。"
           }
         },
         "ko": {
@@ -68534,7 +68417,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "你目前離線，變更需要連線到伺服器。"
+            "value": "你而家離線，改動要連線返你嘅伺服器。"
           }
         },
         "ko": {
@@ -68690,7 +68573,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "主密碼無法復原，就連伺服器也不行。如果你有設定提示，我們可以用電郵寄給你。"
+            "value": "主密碼恢復唔到，連伺服器都一樣。如果你設定咗提示，我哋可以寄電郵畀你。"
           }
         },
         "ko": {
@@ -68742,7 +68625,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "你的機構 SSO 識別碼。喺 Vaultwarden 上任何值都得。"
+            "value": "你嘅機構 SSO 識別碼。喺 Vaultwarden 任何值都得。"
           }
         },
         "ko": {
@@ -68794,7 +68677,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "你其他裝置會登出；呢部 Mac 會保持登入。"
+            "value": "你嘅其他裝置會登出；呢部 Mac 會保持登入。"
           }
         },
         "ko": {
@@ -68951,7 +68834,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "喺你解鎖之前，密碼庫都係加密咗存喺呢部 Mac。"
+            "value": "喺你解鎖之前，保險庫都係加密咗存喺呢部 Mac。"
           }
         },
         "ko": {
@@ -69512,7 +69395,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "要喺呢部 Mac 移除授權嗎？"
+            "value": "要由呢部 Mac 移除授權嗎？"
           }
         },
         "zh-Hans": {
@@ -69668,7 +69551,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "私人用途可免費使用完整功能。如果你用 Triwarden 管理工作帳戶，請購買授權。一份授權涵蓋你在所有 Mac 上的私人與工作用途。"
+            "value": "私人用途免費用，所有功能都有。如果你用 Triwarden 管理工作帳戶，請購買授權。一份授權涵蓋你喺所有 Mac 上嘅私人同工作用途。"
           }
         },
         "zh-Hans": {
@@ -69876,7 +69759,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "所有 Mac 通用"
+            "value": "你所有 Mac 都用得"
           }
         },
         "zh-Hans": {
@@ -70084,7 +69967,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "Stripe 結帳 · 一次付款，並非訂閱"
+            "value": "Stripe 結帳 · 一次付款，唔係訂閱"
           }
         },
         "zh-Hans": {
@@ -70188,7 +70071,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "付款後，已簽署的授權碼會寄到你的電郵。授權碼只會在這部 Mac 驗證，不會傳送到 Stripe、Triwarden 或其他授權伺服器。"
+            "value": "付款之後，簽好嘅授權碼會寄到你嘅電郵。授權碼只會喺呢部 Mac 驗證，唔會傳送去 Stripe、Triwarden 或者其他授權伺服器。"
           }
         },
         "zh-Hans": {
@@ -70292,7 +70175,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "呢部 Mac 嘅 Triwarden 已經註冊。"
+            "value": "呢部 Mac 嘅 Triwarden 已經註冊咗。"
           }
         },
         "zh-Hans": {
@@ -70916,7 +70799,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "所有功能都免費，冇時間限制。一次買斷嘅授權可以結束提醒，涵蓋一人喺佢所有 Mac，並支持專案繼續發展。"
+            "value": "所有功能都免費，冇時間限制。一次買斷嘅授權可以取消提醒，一人喺所有部 Mac 都適用，仲支持到項目繼續發展。"
           }
         },
         "zh-Hans": {
@@ -70968,7 +70851,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "工作帳戶包括公司電郵、公司 GitHub、客戶系統及接案服務。是否需要授權取決於用途，而不是 Mac 屬於誰。每人一份授權涵蓋其所有 Mac 上的私人與工作用途，不可多人共用。"
+            "value": "工作帳戶包括公司電郵、公司 GitHub、客戶系統同接案工作。使唔使授權視乎用途，而唔係視乎部 Mac 係邊個嘅。每人一份授權，私人同工作用途喺你所有部 Mac 都適用；唔可以多人共用。"
           }
         },
         "zh-Hans": {
@@ -71072,7 +70955,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "了解更多"
+            "value": "了解多啲"
           }
         },
         "zh-Hans": {
@@ -71136,7 +71019,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "按住 Shift 會額外送出 Return（提交表格）"
+            "value": "按住 Shift 會同時撳 Return（提交表格）"
           }
         },
         "ko": {
@@ -71188,7 +71071,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "輸入密碼，然後提交"
+            "value": "輸入密碼，跟住提交"
           }
         },
         "ko": {
@@ -71240,7 +71123,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "輸入用戶名稱同密碼，然後提交"
+            "value": "輸入用戶名稱同密碼，跟住提交"
           }
         },
         "ko": {
@@ -71292,7 +71175,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "輸入用戶名稱，然後提交"
+            "value": "輸入用戶名稱，跟住提交"
           }
         },
         "ko": {
@@ -71344,7 +71227,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "打完用戶名稱同密碼，登入頁送出"
+            "value": "兩個都打完，登入就跟住提交"
           }
         },
         "ko": {
@@ -71396,7 +71279,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "把用戶名稱同密碼打入嗰個 App"
+            "value": "喺嗰個 App 輸入用戶名稱同密碼"
           }
         },
         "ko": {
@@ -71448,7 +71331,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "打完用戶名稱，登入頁送出"
+            "value": "打完用戶名稱，登入就跟住提交"
           }
         },
         "ko": {
@@ -71500,7 +71383,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "只把用戶名稱打入嗰個 App"
+            "value": "喺嗰個 App 只輸入用戶名稱"
           }
         },
         "ko": {
@@ -71552,7 +71435,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "打完密碼，登入頁送出"
+            "value": "打完密碼，登入就跟住提交"
           }
         },
         "ko": {
@@ -71604,7 +71487,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "只把密碼打入嗰個 App"
+            "value": "喺嗰個 App 只輸入密碼"
           }
         },
         "ko": {
@@ -71708,7 +71591,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "命令面板開喺其他 App 上面時，按一次就得。Shift 同嗰個鍵一齊按住。Triwarden 打完字，會自己喺嗰個 App 度按 Return，登入頁就送出。"
+            "value": "指令面板開喺其他 App 上面時，按一次就得。Shift 同嗰個鍵一齊按住。Triwarden 打完字，會自己喺嗰個 App 度撳 Return，登入就跟住提交。"
           }
         },
         "ko": {
@@ -71812,7 +71695,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "送出"
+            "value": "提交"
           }
         },
         "ko": {
@@ -71837,64 +71720,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "ส่ง"
-          }
-        }
-      }
-    },
-    "Triwarden is available in English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español and ไทย.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden is available in English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español and ไทย."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden は English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español、ไทย に対応しています。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden 支持 English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español 和 ไทย。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden 支援 English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español 與 ไทย。"
-          }
-        },
-        "zh-HK": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden 支援 English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español 同 ไทย。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden은 English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español, ไทย을 지원합니다."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden est disponible en English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español et ไทย."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden está disponible en English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español y ไทย."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Triwarden รองรับ English, 繁體中文, 粵語, 简体中文, 日本語, 한국어, Français, Español และ ไทย"
           }
         }
       }
@@ -71928,7 +71753,7 @@
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "Triwarden 支援 English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español 同 ไทย。自動填寫面板會跟系統語言。"
+            "value": "Triwarden 支援 English、繁體中文、粵語、简体中文、日本語、한국어、Français、Español 同 ไทย。自動填寫面板會跟住系統語言。"
           }
         },
         "ko": {
