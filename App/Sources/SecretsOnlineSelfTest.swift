@@ -80,7 +80,9 @@ enum SecretsOnlineSelfTest {
             var profile = SecretsProfile(name: "canary", accountID: account, itemID: itemID, field: .hidden("api-key"),
                 variable: "TRIWARDEN_TEST_KEY", executable: "/bin/sh",
                 arguments: ["-c", "test \"${TRIWARDEN_TEST_KEY:-}\" = triwarden-test-only || exit 98; printf received > \"$1\"; exit 37", "canary", marker.path],
-                directory: "/tmp")
+                // Process-spawned helpers inherit the App sandbox; use its disposable App Group directory.
+                // The unsandboxed terminal /tmp case is covered by the real-process package regression.
+                directory: root.path)
             try controller.save(profile)
             guard controller.lastError == nil else { throw SecretsFailure(controller.lastError!) }
             check(true, "enabled native profile starts its isolated socket")

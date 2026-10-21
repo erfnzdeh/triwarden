@@ -59,6 +59,19 @@ struct SecretsAgentTests {
         #expect(throws: (any Error).self) { try before.verify(p) }
     }
 
+    @Test func launchPathsRetainTheirPhysicalPrivatePrefix() throws {
+        let root = URL(fileURLWithPath: "/private/tmp/tw-path-" + UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let target = root.appendingPathComponent("tool")
+        try Data("#!/bin/sh\nexit 0\n".utf8).write(to: target)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: target.path)
+        var p = profile(); p.executable = target.path
+        let identity = try LaunchIdentity.capture(p)
+        #expect(identity.directory == "/private/tmp")
+        #expect(identity.executable.path == target.path)
+    }
+
     @Test func profileStoreRoundTripAndPrivatePermissions() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

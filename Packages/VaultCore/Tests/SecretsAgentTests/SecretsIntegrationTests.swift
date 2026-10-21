@@ -10,7 +10,7 @@ struct SecretsIntegrationTests {
         return try #require(candidates.map { root.appendingPathComponent($0) }.first { FileManager.default.isExecutableFile(atPath: $0.path) })
     }
 
-    private func run(mode: String, sealedBundle: Bool = false, tamper: Bool = false) throws -> (Int32, String) {
+    private func run(mode: String, sealedBundle: Bool = false, tamper: Bool = false, directory: String? = nil) throws -> (Int32, String) {
         // Short path: sockaddr_un has a small fixed size on macOS.
         let root = URL(fileURLWithPath: "/tmp/tw-test-" + UUID().uuidString.prefix(8))
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -39,7 +39,7 @@ struct SecretsIntegrationTests {
         let store = SecretsProfileStore(directory: root.appendingPathComponent("profile"))
         var p = SecretsProfile(name: "test", accountID: "synthetic", itemID: "synthetic", field: .password,
                                variable: "API_KEY", executable: "/bin/sh",
-                               arguments: ["-c", "test \"$API_KEY\" = triwarden-canary && test -z \"$OTHER_SECRET\" && test -z \"$NODE_OPTIONS\" || exit 99; exit 37"], directory: root.path)
+                               arguments: ["-c", "test \"$API_KEY\" = triwarden-canary && test -z \"$OTHER_SECRET\" && test -z \"$NODE_OPTIONS\" || exit 99; exit 37"], directory: directory ?? root.path)
         if mode == "large" { p.arguments = ["-c", "test \"${#API_KEY}\" -eq 32768 || exit 99; exit 37"] }
         try store.save(p)
         let server = Process(), ready = Pipe(), serverErrors = Pipe()
@@ -71,6 +71,12 @@ struct SecretsIntegrationTests {
 
     @Test func signedPeersDeliverCanaryAndExecPreservesExitCode() throws {
         let (code, error) = try run(mode: "allow")
+        #expect(code == 37, Comment(rawValue: error))
+        #expect(error.isEmpty)
+    }
+
+    @Test func systemTmpWorkingDirectorySupportsActualExec() throws {
+        let (code, error) = try run(mode: "allow", directory: "/tmp")
         #expect(code == 37, Comment(rawValue: error))
         #expect(error.isEmpty)
     }

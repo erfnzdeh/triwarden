@@ -147,6 +147,14 @@ if isRun {
         }
         // Resolve only the saved absolute executable. A caller-supplied PATH cannot choose the target.
         let identity = try LaunchIdentity.capture(profile)
+        #if DEBUG
+        if first == "--selftest-secrets-run" {
+            // Catch an unusable fixture working directory before asking for authentication.
+            let directoryFD = open(identity.directory, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            guard directoryFD >= 0 else { throw SecretsFailure("The self-test helper cannot open its working directory (OS error \(errno)).") }
+            close(directoryFD)
+        }
+        #endif
         let request = SecretsRunRequest(profile: profile, revision: try profile.revision(), launch: identity)
         var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
         guard proc_pidpath(getpid(), &buffer, UInt32(buffer.count)) > 0 else {

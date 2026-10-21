@@ -2,6 +2,13 @@ import CryptoKit
 import Darwin
 import Foundation
 
+/// Foundation may shorten /private/tmp back to the /tmp symlink. Kernel open/exec checks need the physical path.
+private func physicalLaunchPath(_ path: String) -> String? {
+    guard let resolved = realpath(path, nil) else { return nil }
+    defer { free(resolved) }
+    return String(cString: resolved)
+}
+
 public enum LaunchPolicy {
     public static let searchPath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
     private static let inherited: Set<String> = ["HOME", "USER", "LOGNAME", "TERM", "COLORTERM", "LANG", "LC_ALL", "LC_CTYPE", "LC_MESSAGES", "TMPDIR", "TZ"]
@@ -40,7 +47,9 @@ public struct ExecutableIdentity: Codable, Equatable, Sendable {
     public let digest: String
 
     public static func capture(_ path: String) throws -> Self {
-        let canonical = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+        guard let canonical = physicalLaunchPath(path) else {
+            throw SecretsFailure("The saved executable cannot be opened. Check its path in Settings › Secrets.")
+        }
         let fd = open(canonical, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
         guard fd >= 0 else { throw SecretsFailure("The saved executable cannot be opened. Check its path in Settings › Secrets.") }
         defer { close(fd) }
@@ -73,7 +82,7 @@ public struct LaunchIdentity: Codable, Equatable, Sendable {
 
     public static func capture(_ profile: SecretsProfile) throws -> Self {
         try profile.validate()
-        let dir = URL(fileURLWithPath: profile.directory).resolvingSymlinksInPath().path
+        guard let dir = physicalLaunchPath(profile.directory) else { throw SecretsFailure("The saved working directory is missing.") }
         var info = stat()
         guard stat(dir, &info) == 0, info.st_mode & S_IFMT == S_IFDIR else {
             throw SecretsFailure("The saved working directory is missing.")
