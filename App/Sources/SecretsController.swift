@@ -8,11 +8,14 @@ import SwiftUI
 /// Owns approval, never launches the target. Only the authenticated bundled CLI receives the value.
 @MainActor @Observable
 final class SecretsController: NSObject, NSWindowDelegate {
+    static let approvalTimeout: Duration = .seconds(60)
+
     struct Prompt {
         let request: SecretsRunRequest
         let credential: String
         let account: String
         let helper: String
+        let deadline: ContinuousClock.Instant
     }
     private(set) var profile: SecretsProfile?
     private(set) var lastError: String?
@@ -110,7 +113,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
             try gate.begin(request.nonce)
         } catch { peer.reply(failure(error.localizedDescription)); return }
         defer { gate.finish(request.nonce); complete(false) }
-        let deadline = ContinuousClock.now.advanced(by: .seconds(60))
+        let deadline = ContinuousClock.now.advanced(by: Self.approvalTimeout)
         let watcher = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(250))
@@ -135,7 +138,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
                 throw SecretsFailure("The request was cancelled, the account locked, or the profile changed.")
             }
             let selected = try item(for: request.profile)
-            pending = Prompt(request: request, credential: Self.display(selected.name), account: Self.display(session.account.email + " · " + session.account.serverSummary), helper: peer.executable.path)
+            pending = Prompt(request: request, credential: Self.display(selected.name), account: Self.display(session.account.email + " · " + session.account.serverSummary), helper: peer.executable.path, deadline: deadline)
             let allowed = await withCheckedContinuation { continuation in
                 answer = continuation
                 showPanel()

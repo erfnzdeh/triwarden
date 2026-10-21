@@ -71,9 +71,7 @@ struct SecretsApprovalView: View {
                     .padding(.horizontal, 24).padding(.top, 14).padding(.bottom, 2)
                 FormFooter(action: "Allow This Launch…", cancelTitle: "Deny", defaultAction: false, busy: authenticating,
                            cancel: deny, submit: allow) {
-                    Text("Requests expire after 60 seconds.")
-                        .font(.system(size: 11)).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    DeadlineCountdown(deadline: prompt.deadline, duration: SecretsController.approvalTimeout)
                 }
             }
             .background(alignment: .top) { Divider().opacity(0.5) }

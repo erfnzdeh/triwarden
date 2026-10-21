@@ -45,7 +45,7 @@ Locking Triwarden cancels pending approvals and stops new deliveries. Delivery c
 
 - Commands are saved in the native settings page. `tw run --profile NAME -- arbitrary-command` is intentionally rejected, regardless of whether the caller has a terminal. A TTY does not prove a request came from a human.
 - Every launch asks again. One request can wait at a time. Denying, closing or timing out a request introduces a short cooldown to reduce repeated prompts.
-- Requests expire after 60 seconds, including refresh time. Closing the terminal or disconnecting cancels the request.
+- Requests expire after 60 seconds, including refresh time. The footer's countdown ring shows the actual seconds remaining and turns orange for the last five seconds. It continues during macOS authentication and uses the same monotonic deadline as authorization. Closing the terminal or disconnecting cancels the request.
 - A missing, renamed, duplicated or no-longer-hidden custom field must be selected again in **Settings → Secrets**. There is no fuzzy fallback to another field.
 - Trashed, archived, unsupported and inaccessible items cannot be used. Items requiring an additional master-password re-prompt are unsupported by `tw run` in this release; their protection is not bypassed.
 - If the vault cannot refresh online, nothing starts. There is no silent cache fallback in this version.
@@ -88,7 +88,7 @@ Run `make selftest-secrets-presentation` on an unlocked GUI desktop to check tha
 
 If no card appears, check that the Mac running Triwarden is unlocked and that a local or remote desktop session is available. Diagnostic runs report a Keychain status code if profile confirmation cannot be written; `-25308` means interaction was not allowed. No profile confirmation or credential delivery is bypassed when Keychain is unavailable.
 
-The signed Debug binary's `--selftest-secrets-preview` mode renders synthetic light, dark, compact, long-command and authentication-in-progress layouts. It opens no vault, Keychain or socket and never authenticates. Use `TRIWARDEN_SNAPSHOT_STDOUT=1` with the existing snapshot stream to export these images without accessing the App container directly.
+The signed Debug binary's `--selftest-secrets-preview` mode renders synthetic light, dark, compact, long-command, authentication-in-progress and last-five-seconds layouts. It opens no vault, Keychain or socket and never authenticates. Use `TRIWARDEN_SNAPSHOT_STDOUT=1` with the existing snapshot stream to export these images without accessing the App container directly.
 
 Before release, verify the complete native flow with a disposable vault item:
 

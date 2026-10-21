@@ -19,13 +19,15 @@ enum Snapshot {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("secrets-preview-" + UUID().uuidString)
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            for (name, appearance, size, busy, long) in [
-                ("light", NSAppearance.Name.aqua, CGSize(width: 600, height: 720), false, false),
-                ("dark", .darkAqua, CGSize(width: 600, height: 720), false, false),
-                ("compact", .aqua, CGSize(width: 540, height: 520), false, false),
-                ("long", .aqua, CGSize(width: 600, height: 720), false, true),
-                ("busy", .darkAqua, CGSize(width: 600, height: 720), true, false)
-            ] {
+            let cases: [(String, NSAppearance.Name, CGSize, Bool, Bool, Int)] = [
+                ("light", NSAppearance.Name.aqua, CGSize(width: 600, height: 720), false, false, 60),
+                ("dark", .darkAqua, CGSize(width: 600, height: 720), false, false, 37),
+                ("compact", .aqua, CGSize(width: 540, height: 520), false, false, 24),
+                ("long", .aqua, CGSize(width: 600, height: 720), false, true, 18),
+                ("busy", .darkAqua, CGSize(width: 600, height: 720), true, false, 12),
+                ("urgent", .darkAqua, CGSize(width: 540, height: 520), false, false, 5)
+            ]
+            for (name, appearance, size, busy, long, seconds) in cases {
                 let profile = SecretsProfile(name: "agent-dev", accountID: "synthetic", itemID: "synthetic", field: .hidden("api-key"),
                     variable: "ANTHROPIC_API_KEY", executable: "/usr/bin/env",
                     arguments: long ? ["node", "./packages/development-assistant/scripts/run-local-agent-with-project-configuration.mjs", "--project", "/Users/alex/Projects/assistant/experiments/customer-support-and-document-search", ""] : ["node", "scripts/agent.mjs"],
@@ -33,7 +35,8 @@ enum Snapshot {
                 let request = SecretsRunRequest(profile: profile, revision: try profile.revision(), launch: try LaunchIdentity.capture(profile))
                 let prompt = SecretsController.Prompt(request: request,
                     credential: long ? "Development API credential for the local documentation and customer support assistant" : "Anthropic · development",
-                    account: "alex@example.com · vault.example.com", helper: "/Applications/Triwarden.app/Contents/MacOS/tw")
+                    account: "alex@example.com · vault.example.com", helper: "/Applications/Triwarden.app/Contents/MacOS/tw",
+                    deadline: .now.advanced(by: .seconds(seconds)))
                 render(SecretsApprovalView(prompt: prompt, authenticating: busy, deny: {}, allow: {})
                     .environment(\.colorScheme, appearance == .darkAqua ? .dark : .light),
                     size: size, appearance: appearance, to: dir.appendingPathComponent("secrets-approval-" + name + ".png"))
