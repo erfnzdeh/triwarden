@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import Foundation
 import LocalAuthentication
 import Observation
@@ -16,6 +17,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
         let account: String
         let helper: String
         let deadline: ContinuousClock.Instant
+        var caller: SecretsCallerIdentity? = nil
     }
     private(set) var profile: SecretsProfile?
     private(set) var lastError: String?
@@ -28,9 +30,17 @@ final class SecretsController: NSObject, NSWindowDelegate {
     @ObservationIgnored private var server: SecretsServer?
     @ObservationIgnored private var gate = RunGate()
     @ObservationIgnored private var panel: NSPanel?
-    @ObservationIgnored private var answer: CheckedContinuation<Bool, Never>?
+    @ObservationIgnored private var answer: CheckedContinuation<SecretsGrantDuration?, Never>?
     @ObservationIgnored private var authentication: LAContext?
     @ObservationIgnored private var refreshWork: Task<Void, any Error>?
+    private var grants = SecretsGrantStore()
+    @ObservationIgnored private let fingerprintKey = SymmetricKey(size: .bits256)
+    var activeGrantCount: Int { grants.activeCount() }
+    #if DEBUG
+    private(set) var lastDeliveryDuration: SecretsGrantDuration?
+    // UI fixture configuration only; this never grants access or bypasses authentication.
+    var selfTestInitialDuration: SecretsGrantDuration = .once
+    #endif
 
     init(model: AppModel, start: Bool = true, store: SecretsProfileStore = .shared,
          confirmation: SecretsProfileConfirmation = SecretsProfileConfirmation()) {
@@ -73,8 +83,9 @@ final class SecretsController: NSObject, NSWindowDelegate {
 
     func reset() {
         gate.cancel()
+        grants.reset()
         refreshWork?.cancel()
-        complete(false)
+        complete(nil)
     }
 
     private func current(_ request: SecretsRunRequest, peer: SecretsPeer) -> Bool {
@@ -112,7 +123,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
             try saved.requireApprovedRevision(confirmation.read())
             try gate.begin(request.nonce)
         } catch { peer.reply(failure(error.localizedDescription)); return }
-        defer { gate.finish(request.nonce); complete(false) }
+        defer { gate.finish(request.nonce); complete(nil) }
         let deadline = ContinuousClock.now.advanced(by: Self.approvalTimeout)
         let watcher = Task { [weak self] in
             while !Task.isCancelled {
@@ -138,12 +149,25 @@ final class SecretsController: NSObject, NSWindowDelegate {
                 throw SecretsFailure("The request was cancelled, the account locked, or the profile changed.")
             }
             let selected = try item(for: request.profile)
-            pending = Prompt(request: request, credential: Self.display(selected.name), account: Self.display(session.account.email + " · " + session.account.serverSummary), helper: peer.executable.path, deadline: deadline)
-            let allowed = await withCheckedContinuation { continuation in
-                answer = continuation
-                showPanel()
+            try request.launch.verify(request.profile)
+            let caller = try peer.caller()
+            let fingerprint = try credentialFingerprint(selected, profile: request.profile)
+            grants.retain(revision: request.revision, credentialFingerprint: fingerprint, launch: request.launch)
+            let binding = caller.map {
+                SecretsGrantBinding(caller: $0, helper: peer.executable.path, revision: request.revision,
+                                    credentialFingerprint: fingerprint, launch: request.launch)
             }
-            guard allowed, ContinuousClock.now < deadline, current(request, peer: peer) else {
+            let cached = binding.flatMap { grants.allowed($0) }
+            let choice: SecretsGrantDuration?
+            if let cached { choice = cached }
+            else {
+                pending = Prompt(request: request, credential: Self.display(selected.name), account: Self.display(session.account.email + " · " + session.account.serverSummary), helper: peer.executable.path, deadline: deadline, caller: caller)
+                choice = await withCheckedContinuation { continuation in
+                    answer = continuation
+                    showPanel()
+                }
+            }
+            guard let choice, ContinuousClock.now < deadline, current(request, peer: peer) else {
                 throw SecretsFailure("The launch was denied, cancelled, or expired. No command was started.")
             }
             try peer.validate()
@@ -153,60 +177,91 @@ final class SecretsController: NSObject, NSWindowDelegate {
             }
             let value = try request.profile.field.resolve(password: latest.password,
                 fields: latest.customFields.map { SecretField(name: $0.name, value: $0.value, hidden: $0.kind == .hidden) })
-            guard ContinuousClock.now < deadline, current(request, peer: peer) else { throw SecretsFailure("The launch was cancelled before delivery.") }
-            model?.noteActivity()
+            try request.launch.verify(request.profile)
+            guard try peer.caller() == caller else { throw SecretsFailure("The calling process changed during approval. Run the command again.") }
+            // Cached authorization must still be live at delivery, even if refresh/checks crossed its deadline.
+            if let cached, let binding, grants.allowed(binding) != cached {
+                throw SecretsFailure("Temporary access expired. Run the command again to approve it.")
+            }
+            guard current(request, peer: peer), ContinuousClock.now < deadline,
+                  cached == nil || binding.map({ grants.allowed($0) == cached }) == true else {
+                throw SecretsFailure("The launch was cancelled or temporary access expired before delivery.")
+            }
+            // Background restarts must not keep an idle vault unlocked indefinitely.
+            if cached == nil { model?.noteActivity() }
             // Main actor: lock/reset cannot run between this check and the nonblocking send.
-            peer.reply(.init(nonce: request.nonce, revision: request.revision, value: value))
+            if peer.reply(.init(nonce: request.nonce, revision: request.revision, value: value)) {
+                if cached == nil, let binding { grants.grant(choice, for: binding) }
+                #if DEBUG
+                lastDeliveryDuration = choice
+                #endif
+            } else { reset() }
         } catch {
             gate.cancel()
+            grants.reset()
             peer.reply(failure(error.localizedDescription))
         }
     }
 
     func deny() { reset() }
 
-    func allow() {
+    func allow(_ duration: SecretsGrantDuration = .once) {
         guard let prompt = pending, !authenticating, gate.allows(prompt.request.nonce) else { return }
+        guard duration == .once || prompt.caller != nil else { return }
         authenticating = true
         let context = LAContext()
         authentication = context
         context.localizedCancelTitle = String(localized: "Deny")
+        let reason: String
+        switch duration {
+        case .once: reason = String(localized: "provide one API credential to the saved development command")
+        case .tenMinutes: reason = String(localized: "allow the saved development command to use one API credential for 10 minutes")
+        case .untilLock: reason = String(localized: "allow the saved development command to use one API credential until Triwarden locks")
+        }
         Task { [weak self] in
             let allowed = (try? await context.evaluatePolicy(.deviceOwnerAuthentication,
-                localizedReason: String(localized: "provide one API credential to the saved development command"))) == true
+                localizedReason: reason)) == true
             guard let self, self.pending?.request.nonce == prompt.request.nonce else { return }
-            if allowed && self.gate.allows(prompt.request.nonce) { self.complete(true) }
+            if allowed && self.gate.allows(prompt.request.nonce) { self.complete(duration) }
             else { self.reset() }
         }
     }
 
-    private func complete(_ allowed: Bool) {
+    private func complete(_ duration: SecretsGrantDuration?) {
         authentication?.invalidate(); authentication = nil
         authenticating = false
         pending = nil
         panel?.orderOut(nil)
         let continuation = answer; answer = nil
-        continuation?.resume(returning: allowed)
+        continuation?.resume(returning: duration)
+    }
+
+    private func credentialFingerprint(_ item: VaultItem, profile: SecretsProfile) throws -> String {
+        let value = try profile.field.resolve(password: item.password,
+            fields: item.customFields.map { SecretField(name: $0.name, value: $0.value, hidden: $0.kind == .hidden) })
+        let data = try JSONEncoder().encode([item.name, String(describing: item.revised), value])
+        return HMAC<SHA256>.authenticationCode(for: data, using: fingerprintKey).map { String(format: "%02x", $0) }.joined()
     }
 
     private func showPanel() {
         if panel == nil {
             let height = min(720, max(520, (NSScreen.main?.visibleFrame.height ?? 800) - 80))
-            let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 600, height: height),
-                                styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+            let panel = SecretsAccessPanel(contentRect: NSRect(x: 0, y: 0, width: 600, height: height),
+                                styleMask: [.titled, .closable, .resizable, .nonactivatingPanel], backing: .buffered, defer: false)
             panel.title = String(localized: "Approve credential access")
             panel.titleVisibility = .hidden
             panel.titlebarAppearsTransparent = true
             panel.contentMinSize = NSSize(width: 540, height: 520)
             panel.isReleasedWhenClosed = false
+            panel.isFloatingPanel = true
             panel.level = .floating
             // The requester may keep focus; activation is cooperative and isn't guaranteed to succeed.
             panel.hidesOnDeactivate = false
+            panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
             panel.delegate = self
             panel.contentView = NSHostingView(rootView: SecretsApprovalPanelContent(controller: self))
             self.panel = panel
         }
-        NSApp.activate()
         panel?.center()
         panel?.makeKeyAndOrderFront(nil)
     }
@@ -216,4 +271,9 @@ final class SecretsController: NSObject, NSWindowDelegate {
     static func display(_ value: String) -> String {
         String(value.unicodeScalars.filter { !CharacterSet.controlCharacters.contains($0) && $0.properties.generalCategory != .format }.prefix(512))
     }
+}
+
+private final class SecretsAccessPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
 }

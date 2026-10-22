@@ -51,6 +51,15 @@ struct ToolLaunchesPane: View {
                 if let error = model.secrets.lastError {
                     Text(verbatim: error).font(.system(size: 12)).foregroundStyle(.orange)
                 }
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    if model.secrets.activeGrantCount > 0 {
+                        HStack {
+                            Text("Temporary access is active for this tool.")
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                            Button("Revoke Access") { model.secrets.reset() }.buttonStyle(.appSecondarySmall)
+                        }
+                    }
+                }
                 if let item, item.isAPIKey {
                     HStack {
                         Button("Edit Tool Setup…") { model.provideKeyToTool(item) }.buttonStyle(.appSecondary)
@@ -64,7 +73,7 @@ struct ToolLaunchesPane: View {
                 }
             }
             FormCard(title: "Use it from your terminal") {
-                Text("Run this whenever you want to start the tool. Triwarden will show the command and ask for your approval.")
+                Text("Run this whenever you want to start the tool. Triwarden asks for approval unless temporary access from this terminal or launcher is still active.")
                     .font(.system(size: 13)).foregroundStyle(.secondary)
                 Text(verbatim: "tw run --profile " + profile.name)
                     .font(.system(size: 13, design: .monospaced)).textSelection(.enabled)

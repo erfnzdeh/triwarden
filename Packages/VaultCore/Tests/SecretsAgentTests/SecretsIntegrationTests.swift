@@ -75,6 +75,12 @@ struct SecretsIntegrationTests {
         #expect(error.isEmpty)
     }
 
+    @Test func authenticatedPeerResolvesItsActualSignedParent() throws {
+        let (code, error) = try run(mode: "caller")
+        #expect(code == 37, Comment(rawValue: error))
+        #expect(error.isEmpty)
+    }
+
     @Test func systemTmpWorkingDirectorySupportsActualExec() throws {
         let (code, error) = try run(mode: "allow", directory: "/tmp")
         #expect(code == 37, Comment(rawValue: error))

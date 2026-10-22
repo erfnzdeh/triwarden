@@ -13,7 +13,7 @@ import Security
 let usage = """
 usage: tw <command> [arguments]
 
-  run --profile NAME        launch the saved command with one vault credential (Settings › Secrets)
+  run --profile NAME        launch a saved tool with one vault credential (Tools & Projects)
   status                    whether the vault is unlocked
   list [query]              items (name, username/site); needs approval
   get <item> [--field F]    print a field: password (default), username, uri, notes, totp, or a custom field
@@ -143,7 +143,7 @@ if isRun {
         let store = runStore
         let profile = try store.load()
         guard profile.enabled, profile.name == name else {
-            throw SecretsFailure("The requested profile is missing or disabled. Check Settings › Secrets.")
+            throw SecretsFailure("The requested tool is missing or paused. Open Tools & Projects to review or resume it.")
         }
         // Resolve only the saved absolute executable. A caller-supplied PATH cannot choose the target.
         let identity = try LaunchIdentity.capture(profile)

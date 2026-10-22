@@ -58,6 +58,9 @@ enum SecretsOnlineSelfTest {
             })
             activeModel = model
             let controller = model.secrets!
+            // Seed a nondefault UI selection to exercise duration reuse. The real
+            // approval button and device-owner authentication are still required.
+            if interactive { controller.selfTestInitialDuration = .untilLock }
             let port = ProcessInfo.processInfo.environment["TRIWARDEN_SECRETS_TEST_PORT"] ?? "28880"
             guard let number = UInt16(port), number > 0 else { throw SecretsFailure("Invalid loopback test port.") }
             model.serverKind = .selfHosted
@@ -125,32 +128,82 @@ enum SecretsOnlineSelfTest {
                 check(status != 0 && status != 37 && !fm.fileExists(atPath: marker.path) && controller.pending == nil, label)
             }
             if presentation {
-                let child = try launch(); try await pending(child)
-                try await Task.sleep(for: .milliseconds(500))
-                let panel = NSApp.windows.first { $0.title == String(localized: "Approve credential access") }
-                // Reproduce the caller retaining foreground focus, even if this activation happened to succeed.
                 guard let otherApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first else {
                     throw SecretsFailure("The presentation probe needs a running Finder for cooperative focus handoff.")
                 }
+                let witness = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200),
+                                       styleMask: [.titled, .closable], backing: .buffered, defer: false)
+                witness.isReleasedWhenClosed = false
+                witness.orderOut(nil)
                 NSApp.yieldActivation(to: otherApp)
                 _ = otherApp.activate()
-                let focusDeadline = ContinuousClock.now.advanced(by: .seconds(2))
-                while NSApp.isActive && .now < focusDeadline { try await Task.sleep(for: .milliseconds(50)) }
                 try await Task.sleep(for: .milliseconds(500))
-                check(!NSApp.isActive, "presentation probe places Triwarden in the background")
+                // Activation is cooperative: macOS may leave the user's current app
+                // in front instead of Finder. Preserve the actual foreground app.
+                guard let foreground = NSWorkspace.shared.frontmostApplication?.processIdentifier, foreground != getpid() else {
+                    throw SecretsFailure("Presentation check requires another foreground app on an unlocked desktop.")
+                }
+                let child = try launch(); try await pending(child)
+                try await Task.sleep(for: .milliseconds(500))
+                let panel = NSApp.windows.first { $0.title == String(localized: "Approve credential access") }
+                check(NSWorkspace.shared.frontmostApplication?.processIdentifier == foreground && !witness.isVisible,
+                      "showing credential approval preserves foreground app and leaves ordinary windows hidden")
+                try await Task.sleep(for: .milliseconds(500))
+                // A nonactivating panel can be key while AppKit reports isActive; the
+                // workspace's foreground application is the observable focus contract.
+                check(NSWorkspace.shared.frontmostApplication?.processIdentifier == foreground,
+                      "presentation probe keeps the original foreground application")
                 print("PRESENTATION active=\(NSApp.isActive) policy=\(NSApp.activationPolicy().rawValue) panelVisible=\(panel?.isVisible == true) key=\(panel?.isKeyWindow == true) onActiveSpace=\(panel?.isOnActiveSpace == true) unoccluded=\(panel?.occlusionState.contains(.visible) == true) hidesOnDeactivate=\(panel?.hidesOnDeactivate == true) frontmostIsSelf=\(NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid())")
                 fflush(stdout)
-                check(!NSApp.isActive && panel?.isVisible == true && panel?.isOnActiveSpace == true && panel?.occlusionState.contains(.visible) == true,
-                      "approval card remains visible on the active Space while Triwarden is inactive")
+                check(NSWorkspace.shared.frontmostApplication?.processIdentifier == foreground &&
+                      panel?.isVisible == true && panel?.isOnActiveSpace == true && panel?.occlusionState.contains(.visible) == true,
+                      "approval card remains visible while another app stays in front")
+                check(panel?.styleMask.contains(.nonactivatingPanel) == true && panel?.canBecomeMain == false,
+                      "credential approval uses an independent nonactivating panel")
+                check(panel?.collectionBehavior.contains(.moveToActiveSpace) == true &&
+                      panel?.collectionBehavior.contains(.fullScreenAuxiliary) == true,
+                      "credential approval follows the active Space and supports fullscreen auxiliary presentation")
                 controller.deny()
                 noLaunch(try await finished(child), "presentation probe cancels without exec")
             } else if interactive {
-                print("ACTION: Review the canary approval card, choose Allow This Launch, then use Touch ID or your Mac password. No real API key is involved."); fflush(stdout)
+                print("ACTION: The isolated UI fixture preselects Trust Until Lock. Review the canary card, confirm its matching action, then use Touch ID or your Mac password. You may change the duration. No real API key is involved."); fflush(stdout)
                 let child = try launch()
                 try await pending(child)
                 let status = try await finished(child)
                 if status != 37 { print("DIAGNOSTIC CLI exit \(status): \(diagnostic(child))"); fflush(stdout) }
                 check(status == 37 && (try? String(contentsOf: marker, encoding: .utf8)) == "received", "native approval and device authentication deliver the dummy key to real CLI exec")
+                if status == 37 {
+                    let duration = controller.lastDeliveryDuration
+                    let reusable = duration != nil && duration != .once
+                    print("INFO delivered approval duration: \(duration?.rawValue ?? "missing")"); fflush(stdout)
+                    check(duration != nil && (controller.activeGrantCount > 0) == reusable,
+                          "delivered approval duration matches retained authorization")
+                    try fm.removeItem(at: marker)
+                    let repeated = try launch()
+                    var unexpectedlyPrompted = false
+                    let deadline = ContinuousClock.now.advanced(by: .seconds(15))
+                    while repeated.isRunning, .now < deadline {
+                        if controller.pending != nil {
+                            unexpectedlyPrompted = true
+                            controller.deny()
+                        }
+                        try await Task.sleep(for: .milliseconds(25))
+                    }
+                    let repeatedStatus = try await finished(repeated)
+                    if reusable {
+                        check(!unexpectedlyPrompted && repeatedStatus == 37 && fm.fileExists(atPath: marker.path),
+                              "same authenticated calling process reuses temporary approval without another prompt")
+                        if fm.fileExists(atPath: marker.path) { try fm.removeItem(at: marker) }
+                        controller.reset()
+                        check(controller.activeGrantCount == 0, "explicit revocation removes temporary access")
+                        let revoked = try launch(); try await pending(revoked)
+                        controller.deny()
+                        noLaunch(try await finished(revoked), "revoked access asks again and denial prevents exec")
+                    } else {
+                        check(unexpectedlyPrompted, "Allow Once requires a new approval")
+                        noLaunch(repeatedStatus, "denied repeated launch cannot exec")
+                    }
+                }
             } else {
                 let denied = try launch(); try await pending(denied)
                 controller.deny()

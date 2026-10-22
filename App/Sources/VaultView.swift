@@ -2342,7 +2342,7 @@ struct ItemDetail: View {
                 }
             }
 
-            Label("You approve each launch through Triwarden.", systemImage: "lock.shield")
+            Label("You choose how long this tool can use the key.", systemImage: "lock.shield")
                 .font(.system(size: 11)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if item.reprompt {

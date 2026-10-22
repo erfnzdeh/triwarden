@@ -101,7 +101,10 @@ enum Snapshot {
                 ("compact", .aqua, CGSize(width: 540, height: 520), false, false, 24),
                 ("long", .aqua, CGSize(width: 600, height: 720), false, true, 18),
                 ("busy", .darkAqua, CGSize(width: 600, height: 720), true, false, 12),
-                ("urgent", .darkAqua, CGSize(width: 540, height: 520), false, false, 5)
+                ("urgent", .darkAqua, CGSize(width: 540, height: 520), false, false, 5),
+                ("ten-minutes", .darkAqua, CGSize(width: 600, height: 800), false, false, 48),
+                ("until-lock", .aqua, CGSize(width: 600, height: 800), false, false, 42),
+                ("unverified-caller", .aqua, CGSize(width: 600, height: 720), false, false, 60)
             ]
             for (name, appearance, size, busy, long, seconds) in cases {
                 let profile = SecretsProfile(name: "agent-dev", accountID: "synthetic", itemID: "synthetic", field: .hidden("api-key"),
@@ -112,8 +115,11 @@ enum Snapshot {
                 let prompt = SecretsController.Prompt(request: request,
                     credential: long ? "Development API credential for the local documentation and customer support assistant" : "Anthropic · development",
                     account: "alex@example.com · vault.example.com", helper: "/Applications/Triwarden.app/Contents/MacOS/tw",
-                    deadline: .now.advanced(by: .seconds(seconds)))
-                render(SecretsApprovalView(prompt: prompt, authenticating: busy, deny: {}, allow: {})
+                    deadline: .now.advanced(by: .seconds(seconds)),
+                    caller: name == "unverified-caller" ? nil : SecretsCallerIdentity(pid: 1234, uid: 501, startedSeconds: 1,
+                        startedMicros: 0, codeHash: Data([1]), path: "/bin/zsh"))
+                render(SecretsApprovalView(prompt: prompt, authenticating: busy, deny: {}, allow: { _ in },
+                    initialDuration: name == "ten-minutes" ? .tenMinutes : name == "until-lock" ? .untilLock : .once)
                     .environment(\.colorScheme, appearance == .darkAqua ? .dark : .light),
                     size: size, appearance: appearance, to: dir.appendingPathComponent("secrets-approval-" + name + ".png"))
             }

@@ -24,6 +24,11 @@ do {
             do {
                 try peer.validate()
                 guard try store.load() == request.profile else { throw SecretsFailure("stale profile") }
+                if mode == "caller" {
+                    guard let caller = try peer.caller(), caller.pid == getppid() else {
+                        throw SecretsFailure("authenticated caller did not match the real fixture parent")
+                    }
+                }
                 if mode == "deny" { throw SecretsFailure("denied by fixture") }
                 if mode == "disconnect" { return }
                 peer.reply(.init(nonce: request.nonce, revision: request.revision, value: mode == "large" ? String(repeating: "\u{01}", count: 32_768) : "triwarden-canary"))

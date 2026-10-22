@@ -173,7 +173,7 @@ struct ToolLaunchSetup: View {
                 Label("This version supports one saved tool. Saving replaces “\(existing.title)” and its key binding.", systemImage: "exclamationmark.triangle")
                     .font(.system(size: 12)).foregroundStyle(.orange)
             }
-            Text("Each launch needs your approval and macOS authentication. The program and its child processes receive the key and can read or transmit it. Project scripts and plugins are not verified.")
+            Text("The first launch needs your approval and macOS authentication. You can allow one launch, 10 minutes, or until the vault locks. Temporary access applies only to this saved command from the same terminal session or launcher process. The program and its child processes can read or transmit the key. Project scripts and plugins are not verified.")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
         }
     }

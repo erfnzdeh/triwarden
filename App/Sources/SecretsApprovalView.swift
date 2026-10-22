@@ -1,12 +1,20 @@
 import SwiftUI
+import SecretsAgent
 
 /// Reference-only presentation shared by the live panel and synthetic visual previews.
 struct SecretsApprovalView: View {
     let prompt: SecretsController.Prompt
     var authenticating = false
     var deny: () -> Void
-    var allow: () -> Void
+    var allow: (SecretsGrantDuration) -> Void
     @State private var helperExpanded = false
+    @State private var duration: SecretsGrantDuration = .once
+
+    init(prompt: SecretsController.Prompt, authenticating: Bool = false, deny: @escaping () -> Void,
+         allow: @escaping (SecretsGrantDuration) -> Void, initialDuration: SecretsGrantDuration = .once) {
+        self.prompt = prompt; self.authenticating = authenticating; self.deny = deny; self.allow = allow
+        _duration = State(initialValue: initialDuration)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -27,6 +35,7 @@ struct SecretsApprovalView: View {
                         }
                         Divider()
                         row("Tool", prompt.request.profile.title, monospaced: false)
+                        if let caller = prompt.caller { row("Started from", caller.label, monospaced: false) }
                         row("Vault field", prompt.request.profile.field.label)
                         row("Environment", prompt.request.profile.variable)
                     }
@@ -65,12 +74,32 @@ struct SecretsApprovalView: View {
             .thinScroller()
 
             VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 8) {
+                    if prompt.caller != nil {
+                        HStack(spacing: 14) {
+                            Text("Allow access").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                            AppSegmented(options: [(.once, "Once"), (.tenMinutes, "10 minutes"), (.untilLock, "Until lock")],
+                                         selection: $duration)
+                                .accessibilityElement(children: .contain)
+                                .accessibilityLabel("How long to allow")
+                                .accessibilityIdentifier("secretsApprovalDuration")
+                                .disabled(authenticating)
+                        }
+                        Text(durationDescription).font(.system(size: 11)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else {
+                        Text("Only this launch can be allowed because its terminal or launcher could not be verified.")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.horizontal, 24).padding(.top, 14)
                 Label(authenticationMessage, systemImage: "lock.shield")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 24).padding(.top, 14).padding(.bottom, 2)
-                FormFooter(action: "Allow This Launch…", cancelTitle: "Deny", defaultAction: false, showsSeparator: false, busy: authenticating,
-                           cancel: deny, submit: allow) {
+                    .padding(.horizontal, 24).padding(.top, 10).padding(.bottom, 2)
+                FormFooter(action: allowTitle, cancelTitle: "Deny", defaultAction: false, showsSeparator: false, busy: authenticating,
+                           cancel: deny, submit: { allow(prompt.caller == nil ? .once : duration) }) {
                     DeadlineCountdown(deadline: prompt.deadline, duration: SecretsController.approvalTimeout)
                 }
             }
@@ -82,6 +111,22 @@ struct SecretsApprovalView: View {
 
     private var authenticationMessage: LocalizedStringKey {
         authenticating ? "Waiting for macOS confirmation…" : "macOS will ask for Touch ID or your Mac login password."
+    }
+
+    private var allowTitle: LocalizedStringKey {
+        switch prompt.caller == nil ? .once : duration {
+        case .once: "Allow Once…"
+        case .tenMinutes: "Allow for 10 Minutes…"
+        case .untilLock: "Trust Until Lock…"
+        }
+    }
+
+    private var durationDescription: LocalizedStringKey {
+        switch duration {
+        case .once: "Ask again the next time this tool starts."
+        case .tenMinutes: "Allow this saved tool from the same terminal session or launcher process for 10 minutes, or until the vault locks. Expiry cannot recall a key already delivered."
+        case .untilLock: "Allow this saved tool from the same terminal session or launcher process until the vault locks. You can revoke access in Tools & Projects. Locking cannot recall a key already delivered."
+        }
     }
 
     private func row(_ title: LocalizedStringKey, _ value: String, monospaced: Bool = true) -> some View {
@@ -105,12 +150,20 @@ struct SecretsApprovalPanelContent: View {
         Group {
             if let prompt = controller.pending {
                 SecretsApprovalView(prompt: prompt, authenticating: controller.authenticating,
-                                    deny: controller.deny, allow: controller.allow)
+                                    deny: controller.deny, allow: { controller.allow($0) }, initialDuration: initialDuration)
             } else {
                 Color.clear
             }
         }
         .modifier(LiveAppearance())
         .modifier(ReducedMotionPolicy())
+    }
+
+    private var initialDuration: SecretsGrantDuration {
+        #if DEBUG
+        controller.selfTestInitialDuration
+        #else
+        .once
+        #endif
     }
 }

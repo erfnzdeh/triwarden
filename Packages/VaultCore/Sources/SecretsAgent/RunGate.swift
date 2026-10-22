@@ -1,6 +1,6 @@
 import Foundation
 
-/// Accessed by the app's main actor. No reusable grant is created by a successful launch.
+/// Main-actor request admission and cancellation cooldown, independent of the scoped grant store.
 public struct RunGate {
     private var pending: UUID?
     private var cancelled = false

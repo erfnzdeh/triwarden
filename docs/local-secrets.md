@@ -2,7 +2,7 @@
 
 Triwarden can launch a saved development command with one credential from your Bitwarden or Vaultwarden vault. The key stays out of your shell startup file, launch arguments, project configuration and normal clipboard workflow.
 
-This version supports **one saved tool with one credential**. Each launch needs an unlocked account, a successful online vault refresh, an explicit approval, and Touch ID or your Mac login password. It does not use Bitwarden Secrets Manager.
+This version supports **one saved tool with one credential**. Each launch needs an unlocked account and a successful online vault refresh. The first launch asks for approval and Touch ID or your Mac login password; you can choose one launch, 10 minutes, or until the vault locks. It does not use Bitwarden Secrets Manager.
 
 ## Save a key and provide it to a tool
 
@@ -18,9 +18,11 @@ This version supports **one saved tool with one credential**. Each launch needs 
    ```
 
    Use the exact command displayed in your app. `profile` is the CLI's internal identifier; the app shows your chosen tool name.
-7. Review the account, field, executable, every argument and working directory in the approval card. Choose **Allow This Launch…** and authenticate with macOS.
+7. Review the account, field, executable, every argument and working directory in the approval card. Select **Once**, **10 minutes**, or **Until lock** in the visible segmented control, confirm the matching button and authenticate with macOS. The default is once. The duration stays above the buttons while command details scroll. If the calling process cannot be verified, only once is available.
 
-For subsequent use, run the saved command from your terminal. Update the key in the vault when it changes; you do not need to copy it into the tool's configuration. **Tools & Projects** lets you view the key, edit the launch setup, pause/resume it, or copy its command again. Paused settings remain paused when edited. A locked account or service error is shown as a condition to fix, not as “ready”.
+For subsequent use, run the saved command from your terminal. Update the key in the vault when it changes; you do not need to copy it into the tool's configuration. **Tools & Projects** lets you view the key, edit the launch setup, pause/resume it, copy its command again, or **Revoke Access** while temporary access is active. Paused settings remain paused when edited. A locked account or service error is shown as a condition to fix, not as “ready”.
+
+Temporary access belongs to the same **calling process**, exact saved setting, credential and executable/directory identity. The calling process is the kernel-observed immediate parent of the signed bundled `tw`: its PID, start time and running code signature must match. Two processes with the same name cannot share approval, and a new terminal or newly created agent launcher may ask again. It is not a process-name or parent-app-name allowlist. Ten minutes has a fixed deadline that is not extended by reuse. Grants stay only in App memory and are cleared by lock, logout, tool save/pause, denial/cancellation, Revoke Access or App exit. A changed credential or target invalidates the old grant on the next refreshed request. Once means exactly one launch; the SSH signing burst does not apply. Revoking or expiring access prevents new deliveries and cannot recall keys already supplied to running programs.
 
 An environment variable name is not a unique key identifier. Different projects may all expect `API_KEY` while using different vault items. Triwarden uses the explicitly saved tool binding to select the item and variable; it does not infer access from a process name or intercept arbitrary programs asking for environment variables. Start a tool with its saved `tw run` command to receive the approved key. Changing a key's default variable later does not rewrite an already saved tool binding; edit that tool setup and review its actual name separately.
 
@@ -53,7 +55,7 @@ Locking Triwarden cancels pending approvals and stops new deliveries. Delivery c
 ## Approval and troubleshooting
 
 - Commands are saved through guided tool setup or Advanced Launch Settings. `tw run --profile NAME -- arbitrary-command` is intentionally rejected, regardless of whether the caller has a terminal. A TTY does not prove a request came from a human.
-- Every launch asks again. One request can wait at a time. Denying, closing or timing out a request introduces a short cooldown to reduce repeated prompts.
+- A launch asks again unless the same calling process has a current temporary approval for exactly this key and command. One request can wait at a time. Denying, closing or timing out a request clears temporary access and introduces a short cooldown to reduce repeated prompts.
 - Requests expire after 60 seconds, including refresh time. The footer's countdown ring shows the actual seconds remaining and turns orange for the last five seconds. It continues during macOS authentication and uses the same monotonic deadline as authorization. Closing the terminal or disconnecting cancels the request.
 - For an API-key preset, repair an empty key or duplicate field in its vault editor before opening **Provide to Tool…** again. The warning points to **Additional fields**, where duplicates remain editable. For a legacy binding, select the exact field again under **Settings → Secrets → Advanced Launch Settings…**. There is no fuzzy fallback to another field.
 - Trashed, archived, unsupported and inaccessible items cannot be used. Items requiring an additional master-password re-prompt are unsupported by `tw run` in this release; their protection is not bypassed.
@@ -91,9 +93,23 @@ ssh -N -L 127.0.0.1:28880:127.0.0.1:18880 m1pro
 
 Then run `make selftest-secrets-online`. It logs into the seeded `usagi@chiikawarden.test` dev account with the documented dev password, creates one uniquely named dummy credential, and exercises the real bundled CLI and native controller. Denial, CLI disconnection, profile changes and account locking must prevent exec. The test checks server-side item cleanup after online refresh, removes its local records, and restores the login preferences it changed. Each cancellation retains the normal cooldown.
 
-Run `make selftest-secrets-interactive` for the successful launch. Review the `canary` approval card and complete the normal Touch ID/Mac-password step yourself within 60 seconds. The child checks only the dummy value, writes a disposable success marker and exits with status 37; no provider API is called. Both commands are Debug-only and use a separate account namespace, profile/socket directory and Keychain service. They accept only a loopback dev server; `TRIWARDEN_SECRETS_TEST_PORT` can change its port. Stop the SSH tunnel when finished.
+Run `make selftest-secrets-interactive` for the successful launch. Its isolated UI fixture preselects **Trust Until Lock**; normal app launches still default to once. Review the `canary` approval card, confirm its matching button and complete the normal Touch ID/Mac-password step yourself within 60 seconds. You may change the duration. The child checks only the dummy value, writes a disposable success marker and exits with status 37; no provider API is called. After a timed choice the diagnostic checks a repeated launch without another prompt, revokes the grant, then denies a new request and checks that no command starts. Once requires a new prompt instead. Both commands are Debug-only and use a separate account namespace, profile/socket directory and Keychain service. They accept only a loopback dev server; `TRIWARDEN_SECRETS_TEST_PORT` can change its port. Stop the forward when finished. If multiple development copies share the bundle ID, UI automation can select another copy: do not operate that copy or count its main window as the diagnostic card.
 
-Run `make selftest-secrets-presentation` on an unlocked GUI desktop to check that the card remains onscreen when Triwarden loses focus. It uses the same isolated dev-account flow, hands focus to Finder, checks the window's active-Space and occlusion state, then denies and cleans up. This does not test fullscreen or every Spaces arrangement. The card stays visible while another app is active; denial, timeout, disconnect and account locking still close it. A screenshot of the window by itself does not prove it is actually visible on the desktop.
+Run `make selftest-secrets-presentation` on an unlocked GUI desktop to check that the card remains onscreen without taking the foreground app or opening ordinary windows. It uses the same isolated dev-account flow, attempts a focus handoff to Finder, records the actual foreground app (activation is cooperative), checks active-Space/occlusion and the nonactivating/fullscreen-auxiliary window configuration, then denies and cleans up. This does not exercise actual fullscreen or every Spaces arrangement. The card stays visible while another app is in front; denial, timeout, disconnect and account locking still close it. A screenshot of the window by itself does not prove it is actually visible on the desktop.
+
+For a manual guided-setup HTTP exercise, `scripts/local-secrets-journey.py` is a stdlib Python client and loopback-only fake-key API for the existing usagi **Anthropic API Key — Demo (fake)** example. Its launcher refuses a different item ID, variable or script. It never uses a provider API. Start the fixture from the checkout:
+
+```sh
+/usr/bin/python3 scripts/local-secrets-journey.py server
+```
+
+In the key's **Provide to Tool** form, select **Python script**, this script's absolute path, the checkout as project folder and `ANTHROPIC_API_KEY`. Review and save; do not replace another saved tool without reviewing that replacement. From another terminal, run:
+
+```sh
+/usr/bin/python3 scripts/local-secrets-journey.py launch --expect allow --repeat 2
+```
+
+Choose a temporary scope and authenticate on the first request. The second CLI has the same signed Python launcher, so it can reuse that scope. Separate invocations of the launcher create different calling processes and should ask again. `--expect deny` requires the actual denial error and zero child/API activity; `--expect blocked` checks zero activity for paused/locked cases. JSONL receipts under `build/local-secrets-journey/` contain counts, booleans and timings, never credentials. The child verifies the cwd, confirms unrelated-key/runtime-control sentinels are absent and authenticates an actual HTTP request using its delivered variable. The CLI is invoked from this checkout's signed bundle, without changing global helper installation. Stop the fixture server when finished. This tests a development client, not a provider SDK, a third-party AI CLI, or a paid API call.
 
 If no card appears, check that the Mac running Triwarden is unlocked and that a local or remote desktop session is available. Diagnostic runs report a Keychain status code if profile confirmation cannot be written; `-25308` means interaction was not allowed. No profile confirmation or credential delivery is bypassed when Keychain is unavailable.
 

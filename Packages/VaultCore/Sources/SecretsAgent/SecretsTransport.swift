@@ -131,6 +131,13 @@ public struct SecretsPeer: Sendable {
             throw SecretsFailure("The requesting CLI disconnected or changed identity.")
         }
     }
+
+    public func caller() throws -> SecretsCallerIdentity? {
+        try validate()
+        let caller = SecretsCallerIdentity.capture(auditToken: auditToken)
+        try validate()
+        return caller
+    }
 }
 
 /// Small, one-request server, independent of general vault-read grants and browser IPC.
@@ -219,7 +226,7 @@ public final class SecretsServer: @unchecked Sendable {
 public enum SecretsClient {
     public static func request(_ request: SecretsRunRequest, socket: URL, expectedApp: URL) throws -> SecretsRunResponse {
         guard let fd = FramedSocketServer.connect(to: socket.path) else {
-            throw SecretsFailure("Open Triwarden, unlock the account, and enable the saved profile in Settings › Secrets.")
+            throw SecretsFailure("Open Triwarden, unlock the key's account, and resume the saved tool in Tools & Projects.")
         }
         defer { close(fd) }
         SecretsServer.configure(fd, seconds: 90)
