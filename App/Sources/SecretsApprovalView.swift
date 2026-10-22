@@ -78,6 +78,7 @@ struct SecretsApprovalView: View {
                     if prompt.caller != nil {
                         HStack(spacing: 14) {
                             Text("Allow access").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                            Spacer(minLength: 0)
                             AppSegmented(options: [(.once, "Once"), (.tenMinutes, "10 minutes"), (.untilLock, "Until lock")],
                                          selection: $duration, compact: true)
                                 .frame(maxWidth: 240)
@@ -85,7 +86,6 @@ struct SecretsApprovalView: View {
                                 .accessibilityLabel("How long to allow")
                                 .accessibilityIdentifier("secretsApprovalDuration")
                                 .disabled(authenticating)
-                            Spacer(minLength: 0)
                         }
                         Text(durationDescription).font(.system(size: 11)).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
