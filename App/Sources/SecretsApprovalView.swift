@@ -79,11 +79,13 @@ struct SecretsApprovalView: View {
                         HStack(spacing: 14) {
                             Text("Allow access").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
                             AppSegmented(options: [(.once, "Once"), (.tenMinutes, "10 minutes"), (.untilLock, "Until lock")],
-                                         selection: $duration)
+                                         selection: $duration, compact: true)
+                                .frame(maxWidth: 240)
                                 .accessibilityElement(children: .contain)
                                 .accessibilityLabel("How long to allow")
                                 .accessibilityIdentifier("secretsApprovalDuration")
                                 .disabled(authenticating)
+                            Spacer(minLength: 0)
                         }
                         Text(durationDescription).font(.system(size: 11)).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
