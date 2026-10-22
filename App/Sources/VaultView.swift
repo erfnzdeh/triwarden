@@ -2313,6 +2313,72 @@ struct ItemDetail: View {
         }
     }
 
+    private var toolAccessCard: some View {
+        FormCard {
+            HStack(spacing: 12) {
+                Image(systemName: "terminal")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.adaptive(light: .brandButton, dark: .brandFill))
+                    .frame(width: 36, height: 36)
+                    .background(Color.brandTint.opacity(0.65), in: .rect(cornerRadius: 10))
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Use with a tool").font(.system(size: 15, weight: .semibold))
+                    Text("Start a tool with this key, without copying it.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
+            }
+
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .bottom, spacing: 16) {
+                    toolVariableBadge.fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: 0)
+                    provideToToolButton
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    toolVariableBadge
+                    provideToToolButton
+                }
+            }
+
+            Label("You approve each launch through Triwarden.", systemImage: "lock.shield")
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if item.reprompt {
+                Text("Tool launches don't yet support this item's additional master-password prompt. Its protection will not be bypassed.")
+                    .font(.system(size: 12)).foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private var toolVariableBadge: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("Default variable").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            Text(verbatim: item.apiKeyVariable)
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .background(Color.formInputFill, in: .rect(cornerRadius: 8))
+        }
+    }
+
+    private var provideToToolButton: some View {
+        Button { model.provideKeyToTool(item) } label: {
+            HStack(spacing: 8) {
+                Text("Provide to Tool…")
+                Image(systemName: "arrow.right").font(.system(size: 10, weight: .semibold))
+                    .accessibilityHidden(true)
+            }
+        }
+        .buttonStyle(.appPrimary)
+        .accessibilityLabel(Text("Provide to Tool…"))
+        .accessibilityIdentifier("provideAPIKeyToTool")
+    }
+
     /// Holding ⌥ alone peeks. A quick tap does nothing; letting go waits, then the mask rolls back.
     private func setOptionPeek(_ held: Bool) {
         peekWait?.cancel()
@@ -2360,21 +2426,7 @@ struct ItemDetail: View {
                 HeroCard(item: item, reveal: secretsVisible)
 
                 if item.isAPIKey, !item.isDeleted, !item.isArchived {
-                    FormCard {
-                        Text("Use this key with a tool").font(.system(size: 15, weight: .semibold))
-                        Text("Save a launch setup so you can use this key without pasting it into your project or shell settings.")
-                            .font(.system(size: 12)).foregroundStyle(.secondary)
-                        Text("Default variable: \(item.apiKeyVariable)")
-                            .font(.system(size: 12, design: .monospaced))
-                        Text("Choose the tool and confirm its variable name next. Only tools started through Triwarden receive this key.")
-                            .font(.system(size: 12)).foregroundStyle(.secondary)
-                        Button("Provide to Tool…") { model.provideKeyToTool(item) }
-                            .buttonStyle(.appPrimary).accessibilityIdentifier("provideAPIKeyToTool")
-                        if item.reprompt {
-                            Text("Tool launches don't yet support this item's additional master-password prompt. Its protection will not be bypassed.")
-                                .font(.system(size: 12)).foregroundStyle(.orange)
-                        }
-                    }
+                    toolAccessCard
                 }
 
                 if !displayFields.isEmpty {

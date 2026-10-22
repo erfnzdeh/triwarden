@@ -26,6 +26,15 @@ enum Snapshot {
         model.previewUnlocked = true; model.phase = .vault
         let item = APIKeyTemplate.fixture
         model.items = [item]
+        var longVariableItem = item
+        let longVariable = String(repeating: "PROJECT_", count: 15) + "API_KEY"
+        if let index = longVariableItem.customFields.firstIndex(where: { $0.name == APIKeyTemplate.environmentField }) {
+            longVariableItem.customFields[index].value = longVariable
+        }
+        longVariableItem.fields = item.fields.map { field in
+            field.label == APIKeyTemplate.environmentField
+                ? ItemField(label: field.label, value: longVariable, monospaced: true) : field
+        }
         let reference = ToolLaunchReference(accountID: item.accountId, itemID: item.id)
         let profile = SecretsProfile(name: "tool-demo", accountID: item.accountId, itemID: item.id,
             field: .hidden(APIKeyTemplate.keyField), variable: "ANTHROPIC_API_KEY", executable: "/usr/bin/env",
@@ -37,6 +46,8 @@ enum Snapshot {
             let views: [(String, AnyView, CGSize)] = [
                 ("editor", AnyView(EditItemSheet(mode: .create(.secureNote), prefill: prefill, inPanel: true)), CGSize(width: 760, height: 760)),
                 ("key-detail", AnyView(ItemDetail(item: item)), CGSize(width: 720, height: 760)),
+                ("key-detail-compact", AnyView(ItemDetail(item: item)), CGSize(width: 360, height: 800)),
+                ("key-detail-long-variable", AnyView(ItemDetail(item: longVariableItem)), CGSize(width: 480, height: 880)),
                 ("tools-empty", AnyView(ToolLaunchesPane()), CGSize(width: 760, height: 680)),
                 ("setup", AnyView(ToolLaunchSetup(reference: reference)), CGSize(width: 640, height: 720)),
                 ("review", AnyView(ToolLaunchSetup(reference: reference, previewReview: true, previewProfile: profile)), CGSize(width: 640, height: 720)),
