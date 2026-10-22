@@ -151,6 +151,24 @@ jobs:
           mkdir -p build/ci
           xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee build/ci/build.log | tail -20
+      - name: Auto-Type helper icon
+        run: |
+          # System Settings reads this nested bundle, not the host app. macOS 26 uses CFBundleIconName plus
+          # the compiled icon (Assets.car, and AppIcon.icns when actool emits one).
+          helper="build/Build/Products/Debug/Triwarden.app/Contents/Library/Helpers/Triwarden Auto-Type.app"
+          plist="$helper/Contents/Info.plist"
+          resources="$helper/Contents/Resources"
+          icon_name=$(plutil -extract CFBundleIconName raw -o - "$plist")
+          if [[ "$icon_name" != "AppIcon" ]]; then
+            echo "expected CFBundleIconName=AppIcon, got: ${icon_name:-<missing>}" >&2
+            plutil -p "$plist" >&2 || true
+            exit 1
+          fi
+          if [[ ! -f "$resources/Assets.car" && ! -f "$resources/AppIcon.icns" ]]; then
+            echo "Triwarden Auto-Type has no compiled icon (Assets.car or AppIcon.icns)" >&2
+            ls -la "$helper/Contents" "$resources" >&2 || true
+            exit 1
+          fi
       - name: Save compiled app before UI tests
         if: steps.app-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4

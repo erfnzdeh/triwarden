@@ -196,9 +196,9 @@ const M: Record<string, Beat> = {
     </div>
   ) },
   zk: { word: "Zero-knowledge.", sub: "Keys never leave your Mac", visual: () => <Dial size={460} rot={[0, 0, 0]} /> },
-  languages: { word: "Five languages.", sub: "", visual: () => (
+  languages: { word: "Nine languages.", sub: "", visual: () => (
     <div style={{ display: "grid", gap: 14, font: `400 64px/1.1 ${serif}`, color: C.ink }}>
-      {["English", "繁體中文", "简体中文", "日本語"].map((l) => <span key={l}>{l}</span>)}
+      {["English", "繁體中文", "粵語", "简体中文", "日本語", "한국어", "Français", "Español", "ไทย"].map((l) => <span key={l}>{l}</span>)}
     </div>
   ) },
 

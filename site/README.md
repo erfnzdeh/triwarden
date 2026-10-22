@@ -24,12 +24,12 @@ GitHub Actions CI/CD (`.github/workflows/site.yml`) uses:
   - `CLOUDFLARE_API_TOKEN`
   - `CLOUDFLARE_ACCOUNT_ID`
 
-- `src/config.ts`: one-time License price (US$19.99), download and Homebrew links, version, support email, and the live Stripe
+- `src/config.ts`: one-time License price (US$19.99), download and Homebrew links, `version` (fallback only when the latest-release lookup fails — the visible version, size, and notes are refreshed from GitHub in the browser), support email, and the live Stripe
   Payment Link (`CHECKOUT_URL`). `asset()` prefixes the deploy base.
 - `src/styles/global.css`: brand tokens in `@theme` (so `text-ink`, `bg-sky`, `font-serif` … exist as utilities),
   plus the bespoke widget styles (dial, vault window, palette, terminal) under `@layer components`.
 - i18n with [Paraglide JS](https://inlang.com/m/gerre34r/library-inlang-paraglideJs): messages in `messages/<locale>.json`
-  (en, zh-hant, zh-hk, zh-hans, ja — the app's five languages, using the app's own terms), compiled to
+  (en, zh-hant, zh-hk, zh-hans, ja, ko, fr, es, th — the app's languages, using the app's own terms), compiled to
   `src/paraglide/` on build. English is at `<base>/`, the rest at `<base>/<locale>/`; `src/middleware.ts` sets the
   locale per page and `src/i18n.ts` lists the languages. Add a string to every locale file, then use `m.key()`.
 - `src/components/*.astro`: one per section; each loads its own script from `src/scripts/`.
@@ -43,10 +43,9 @@ GitHub Actions CI/CD (`.github/workflows/site.yml`) uses:
   there when a preset starts using a new one.
 - `public/media/`: the film and its poster, rendered from `promo/`.
 - SEO: `layouts/Base.astro` writes the canonical URL, hreflang alternates, Open Graph and Twitter cards
-  (`public/assets/og.jpg`, 1200×630, cut from the film poster) and any `jsonLd` a page passes: the home page sends
+  (`public/assets/og.jpg`, 1200×630, the light vault window beside the brand lockup) and any `jsonLd` a page passes: the home page sends
   SoftwareApplication (with the price) and FAQPage, the guide TechArticle and BreadcrumbList. `@astrojs/sitemap`
-  writes `sitemap-index.xml` with the language alternates. A project site can't serve `robots.txt` (crawlers only
-  read it at the domain root), so submit the sitemap in Google Search Console and Bing Webmaster Tools instead.
+  writes `sitemap-index.xml` with the language alternates. `public/robots.txt` allows `/` and points crawlers at that sitemap index.
 
 App UI is only ever shown as real captures, never imitated in HTML. `public/assets/shots/<name>-light|dark.webp` come from
 `make build`, then `build/Build/Products/Debug/Triwarden.app/Contents/MacOS/Triwarden --demo-full --shoot -appearance
