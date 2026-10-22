@@ -13,6 +13,44 @@ import SecretsAgent
 /// to PNGs, so UI can be reviewed without screen-recording permission. Exits when done.
 @MainActor
 enum Snapshot {
+    /// Synthetic journey renders, isolated before model construction; no provider, account login or key delivery.
+    static func runAPIKeyJourneyIfRequested() {
+        guard CommandLine.arguments.contains("--selftest-api-key-preview") else { return }
+        AccountStore.namespace = "SecretsUXPreview-" + UUID().uuidString
+        AutoFillIdentities.isEnabled = false
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("api-key-preview-" + UUID().uuidString)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let model = AppModel()
+        model.setPreviewAccounts([SavedAccount(id: "demo", email: "alex@example.com", serverKind: "selfHosted",
+            serverURL: "https://vault.example.com", kdf: .pbkdf2(iterations: 600_000), protectedUserKey: "")])
+        model.previewUnlocked = true; model.phase = .vault
+        let item = APIKeyTemplate.fixture
+        model.items = [item]
+        let reference = ToolLaunchReference(accountID: item.accountId, itemID: item.id)
+        let profile = SecretsProfile(name: "tool-demo", accountID: item.accountId, itemID: item.id,
+            field: .hidden(APIKeyTemplate.keyField), variable: "ANTHROPIC_API_KEY", executable: "/usr/bin/env",
+            arguments: ["node", "scripts/assistant.mjs"], directory: "/Users/alex/Projects/documentation-assistant",
+            displayName: "Documentation assistant")
+        var prefill = EditItemSheet.Prefill(); prefill.apiKey = true; prefill.accountIDs = ["demo"]
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            let scheme: ColorScheme = name == "dark" ? .dark : .light
+            let views: [(String, AnyView, CGSize)] = [
+                ("editor", AnyView(EditItemSheet(mode: .create(.secureNote), prefill: prefill, inPanel: true)), CGSize(width: 760, height: 760)),
+                ("key-detail", AnyView(ItemDetail(item: item)), CGSize(width: 720, height: 760)),
+                ("tools-empty", AnyView(ToolLaunchesPane()), CGSize(width: 760, height: 680)),
+                ("setup", AnyView(ToolLaunchSetup(reference: reference)), CGSize(width: 640, height: 720)),
+                ("review", AnyView(ToolLaunchSetup(reference: reference, previewReview: true, previewProfile: profile)), CGSize(width: 640, height: 720)),
+                ("saved-tool", AnyView(ToolLaunchesPane(previewProfile: profile)), CGSize(width: 760, height: 760))
+            ]
+            for (stage, view, size) in views {
+                render(view.background { WindowBackdrop() }.environment(model).environment(\.colorScheme, scheme), size: size, appearance: appearance,
+                       to: dir.appendingPathComponent("api-key-" + stage + "-" + name + ".png"))
+            }
+        }
+        print(dir.path)
+        exit(0)
+    }
+
     /// Standalone SSH forms only; no vault, private key, agent socket or device authentication.
     static func runSSHIfRequested() {
         guard CommandLine.arguments.contains("--selftest-ssh-preview") else { return }

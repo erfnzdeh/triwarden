@@ -22,6 +22,28 @@ enum CompatibilitySelfTest {
                 func enc(_ value: String) throws -> String {
                     try EncString.encrypt(Data(value.utf8), with: key).description
                 }
+                var apiEdit = CipherEdit(name: "Synthetic API key")
+                apiEdit.customFields = [CustomField(name: APIKeyTemplate.keyField, value: "triwarden-test-only", kind: .hidden),
+                                        CustomField(name: APIKeyTemplate.serviceField, value: "Anthropic", kind: .text)]
+                let apiData = try CipherEditor.newCipher(kind: .secureNote, edit: apiEdit, key: key)
+                var apiCipher = try JSONSerialization.jsonObject(with: apiData) as! [String: Any]
+                apiCipher["id"] = "api-key-synthetic"
+                check(apiCipher["type"] as? Int == 2 && !String(decoding: apiData, as: UTF8.self).contains("triwarden-test-only"),
+                      "API key preset uses an encrypted standard Secure Note")
+                let apiSync = try JSONSerialization.data(withJSONObject: ["profile": ["id": "synthetic", "email": "test@example.com", "key": ""], "ciphers": [apiCipher]])
+                let apiItem = try VaultDecoder.decode(apiSync, userKey: key, accountId: "synthetic").items[0]
+                check(apiItem.isAPIKey && apiItem.apiKeyVariable == "ANTHROPIC_API_KEY" && apiItem.fields.contains { $0.secret && $0.value == "triwarden-test-only" },
+                      "API key reopens with a hidden field and a suggested variable")
+                var duplicateAPI = apiItem
+                duplicateAPI.customFields.append(CustomField(name: APIKeyTemplate.keyField, value: "other", kind: .hidden))
+                check(!duplicateAPI.isAPIKey, "ambiguous API key fields are not offered as a preset binding")
+                let presetIDs = APIKeyTemplate.primaryFieldIDs(in: apiItem.customFields)
+                let extras = duplicateAPI.customFields.filter { !presetIDs.contains($0.id) }
+                check(extras.count == 1 && extras[0].value == "other", "duplicate reserved fields remain visible for repair")
+                var archivedAPI = apiItem; archivedAPI.archived = .now
+                var trashedAPI = apiItem; trashedAPI.isDeleted = true
+                check(VaultSection.apiKeys.includes(apiItem) && !VaultSection.apiKeys.includes(archivedAPI) && !VaultSection.apiKeys.includes(trashedAPI),
+                      "API key navigation respects archive and trash")
                 let future: [String: Any] = [
                     "id": "future", "type": 99, "name": try enc("Future item"), "folderId": "folder",
                     "revisionDate": "2026-10-12T00:00:00Z", "favorite": true,

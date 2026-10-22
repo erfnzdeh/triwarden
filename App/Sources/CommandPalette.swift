@@ -792,6 +792,10 @@ struct CommandPalette: View {
                                keywords: ["add", "password", "create"]) { create(.login) },
                 PaletteCommand(id: "new-note", title: String(localized: "New Secure Note"), symbol: "note.text", shortcut: "⇧⌘N",
                                keywords: ["add", "create"]) { create(.secureNote) },
+                PaletteCommand(id: "new-api-key", title: String(localized: "New API Key"), symbol: "key.horizontal",
+                               keywords: ["secret", "token", "provider", "add"]) { model.bringToFront(); model.beginAPIKey() },
+                PaletteCommand(id: "tools-projects", title: String(localized: "Tools & Projects"), symbol: "terminal",
+                               keywords: ["api", "key", "secret", "profile", "agent"]) { go(.toolLaunches) },
                 PaletteCommand(id: "new-card", title: String(localized: "New Card"), symbol: "creditcard", keywords: ["add", "credit"]) { create(.card) },
                 PaletteCommand(id: "new-identity", title: String(localized: "New Identity"), symbol: "person.crop.rectangle",
                                keywords: ["add", "address"]) { create(.identity) },
@@ -821,7 +825,7 @@ struct CommandPalette: View {
             let places: [(VaultSection, String)] = [
                 (.all, String(localized: "All Items")), (.favorites, String(localized: "Favorites")), (.logins, String(localized: "Logins")),
                 (.passkeys, String(localized: "Passkeys")), (.cards, String(localized: "Cards")), (.identities, String(localized: "Identities")),
-                (.notes, String(localized: "Secure Notes")), (.sshKeys, String(localized: "SSH Keys")), (.archive, String(localized: "Archive")),
+                (.notes, String(localized: "Secure Notes")), (.apiKeys, String(localized: "API Keys")), (.sshKeys, String(localized: "SSH Keys")), (.archive, String(localized: "Archive")),
                 (.trash, String(localized: "Trash")),
             ]
             for (section, name) in places {

@@ -26,7 +26,7 @@ struct SecretsApprovalView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Divider()
-                        row("Profile", prompt.request.profile.name, monospaced: false)
+                        row("Tool", prompt.request.profile.title, monospaced: false)
                         row("Vault field", prompt.request.profile.field.label)
                         row("Environment", prompt.request.profile.variable)
                     }

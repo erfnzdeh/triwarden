@@ -24,6 +24,7 @@ struct TriwardenApp: App {
         // One window with its own toolbar: no system tab bar (and no View › Show Tab Bar to turn it on).
         NSWindow.allowsAutomaticWindowTabbing = false
         #if DEBUG
+        Snapshot.runAPIKeyJourneyIfRequested()
         Snapshot.runSSHIfRequested()
         SSHApprovalSelfTest.runIfRequested()
         Snapshot.runSecretsIfRequested()
@@ -44,7 +45,7 @@ struct TriwardenApp: App {
         let full = CommandLine.arguments.contains("--demo-full")
         if full || CommandLine.arguments.contains("--demo") {
             let demo = AppModel()
-            demo.items = full ? DemoVault.items : Snapshot.demoItems
+            demo.items = (full ? DemoVault.items : Snapshot.demoItems) + [APIKeyTemplate.fixture]
             if full {
                 demo.folders = DemoVault.folders
                 demo.organizations = DemoVault.organizations
@@ -127,6 +128,7 @@ struct TriwardenApp: App {
                 Button("New Secure Note") { model.beginEditing(EditRequest(mode: .create(.secureNote))) }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                     .disabled(!model.isUnlocked)
+                Button("New API Key") { model.beginAPIKey() }.disabled(!model.isUnlocked)
                 Menu("New Other Item") {
                     Button("Card") { model.beginEditing(EditRequest(mode: .create(.card))) }
                     Button("Identity") { model.beginEditing(EditRequest(mode: .create(.identity))) }

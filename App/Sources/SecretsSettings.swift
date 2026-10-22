@@ -2,10 +2,43 @@ import AppKit
 import SecretsAgent
 import SwiftUI
 
-/// Stage 1: one profile and one existing password/hidden field. Values never enter this form.
 struct SecretsSettings: View {
     @Environment(AppModel.self) private var model
+    @State private var advanced = false
+    var body: some View {
+        Form {
+            Section {
+                Text("Save API keys in your vault. Use Tools & Projects to choose how a tool receives a saved key.")
+                Button("Open Tools & Projects") { model.showToolsAndProjects() }
+                Button("Terminal Helper Setup…") { model.showSettings(.developer) }
+            } header: { Text("Local Tool Access") }
+            Section {
+                Text("For existing password bindings and manual command configuration.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Advanced Launch Settings…") { advanced = true }
+            }
+        }
+        .formStyle(.grouped).thinScroller()
+        .sheet(isPresented: $advanced) {
+            VStack(spacing: 0) {
+                HStack {
+                    Text("Advanced Launch Settings").font(.headline)
+                    Spacer()
+                    Button("Done") { advanced = false }.buttonStyle(.appSecondary).keyboardShortcut(.cancelAction)
+                }.padding(18)
+                AdvancedSecretsSettings().environment(model)
+            }
+            .frame(minWidth: 680, minHeight: 580)
+            .background { WindowBackdrop() }
+        }
+    }
+}
+
+/// Recovery and compatibility editor. Guided API-key setup lives in the main feature.
+private struct AdvancedSecretsSettings: View {
+    @Environment(AppModel.self) private var model
     @State private var name = "dev"
+    @State private var displayName: String?
     @State private var accountID = ""
     @State private var itemID = ""
     @State private var field = "password"
@@ -20,7 +53,7 @@ struct SecretsSettings: View {
     private var draft: SecretsProfile {
         SecretsProfile(name: name, accountID: accountID, itemID: itemID,
                        field: field.hasPrefix("hidden:") ? .hidden(String(field.dropFirst(7))) : .password,
-                       variable: variable, executable: executable, arguments: arguments, directory: directory, enabled: enabled)
+                       variable: variable, executable: executable, arguments: arguments, directory: directory, enabled: enabled, displayName: displayName)
     }
 
     private var items: [VaultItem] {
@@ -38,7 +71,7 @@ struct SecretsSettings: View {
         Form {
             Section {
                 Toggle("Enable local secret launches", isOn: $enabled)
-                TextField("Profile name", text: $name)
+                TextField("Command shortcut", text: $name)
                     .accessibilityIdentifier("secretsProfileName")
                 Text("Save one development command and one vault field. Every launch asks for approval and Touch ID or your Mac login password.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -101,7 +134,7 @@ struct SecretsSettings: View {
 
             Section {
                 HStack {
-                    Button("Save Profile") { save() }
+                    Button("Save Launch Settings") { save() }
                         .accessibilityIdentifier("saveSecretsProfile")
                     Spacer()
                     if saved { Label("Saved", systemImage: "checkmark").foregroundStyle(.secondary) }
@@ -130,6 +163,7 @@ struct SecretsSettings: View {
             accountID = model.sessions.first?.id ?? ""; return
         }
         name = p.name; accountID = p.accountID; itemID = p.itemID
+        displayName = p.displayName
         field = switch p.field { case .password: "password"; case .hidden(let name): "hidden:" + name }
         variable = p.variable; executable = p.executable; arguments = p.arguments
         directory = p.directory; enabled = p.enabled

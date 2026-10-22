@@ -88,6 +88,26 @@ struct SecretsAgentTests {
         var p = profile(); p.arguments = ["hidden\ncommand"]
         #expect(throws: (any Error).self) { try p.validate() }
     }
+
+    @Test func oldProfilesKeepTheirEncodingAndRevisionWithoutAToolTitle() throws {
+        let original = profile()
+        let data = try JSONEncoder().encode(original)
+        #expect(!String(decoding: data, as: UTF8.self).contains("displayName"))
+        let restored = try JSONDecoder().decode(SecretsProfile.self, from: data)
+        #expect(restored.title == restored.name)
+        #expect(try restored.revision() == original.revision())
+    }
+
+    @Test func userFacingToolNamesSupportUnicodeAndRequireNewApproval() throws {
+        var p = profile()
+        let original = try p.revision()
+        p.displayName = "我的文件助理"
+        try p.validate()
+        #expect(p.title == "我的文件助理")
+        #expect(try p.revision() != original)
+        p.displayName = "hidden\ncommand"
+        #expect(throws: (any Error).self) { try p.validate() }
+    }
 }
 
 extension SecretsAgentTests {

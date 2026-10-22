@@ -295,6 +295,8 @@ final class AppModel {
     }
     /// Non-nil while an item form is open in the detail panel (new, clone, or edit).
     var editing: EditRequest?
+    /// A credential reference for guided local tool setup; never a copied key value.
+    var toolLaunchReference: ToolLaunchReference?
     /// The form in the detail panel, if one is open.
     var newItemForm: EditRequest? { editing }
     /// The form has input in it (it reports this), so leaving it asks first.

@@ -54,12 +54,15 @@ public struct SecretsProfile: Codable, Equatable, Sendable {
     public var arguments: [String]
     public var directory: String
     public var enabled: Bool
+    public var displayName: String?
+    public var title: String { displayName ?? name }
 
     public init(name: String, accountID: String, itemID: String, field: SecretSelector, variable: String,
-                executable: String, arguments: [String], directory: String, enabled: Bool = true) {
+                executable: String, arguments: [String], directory: String, enabled: Bool = true, displayName: String? = nil) {
         self.name = name; self.accountID = accountID; self.itemID = itemID; self.field = field
         self.variable = variable; self.executable = executable; self.arguments = arguments
         self.directory = directory; self.enabled = enabled
+        self.displayName = displayName
     }
 
     public func validate() throws {
@@ -69,6 +72,12 @@ public struct SecretsProfile: Codable, Equatable, Sendable {
               ([accountID, itemID, executable, directory, field.label] + arguments).allSatisfy(Self.safeText),
               arguments.reduce(0, { $0 + $1.utf8.count }) <= 16_384 else {
             throw SecretsFailure("Use a short profile name, an exact vault field, and absolute executable and working-directory paths. Arguments must be single lines.")
+        }
+        if let displayName {
+            guard !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  displayName.count <= 128, Self.safeText(displayName) else {
+                throw SecretsFailure("Give this tool a name of up to 128 characters without control characters.")
+            }
         }
         try LaunchPolicy.validateVariable(variable)
     }

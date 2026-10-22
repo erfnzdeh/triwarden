@@ -113,6 +113,9 @@ extension AppModel {
         case .section(.cards): return [create(.card, title: String(localized: "New Card")), search()]
         case .section(.identities): return [create(.identity, title: String(localized: "New Identity")), search()]
         case .section(.notes): return [create(.secureNote, title: String(localized: "New Secure Note")), search()]
+        case .section(.apiKeys): return [action(String(localized: "New API Key"), "key.horizontal", enabled: !ids.isEmpty) {
+            self.beginAPIKey(accountIDs: ids)
+        }, search()]
         case .section(.sshKeys): return [create(.sshKey, title: String(localized: "New SSH Key")),
             create(.sshKey, title: String(localized: "Import SSH Key…"), sshImport: true), search(),
             action(String(localized: "SSH Agent Settings…"), "gear") { self.showSettings(.security) }]
@@ -154,6 +157,9 @@ extension AppModel {
             return [send(.text, String(localized: "New Text Send")), send(.file, String(localized: "New File Send")),
                 action(expiredSendsOnly ? String(localized: "Show All Sends") : String(localized: "Show Expired Sends"), "clock") { self.expiredSendsOnly.toggle(); self.requestedSection = .sends }]
         case .codes: return [create(.login, title: String(localized: "New Login with TOTP"), totp: true), search()]
+        case .toolLaunches: return [action(String(localized: "Choose an API Key"), "key.horizontal") {
+            self.requestedSection = .section(.apiKeys)
+        }]
         case .generator:
             func generate(_ mode: GeneratorView.Mode, _ title: String) -> SidebarContextAction {
                 action(title, "dice") { UserDefaults.standard.set(mode.rawValue, forKey: "generatorMode"); self.generatorRequest = UUID(); self.requestedSection = .generator }

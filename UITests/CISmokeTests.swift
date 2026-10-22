@@ -56,10 +56,49 @@ final class CISmokeTests: XCTestCase {
         let secrets = app.outlines.staticTexts["Secrets"].firstMatch
         XCTAssertTrue(secrets.waitForExistence(timeout: 5))
         secrets.click()
+        XCTAssertTrue(app.buttons["Open Tools & Projects"].firstMatch.waitForExistence(timeout: 5))
+        app.buttons["Advanced Launch Settings…"].firstMatch.click()
         XCTAssertTrue(app.textFields["secretsProfileName"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["saveSecretsProfile"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["secretsVaultItem"].firstMatch.exists)
         XCTAssertEqual(app.secureTextFields.count, 0, "The profile editor should select references, not accept a plaintext key")
+    }
+
+    func testAPIKeyCreationStartsInTheVault() {
+        continueAfterFailure = false
+        let app = launchDemo()
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["GitHub"].firstMatch.waitForExistence(timeout: 15))
+        app.typeKey(.escape, modifierFlags: [])
+        app.menuBars.menuBarItems["File"].click()
+        app.menuBars.menuBarItems["File"].menus.menuItems["New API Key"].firstMatch.click()
+        // The shared header combines title and subtitle for accessibility. Identify the actual form fields.
+        XCTAssertTrue(app.textFields["apiKeyService"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.secureTextFields["apiKeyValue"].firstMatch.exists)
+        XCTAssertFalse(app.textFields["secretsProfileName"].exists)
+        app.windows.firstMatch.buttons["Cancel"].firstMatch.click()
+        XCTAssertTrue(app.textFields["apiKeyService"].firstMatch.waitForNonExistence(timeout: 5))
+    }
+
+    func testSavedAPIKeyStartsGuidedToolSetup() {
+        continueAfterFailure = false
+        let app = launchDemo()
+        defer { app.terminate() }
+        let key = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Anthropic development")).firstMatch
+        XCTAssertTrue(key.waitForExistence(timeout: 15))
+        key.click()
+        let provide = app.buttons["Provide to Tool…"].firstMatch
+        XCTAssertTrue(provide.waitForExistence(timeout: 5))
+        provide.click()
+        let name = app.textFields["toolLaunchName"].firstMatch
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["secretsProfileName"].exists)
+        let variable = app.textFields["toolLaunchVariable"].firstMatch
+        XCTAssertTrue(variable.exists)
+        XCTAssertEqual(variable.value as? String, "ANTHROPIC_API_KEY")
+        XCTAssertEqual(app.secureTextFields.count, 0, "Tool setup uses the saved key reference")
+        app.buttons["Cancel"].firstMatch.click()
+        XCTAssertTrue(name.waitForNonExistence(timeout: 5))
     }
 
 }
