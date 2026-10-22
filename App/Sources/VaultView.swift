@@ -2315,23 +2315,20 @@ struct ItemDetail: View {
 
     private var toolAccessCard: some View {
         FormCard {
-            HStack(spacing: 12) {
-                Image(systemName: "terminal")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color.adaptive(light: .brandButton, dark: .brandFill))
-                    .frame(width: 36, height: 36)
-                    .background(Color.brandTint.opacity(0.65), in: .rect(cornerRadius: 10))
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: "terminal")
+                        .font(.system(size: 14)).foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
                     Text("Use with a tool").font(.system(size: 15, weight: .semibold))
-                    Text("Start a tool with this key, without copying it.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityElement(children: .combine)
-                .accessibilityAddTraits(.isHeader)
+                Text("Start a tool with this key, without copying it.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
 
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .bottom, spacing: 16) {
