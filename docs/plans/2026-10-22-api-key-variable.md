@@ -36,3 +36,13 @@ Modify `App/Sources/VaultView.swift` and `App/Sources/ToolLaunchSetup.swift` to 
 - Commit the verified change in the existing worktree.
 
 Commands: `xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug -derivedDataPath build -allowProvisioningUpdates test -only-testing:TriwardenUITests/CISmokeTests/testAPIKeyCreationStartsInTheVault`; run the built binary with `--selftest-compatibility` for isolated native checks. Expect the first UI run to fail, then the final focused tests and native checks to pass. No provider request or Touch ID bypass is involved.
+
+## Completed verification
+
+- Fetched and merged `origin/main` at `d33a486` into the feature worktree (`0171fe1`), preserving and reapplying the in-progress changes without conflicts. Regenerated the Xcode project and built the merged app.
+- The initial creation UI test failed because `apiKeyVariable` was absent. After implementation, creation/default and key-to-tool UI tests passed. The interaction test passed after correcting test input for active Chinese input methods and scoping the discard action to its sheet rather than the duplicate Touch Bar button. It verifies service suggestions, explicit-name preservation, forbidden-name feedback, recovery and discard.
+- All 33 isolated compatibility checks and 18 native Secrets/Keychain checks passed. The custom variable survives an encrypted Secure Note round-trip; older notes retain their fallback; duplicate variable metadata stays available for repair. Strict, deep signature verification passed.
+- Rendered eight synthetic light/dark previews covering the changed editor, key detail, setup and review. Inspected representative light/dark layouts. These are design checks, not user research.
+- In the normal signed app, unlocked the documented usagi development account and edited the existing fake-key example. Saving added the inferred `ANTHROPIC_API_KEY` default to its vault item and read back the updated field. Provide to Tool prefilled that value and displayed the complete mapping. Temporarily overriding it to `API_KEY` and discarding the unsaved setup left the vault default unchanged. The app remains on the saved example under API Keys.
+
+This pass saved only the fake development item's metadata. It did not save a new tool binding, deliver a key to a process, or exercise Touch ID/provider APIs; those are separate acceptance steps for the launch core.

@@ -127,10 +127,14 @@ struct ToolLaunchSetup: View {
                 if executable.isEmpty || recipe == .custom { path("Program", value: $executable, directory: false) }
             }
             FormCard(title: "How the tool reads this key") {
-                FormField(label: "Environment variable", note: "Match the name expected by your tool. This is a variable name, not the key value.") {
+                FormField(label: "Environment variable for this tool", note: "Starts with the key's default. Match the name this tool expects; changing it here keeps the vault default unchanged.") {
                     TextField("API_KEY", text: $variable).textFieldStyle(SoftFieldStyle())
                         .accessibilityIdentifier("toolLaunchVariable")
                 }
+                Text("\(item?.name ?? String(localized: "Selected API key")) → \(variable.isEmpty ? String(localized: "Choose a variable name") : variable) → \(title.isEmpty ? String(localized: "Your tool") : title)")
+                    .font(.system(size: 12, design: .monospaced)).fixedSize(horizontal: false, vertical: true)
+                Text("Use the saved launch command to start this tool. Triwarden supplies the selected key after you approve the launch.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
             }
             DisclosureGroup("Advanced command options") {
                 FormCard {
@@ -155,6 +159,7 @@ struct ToolLaunchSetup: View {
         Group {
             FormCard(title: "Saved launch") {
                 Text(verbatim: title).font(.system(size: 15, weight: .semibold))
+                reviewRow("Key provided to this tool", item?.name ?? String(localized: "Unavailable key"))
                 reviewRow("Program", executable)
                 ForEach(Array(launchArguments.enumerated()), id: \.offset) { index, value in
                     reviewRow("Argument \(index + 1)", value.isEmpty ? String(localized: "(empty argument)") : value)

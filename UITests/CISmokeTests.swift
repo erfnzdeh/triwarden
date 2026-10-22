@@ -1,8 +1,30 @@
 import XCTest
+import AppKit
 
 /// Small, deterministic checks of the actual app process using synthetic data.
 @MainActor
 final class CISmokeTests: XCTestCase {
+    /// Keyboard synthesis goes through the user's input method. Paste synthetic text and restore all clipboard formats.
+    private func enterText(_ text: String, in field: XCUIElement) {
+        let pasteboard = NSPasteboard.general
+        let previous: [NSPasteboardItem] = pasteboard.pasteboardItems?.map { source in
+            let copy = NSPasteboardItem()
+            for type in source.types {
+                if let data = source.data(forType: type) { copy.setData(data, forType: type) }
+            }
+            return copy
+        } ?? []
+        defer {
+            pasteboard.clearContents()
+            if !previous.isEmpty { pasteboard.writeObjects(previous) }
+        }
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        field.click()
+        field.typeKey("a", modifierFlags: .command)
+        field.typeKey("v", modifierFlags: .command)
+    }
+
     private func launchDemo() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--demo", "-AppleLanguages", "(en)", "-AppleLocale", "en_US",
@@ -75,6 +97,9 @@ final class CISmokeTests: XCTestCase {
         // The shared header combines title and subtitle for accessibility. Identify the actual form fields.
         XCTAssertTrue(app.textFields["apiKeyService"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.secureTextFields["apiKeyValue"].firstMatch.exists)
+        let variable = app.textFields["apiKeyVariable"].firstMatch
+        XCTAssertTrue(variable.waitForExistence(timeout: 5))
+        XCTAssertEqual(variable.value as? String, "API_KEY")
         XCTAssertFalse(app.textFields["secretsProfileName"].exists)
         app.windows.firstMatch.buttons["Cancel"].firstMatch.click()
         XCTAssertTrue(app.textFields["apiKeyService"].firstMatch.waitForNonExistence(timeout: 5))
@@ -99,6 +124,33 @@ final class CISmokeTests: XCTestCase {
         XCTAssertEqual(app.secureTextFields.count, 0, "Tool setup uses the saved key reference")
         app.buttons["Cancel"].firstMatch.click()
         XCTAssertTrue(name.waitForNonExistence(timeout: 5))
+    }
+
+    func testAPIKeyVariableSuggestionsPreserveCustomNames() {
+        continueAfterFailure = false
+        let app = launchDemo()
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["GitHub"].firstMatch.waitForExistence(timeout: 15))
+        app.typeKey(.escape, modifierFlags: [])
+        app.menuBars.menuBarItems["File"].click()
+        app.menuBars.menuBarItems["File"].menus.menuItems["New API Key"].firstMatch.click()
+        let service = app.textFields["apiKeyService"].firstMatch
+        let variable = app.textFields["apiKeyVariable"].firstMatch
+        XCTAssertTrue(variable.waitForExistence(timeout: 5))
+        enterText("Anthropic", in: service)
+        XCTAssertEqual(service.value as? String, "Anthropic")
+        XCTAssertEqual(variable.value as? String, "ANTHROPIC_API_KEY")
+        enterText("PROJECT_API_TOKEN", in: variable)
+        enterText("OpenAI", in: service)
+        XCTAssertEqual(variable.value as? String, "PROJECT_API_TOKEN", "A service change must preserve the user's explicit name")
+        enterText("NODE_OPTIONS", in: variable)
+        let problem = app.descendants(matching: .any)["apiKeyVariableError"].firstMatch
+        XCTAssertTrue(problem.waitForExistence(timeout: 5))
+        enterText("PROJECT_API_TOKEN", in: variable)
+        XCTAssertTrue(problem.waitForNonExistence(timeout: 5))
+        app.windows.firstMatch.buttons["Cancel"].firstMatch.click()
+        app.sheets.buttons["Discard Changes"].firstMatch.click()
+        XCTAssertTrue(variable.waitForNonExistence(timeout: 5))
     }
 
 }

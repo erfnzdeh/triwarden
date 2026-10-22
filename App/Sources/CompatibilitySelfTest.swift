@@ -22,9 +22,13 @@ enum CompatibilitySelfTest {
                 func enc(_ value: String) throws -> String {
                     try EncString.encrypt(Data(value.utf8), with: key).description
                 }
+                let preset = APIKeyTemplate.fields
+                check(preset.contains { $0.name == APIKeyTemplate.environmentField && $0.kind == .text && $0.value == "API_KEY" },
+                      "new API keys include an explicit default variable")
                 var apiEdit = CipherEdit(name: "Synthetic API key")
                 apiEdit.customFields = [CustomField(name: APIKeyTemplate.keyField, value: "triwarden-test-only", kind: .hidden),
-                                        CustomField(name: APIKeyTemplate.serviceField, value: "Anthropic", kind: .text)]
+                                        CustomField(name: APIKeyTemplate.serviceField, value: "Anthropic", kind: .text),
+                                        CustomField(name: APIKeyTemplate.environmentField, value: "MY_APP_TOKEN", kind: .text)]
                 let apiData = try CipherEditor.newCipher(kind: .secureNote, edit: apiEdit, key: key)
                 var apiCipher = try JSONSerialization.jsonObject(with: apiData) as! [String: Any]
                 apiCipher["id"] = "api-key-synthetic"
@@ -32,14 +36,24 @@ enum CompatibilitySelfTest {
                       "API key preset uses an encrypted standard Secure Note")
                 let apiSync = try JSONSerialization.data(withJSONObject: ["profile": ["id": "synthetic", "email": "test@example.com", "key": ""], "ciphers": [apiCipher]])
                 let apiItem = try VaultDecoder.decode(apiSync, userKey: key, accountId: "synthetic").items[0]
-                check(apiItem.isAPIKey && apiItem.apiKeyVariable == "ANTHROPIC_API_KEY" && apiItem.fields.contains { $0.secret && $0.value == "triwarden-test-only" },
-                      "API key reopens with a hidden field and a suggested variable")
+                check(apiItem.isAPIKey && apiItem.apiKeyVariable == "MY_APP_TOKEN" && apiItem.fields.contains { $0.secret && $0.value == "triwarden-test-only" },
+                      "API key round-trip preserves a custom variable instead of replacing it with the service suggestion")
+                var legacyAPI = apiItem
+                legacyAPI.customFields.removeAll { $0.name == APIKeyTemplate.environmentField }
+                check(legacyAPI.apiKeyVariable == "ANTHROPIC_API_KEY", "older API keys retain their service-based variable fallback")
                 var duplicateAPI = apiItem
                 duplicateAPI.customFields.append(CustomField(name: APIKeyTemplate.keyField, value: "other", kind: .hidden))
                 check(!duplicateAPI.isAPIKey, "ambiguous API key fields are not offered as a preset binding")
                 let presetIDs = APIKeyTemplate.primaryFieldIDs(in: apiItem.customFields)
+                check(presetIDs.count == 3 && apiItem.customFields.contains { $0.name == APIKeyTemplate.environmentField && presetIDs.contains($0.id) },
+                      "the default variable is a primary editor field")
                 let extras = duplicateAPI.customFields.filter { !presetIDs.contains($0.id) }
                 check(extras.count == 1 && extras[0].value == "other", "duplicate reserved fields remain visible for repair")
+                var duplicateVariable = apiItem.customFields
+                let extraVariable = CustomField(name: APIKeyTemplate.environmentField, value: "OTHER_TOKEN", kind: .text)
+                duplicateVariable.append(extraVariable)
+                check(!APIKeyTemplate.primaryFieldIDs(in: duplicateVariable).contains(extraVariable.id),
+                      "duplicate variable metadata remains editable under Additional fields")
                 var archivedAPI = apiItem; archivedAPI.archived = .now
                 var trashedAPI = apiItem; trashedAPI.isDeleted = true
                 check(VaultSection.apiKeys.includes(apiItem) && !VaultSection.apiKeys.includes(archivedAPI) && !VaultSection.apiKeys.includes(trashedAPI),

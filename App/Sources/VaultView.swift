@@ -2306,6 +2306,7 @@ struct ItemDetail: View {
             switch field.label {
             case APIKeyTemplate.keyField: label = String(localized: "API key")
             case APIKeyTemplate.serviceField: label = String(localized: "Service")
+            case APIKeyTemplate.environmentField: label = String(localized: "Default environment variable")
             default: return field
             }
             return ItemField(label: label, value: field.value, secret: field.secret, monospaced: field.monospaced)
@@ -2362,6 +2363,10 @@ struct ItemDetail: View {
                     FormCard {
                         Text("Use this key with a tool").font(.system(size: 15, weight: .semibold))
                         Text("Save a launch setup so you can use this key without pasting it into your project or shell settings.")
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                        Text("Default variable: \(item.apiKeyVariable)")
+                            .font(.system(size: 12, design: .monospaced))
+                        Text("Choose the tool and confirm its variable name next. Only tools started through Triwarden receive this key.")
                             .font(.system(size: 12)).foregroundStyle(.secondary)
                         Button("Provide to Tool…") { model.provideKeyToTool(item) }
                             .buttonStyle(.appPrimary).accessibilityIdentifier("provideAPIKeyToTool")
