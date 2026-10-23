@@ -246,8 +246,10 @@ enum Snapshot {
         let plainItems = vault.items
         vault.folders = [Grouping(id: "f-personal", name: "Personal"), Grouping(id: "f-work", name: "Work")]
         vault.organizations = [Grouping(id: "org-nw", name: "Northwind", children: [
-            Grouping(id: "col-eng", name: "Engineering"), Grouping(id: "col-eng-be", name: "Engineering/Backend"),
-            Grouping(id: "col-eng-fe", name: "Engineering/Frontend"), Grouping(id: "col-ops", name: "Operations")])]
+            Grouping(id: "col-eng", name: "Engineering", canWrite: true),
+            Grouping(id: "col-eng-be", name: "Engineering/Backend", canWrite: true),
+            Grouping(id: "col-eng-fe", name: "Engineering/Frontend", canWrite: true),
+            Grouping(id: "col-ops", name: "Operations", canWrite: true)])]
         vault.items = vault.items.map { item in
             var item = item
             if item.id == "1" { item.organizationId = "org-nw"; item.collectionIds = ["col-eng-fe"] }
@@ -281,6 +283,15 @@ enum Snapshot {
                    appearance: appearance, to: dir.appending(path: "vault-shared-move-\(name).png"))
             render(CollectionsSheet(itemID: "1").environment(vault).tint(.brand), size: CGSize(width: 480, height: 420),
                    appearance: appearance, to: dir.appending(path: "vault-shared-folders-\(name).png"))
+            // The edit form's own Vault and Shared Folders: a personal item that can move, and a shared item whose
+            // vault is read-only and whose shared folders are checked.
+            if let personal = vault.items.first(where: { $0.id == "2" }),
+               let shared = vault.items.first(where: { $0.id == "5" }) {
+                render(EditItemSheet(mode: .edit(personal)).environment(vault).tint(.brand), size: CGSize(width: 580, height: 700),
+                       appearance: appearance, to: dir.appending(path: "edit-vault-personal-\(name).png"))
+                render(EditItemSheet(mode: .edit(shared)).environment(vault).tint(.brand), size: CGSize(width: 580, height: 760),
+                       appearance: appearance, to: dir.appending(path: "edit-vault-shared-\(name).png"))
+            }
         }
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             render(NewFolderSheet(parent: "Work").environment(vault).tint(.brand), size: CGSize(width: 440, height: 300),
@@ -929,6 +940,23 @@ enum SelfTest {
                     let collectionsOK = await model.setCollections(moved ?? mine, collectionIds: [collection.id])
                     check(collectionsOK, "set an organization item's collections")
                     if let moved { await model.deleteForever(moved) }
+                }
+                // Editing and moving in one go (the edit form's Vault field): the fields are written first, then the
+                // item is shared. Sharing re-encrypts the server's copy, so the reverse order would lose the edit.
+                _ = await model.createItem(.login, edit: CipherEdit(name: "Selftest edit and share", username: "before", password: "before-pass"))
+                if let mine = model.items.first(where: { $0.name == "Selftest edit and share" }) {
+                    var edit = CipherEdit()
+                    edit.name = "Selftest edit and share (edited)"
+                    edit.username = "after"
+                    edit.password = "after-pass"
+                    let edited = await model.updateItem(mine.id, edit: edit)
+                    let shared = await model.share([mine.id], organizationId: org.id, collectionIds: [collection.id])
+                    let now = model.items.first { $0.id == mine.id }
+                    check(edited && shared && now?.organizationId == org.id
+                          && now?.name == "Selftest edit and share (edited)" && now?.username == "after" && now?.password == "after-pass"
+                          && now?.collectionIds == [collection.id],
+                          "edit then move to an organization keeps the edit")
+                    if let now { await model.deleteForever(now) }
                 }
             } else {
                 check(false, "move to organization: no organization with a collection")
