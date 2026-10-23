@@ -17,9 +17,11 @@ enum DemoVault {
     /// Northwind, the shared vault at work, with shared folders that nest (Engineering › Backend).
     static let organizations: [Grouping] = [
         Grouping(id: "org-northwind", name: "Northwind", children: [
-            Grouping(id: "col-eng", name: "Engineering"), Grouping(id: "col-eng-backend", name: "Engineering/Backend"),
-            Grouping(id: "col-eng-frontend", name: "Engineering/Frontend"), Grouping(id: "col-ops", name: "Operations"),
-            Grouping(id: "col-people", name: "People & Finance"),
+            Grouping(id: "col-eng", name: "Engineering", canWrite: true),
+            Grouping(id: "col-eng-backend", name: "Engineering/Backend", canWrite: true),
+            Grouping(id: "col-eng-frontend", name: "Engineering/Frontend", canWrite: true),
+            Grouping(id: "col-ops", name: "Operations", canWrite: true),
+            Grouping(id: "col-people", name: "People & Finance", canWrite: true),
         ]),
     ]
 

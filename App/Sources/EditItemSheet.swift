@@ -56,7 +56,11 @@ struct EditItemSheet: View {
     @State private var folderId: String?
     @State private var accountId: String?
     @State private var destinationVault: String?
+    /// A new item's shared folder, when it is being made inside one.
     @State private var destinationCollection: String?
+    /// The shared folders an existing item is in, or is going into. Only the edit form uses this: a shared item
+    /// can be in several, and moving a personal item in needs at least one.
+    @State private var chosenCollections: Set<String> = []
     /// Naming a new folder from the Folder field: the path it goes inside, nil when not.
     @State private var newFolderIn: String?
     /// Card / identity / SSH-key properties by API name.
@@ -105,13 +109,15 @@ struct EditItemSheet: View {
         var accountId: String?
         var destinationVault: String?
         var destinationCollection: String?
+        var chosenCollections: Set<String>
         var props: [String: String]
         var customFields: [CustomField]
         var reprompt: Bool
     }
 
     private var draft: Draft {
-        Draft(name: name, username: username, password: password, totp: totp, notes: notes, uris: websiteValues, folderId: folderId, accountId: accountId, destinationVault: destinationVault, destinationCollection: destinationCollection,
+        Draft(name: name, username: username, password: password, totp: totp, notes: notes, uris: websiteValues, folderId: folderId, accountId: accountId, destinationVault: destinationVault,
+              destinationCollection: destinationCollection, chosenCollections: chosenCollections,
               props: props.filter { !$0.value.isEmpty }, customFields: customFields, reprompt: reprompt)
     }
 
@@ -133,7 +139,12 @@ struct EditItemSheet: View {
     }
 
     /// Not while naming a folder, so Return there makes the folder rather than saving the item.
-    private var saveDisabled: Bool { name.trimmingCharacters(in: .whitespaces).isEmpty || newFolderIn != nil || (!mode.isEdit && accountId == nil) || (selectsVault && destinationVault == nil) || (creationOrganizationID != nil && creationCollectionIDs.isEmpty) }
+    private var saveDisabled: Bool {
+        name.trimmingCharacters(in: .whitespaces).isEmpty || newFolderIn != nil || (!mode.isEdit && accountId == nil)
+            || (selectsVault && destinationVault == nil)
+            || (!mode.isEdit && creationOrganizationID != nil && creationCollectionIDs.isEmpty)
+            || movingNeedsCollection || sharedNeedsCollection
+    }
 
     private var selectsVault: Bool { prefill?.vaultKeys != nil && prefill?.organizationId == nil }
     private var creationOrganizationID: String? {
@@ -146,6 +157,32 @@ struct EditItemSheet: View {
     private var chosenSession: AccountSession? { accountId.flatMap { model.session(for: $0) } }
     private var writableCollections: [Grouping] {
         chosenSession?.organizations.first { $0.id == creationOrganizationID }?.children.filter(\.canWrite) ?? []
+    }
+
+    /// The account whose shared vaults the form offers: the item's own when editing.
+    private var vaultSession: AccountSession? { folderAccountId.flatMap { model.session(for: $0) } }
+    private var vaultOrganizations: [Grouping] {
+        if let session = vaultSession { return session.organizations }
+        // Previews and `--demo` have no sessions: the model's own list is the vault's.
+        return model.organizations.filter { $0.accountId == nil || $0.accountId == folderAccountId }
+    }
+
+    /// The shared vault this edit moves the item into (nil: it stays where it is). Moving is one way, so only a
+    /// personal item can move, and only into a vault of its own account.
+    private var movingTo: String? {
+        guard case .edit(let item) = mode, item.organizationId == nil,
+              let vault = destinationVault, vault != AppModel.VaultFilter.personalKey else { return nil }
+        return vault
+    }
+
+    /// An item on its way into a shared vault needs at least one shared folder.
+    private var movingNeedsCollection: Bool { movingTo != nil && chosenCollections.isEmpty }
+
+    /// A shared item that was in shared folders has to stay in at least one (the server would leave it unreachable).
+    /// One that never had any can still be edited.
+    private var sharedNeedsCollection: Bool {
+        guard case .edit(let item) = mode else { return false }
+        return item.organizationId != nil && !item.collectionIds.isEmpty && chosenCollections.isEmpty
     }
 
     enum Field { case name, totp }
@@ -305,31 +342,35 @@ struct EditItemSheet: View {
                         .textFieldStyle(SoftFieldStyle())
                         .focused($focus, equals: .name)
                 }
-                if selectsVault {
-                    FormField(label: "Vault") {
-                        SoftMenu(options: [(String?.none, String(localized: "Choose a vault…"))]
-                            + ((prefill?.vaultKeys?.contains(AppModel.VaultFilter.personalKey) == true) ? [(String?.some(AppModel.VaultFilter.personalKey), String(localized: "My vault"))] : [])
-                            + (chosenSession?.organizations.filter { prefill?.vaultKeys?.contains($0.id) == true }.map { (String?.some($0.id), $0.name) } ?? []),
-                            selection: $destinationVault, accessibilityLabel: "Vault")
-                            .onChange(of: destinationVault) { destinationCollection = nil; folderId = nil; newFolderIn = nil }
+                if case .edit = mode {
+                    editDestinationFields
+                } else {
+                    if selectsVault {
+                        FormField(label: "Vault") {
+                            SoftMenu(options: [(String?.none, String(localized: "Choose a vault…"))]
+                                + ((prefill?.vaultKeys?.contains(AppModel.VaultFilter.personalKey) == true) ? [(String?.some(AppModel.VaultFilter.personalKey), String(localized: "My vault"))] : [])
+                                + (chosenSession?.organizations.filter { prefill?.vaultKeys?.contains($0.id) == true }.map { (String?.some($0.id), $0.name) } ?? []),
+                                selection: $destinationVault, accessibilityLabel: "Vault")
+                                .onChange(of: destinationVault) { destinationCollection = nil; folderId = nil; newFolderIn = nil }
+                        }
                     }
-                }
-                if creationOrganizationID != nil && prefill?.collectionIds.isEmpty != false {
-                    FormField(label: "Shared Folders") {
-                        SoftMenu(options: [(String?.none, String(localized: "Choose a collection…"))] + writableCollections.map { (String?.some($0.id), $0.name) },
-                            selection: $destinationCollection, accessibilityLabel: "Shared Folders")
+                    if creationOrganizationID != nil && prefill?.collectionIds.isEmpty != false {
+                        FormField(label: "Shared Folders") {
+                            SoftMenu(options: [(String?.none, String(localized: "Choose a collection…"))] + writableCollections.map { (String?.some($0.id), $0.name) },
+                                selection: $destinationCollection, accessibilityLabel: "Shared Folders")
+                        }
                     }
-                }
-                if let organizationId = prefill?.organizationId,
-                   let org = destinationSessions.first?.organizations.first(where: { $0.id == organizationId }) {
-                    LabeledContent("Shared vault", value: org.name)
-                    ForEach(org.children.filter { prefill?.collectionIds.contains($0.id) == true }) { collection in
-                        LabeledContent("Shared Folders", value: collection.name)
+                    if let organizationId = prefill?.organizationId,
+                       let org = destinationSessions.first?.organizations.first(where: { $0.id == organizationId }) {
+                        LabeledContent("Shared vault", value: org.name)
+                        ForEach(org.children.filter { prefill?.collectionIds.contains($0.id) == true }) { collection in
+                            LabeledContent("Shared Folders", value: collection.name)
+                        }
                     }
                 }
                 if let path = prefill?.folderPath {
                     LabeledContent("Folder", value: path)
-                } else if creationOrganizationID == nil { FormField(label: "Folder") {
+                } else if sharedVaultID == nil { FormField(label: "Folder") {
                     FolderCascader(folders: prefill?.organizationId == nil ? accountFolders : [], selection: $folderId, create: { path in
                         await model.createFolder(name: path, accountId: folderAccountId)
                     }, newFolderIn: $newFolderIn)
@@ -361,6 +402,76 @@ struct EditItemSheet: View {
                 }
                 .toggleStyle(.trailingSwitch)
             }
+    }
+
+    // MARK: Where the item lives
+
+    /// The edit form's Vault and Shared Folders fields, the same as the right-click menu's move and collections
+    /// sheets, but saved with the rest of the edit. A personal item can move into a shared vault; a shared item
+    /// stays where it is (moving is one way) and only changes its shared folders.
+    @ViewBuilder private var editDestinationFields: some View {
+        if let organizationId = sharedOrganizationID {
+            let vaultName = vaultOrganizations.first { $0.id == organizationId }?.name ?? organizationId
+            LabeledContent("Vault") {
+                HStack(spacing: 6) {
+                    Image(systemName: "building.2").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(verbatim: vaultName)
+                }
+            }
+            FormField(label: "Shared Folders", note: "Who in \(vaultName) can see this item.") {
+                VStack(alignment: .leading, spacing: 6) {
+                    CollectionChecklist(collections: writableVaultCollections, chosen: $chosenCollections)
+                    // Folders this account may read but not change stay as they are.
+                    ForEach(lockedVaultCollections) { collection in
+                        Label(collection.name, systemImage: "lock")
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        } else if !vaultOrganizations.isEmpty {
+            FormField(label: "Vault") {
+                SoftMenu(options: [(String?.some(AppModel.VaultFilter.personalKey), String(localized: "My vault"))]
+                    + vaultOrganizations.map { (String?.some($0.id), $0.name) },
+                    selection: $destinationVault, accessibilityLabel: "Vault")
+                    .onChange(of: destinationVault) { chosenCollections = []; folderId = nil; newFolderIn = nil }
+            }
+            if movingTo != nil {
+                FormField(label: "Shared Folders", note: "Moving is one way: the shared vault owns the item afterwards.") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        CollectionChecklist(collections: writableVaultCollections, chosen: $chosenCollections)
+                        if chosenCollections.isEmpty, !writableVaultCollections.isEmpty {
+                            Text("Choose at least one shared folder.")
+                                .font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// The vault the item is already in: a shared item's stays read-only.
+    private var sharedOrganizationID: String? {
+        guard case .edit(let item) = mode else { return nil }
+        return item.organizationId
+    }
+
+    /// The shared vault whose folders are listed: the one it is in, or the one it is moving into.
+    private var sharedVaultID: String? {
+        switch mode {
+        case .edit: sharedOrganizationID ?? movingTo
+        case .create, .clone: creationOrganizationID
+        }
+    }
+
+    /// The shared vault's folders this account can put items in.
+    private var writableVaultCollections: [Grouping] {
+        vaultOrganizations.first { $0.id == sharedVaultID }?.children.filter(\.canWrite) ?? []
+    }
+
+    /// The folders the item is already in that this account may not change.
+    private var lockedVaultCollections: [Grouping] {
+        vaultOrganizations.first { $0.id == sharedVaultID }?.children
+            .filter { !$0.canWrite && chosenCollections.contains($0.id) } ?? []
     }
 
     // MARK: Sections
@@ -800,6 +911,12 @@ struct EditItemSheet: View {
             accountId = item.accountId
             if item.organizationId != nil { folderId = nil } // the copy is personal
         }
+        if case .edit = mode {
+            // A shared item starts out in the shared folders it is already in; its vault stays read-only.
+            if item.organizationId != nil { chosenCollections = Set(item.collectionIds) }
+            // A personal item offers the vaults it could move into, starting on the one it is in.
+            else if destinationVault == nil { destinationVault = AppModel.VaultFilter.personalKey }
+        }
     }
 
     private func save() async {
@@ -845,7 +962,22 @@ struct EditItemSheet: View {
             }
             edit.properties = props.filter { item.properties[$0.key, default: ""] != $0.value }
             if cleanFields != item.customFields.filter({ $0.kind != .linked }) { edit.customFields = cleanFields }
-            ok = edit == CipherEdit() ? true : await model.updateItem(item.id, edit: edit)
+            // Folders are personal; the item is leaving its own behind when it moves into a shared vault.
+            if movingTo != nil, item.folderId != nil { edit.folderId = .some(nil) }
+            let changed = edit != CipherEdit()
+            // Fields first, then the move: sharing re-encrypts the server's copy of the item, so it has to run
+            // after the edit or the new values would be overwritten with the old ones.
+            if changed, !(await model.updateItem(item.id, edit: edit)) { return }
+            if let organizationId = movingTo {
+                let collectionIds = Array(chosenCollections)
+                guard await model.share([item.id], organizationId: organizationId, collectionIds: collectionIds) else { return }
+                ok = true
+            } else if item.organizationId != nil, Set(item.collectionIds) != chosenCollections {
+                guard await model.setCollections(item, collectionIds: Array(chosenCollections)) else { return }
+                ok = true
+            } else {
+                ok = true
+            }
         }
         if ok { close(saved: true) }
     }

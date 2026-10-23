@@ -89,9 +89,17 @@ public struct SendDraft: Sendable {
             "deletionDate": iso.string(from: deletionDate),
             "expirationDate": expirationDate.map(iso.string(from:)) ?? NSNull(),
             "maxAccessCount": maxAccessCount ?? NSNull(),
-            "password": try password.flatMap { $0.isEmpty ? nil : try SendCrypto.passwordHash($0, keyMaterial: material) } ?? NSNull(),
             "hideEmail": hideEmail, "disabled": false,
         ]
+        // The server holds only a one-way hash of the passphrase, so an edit can never show it again. Sending null
+        // would wipe that hash and leave the link open to anyone holding it. So when editing (keyMaterial != nil) a
+        // nil password means "leave it as it is" and the key is left out of the body; `remove-password` is how it
+        // goes away. A new Send has no existing password, so null is the right value there.
+        if let password, !password.isEmpty {
+            body["password"] = try SendCrypto.passwordHash(password, keyMaterial: material)
+        } else if keyMaterial == nil {
+            body["password"] = NSNull()
+        }
         var encryptedFile: Data?
         switch content {
         case .text(let text, let hidden):

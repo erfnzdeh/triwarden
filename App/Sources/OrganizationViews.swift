@@ -67,8 +67,8 @@ struct SelectionBar: View {
     }
 }
 
-/// Collections of one organization as a checklist.
-private struct CollectionChecklist: View {
+/// Collections of one organization as a checklist. Shared with the edit form, which shows it inline.
+struct CollectionChecklist: View {
     let collections: [Grouping]
     @Binding var chosen: Set<String>
 
