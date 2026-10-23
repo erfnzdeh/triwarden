@@ -72,11 +72,11 @@ struct AccessPane: View {
                 HStack {
                     Text("Access").font(.system(size: 20, weight: .bold))
                     Spacer()
-                    Picker("Access view", selection: $history) {
-                        Text("Permissions").tag(false)
-                        Text("History").tag(true)
-                    }.labelsHidden().pickerStyle(.segmented).frame(width: 200)
+                    AppSegmented(options: [(false, LocalizedStringKey("Permissions")), (true, "History")], selection: $history)
+                        .frame(width: 220)
+                        .accessibilityElement(children: .contain)
                         .accessibilityLabel("Access view")
+                        .accessibilityIdentifier("accessTabs")
                 }
                 ViewThatFits(in: .horizontal) {
                     HStack { search; filters }
