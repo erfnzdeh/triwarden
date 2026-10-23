@@ -20,14 +20,13 @@ struct SSHAccessRecordRow: View {
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Image(systemName: symbol)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
                         .accessibilityHidden(true)
                     Text(label)
                         .font(.system(size: 11))
-                        .foregroundStyle(event.outcome == .denied ? Color.red : Color.secondary)
                         .multilineTextAlignment(.trailing)
                         .lineLimit(2)
                 }
+                .foregroundStyle(event.outcome == .denied ? Color.red : Color.secondary)
                 Text(verbatim: SSHAccessClock.label(since: event.date))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
