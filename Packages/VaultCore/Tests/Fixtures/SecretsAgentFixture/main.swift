@@ -44,8 +44,14 @@ do {
         FileHandle.standardOutput.write(Data("ready\n".utf8))
         Thread.sleep(forTimeInterval: 15)
         server.stop()
-    } else if args[0] == "client" {
-        let p = try args.count > 3 ? store.load(named: args[3]) : store.load()
+    } else if args[0] == "client" || args[0] == "client-env" {
+        let p: SecretsProfile
+        if args[0] == "client-env" {
+            guard args.count == 4 else { exit(64) }
+            let file = try EnvReferenceFile.read(URL(fileURLWithPath: args[3]))
+            p = try store.load(named: file.toolID)
+            try file.validate(against: p)
+        } else { p = try args.count > 3 ? store.load(named: args[3]) : store.load() }
         let identity = try LaunchIdentity.capture(p)
         let request = SecretsRunRequest(profile: p, revision: try p.revision(), launch: identity)
         let response = try SecretsClient.request(request, socket: socket, expectedApp: executable)

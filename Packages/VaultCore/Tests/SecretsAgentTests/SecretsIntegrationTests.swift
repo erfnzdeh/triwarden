@@ -10,7 +10,8 @@ struct SecretsIntegrationTests {
         return try #require(candidates.map { root.appendingPathComponent($0) }.first { FileManager.default.isExecutableFile(atPath: $0.path) })
     }
 
-    private func run(mode: String, sealedBundle: Bool = false, tamper: Bool = false, directory: String? = nil) throws -> (Int32, String) {
+    private func run(mode: String, sealedBundle: Bool = false, tamper: Bool = false, directory: String? = nil,
+                     referenceFile: Bool = false, staleReference: Bool = false) throws -> (Int32, String) {
         // Short path: sockaddr_un has a small fixed size on macOS.
         let root = URL(fileURLWithPath: "/tmp/tw-test-" + UUID().uuidString.prefix(8))
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -48,6 +49,12 @@ struct SecretsIntegrationTests {
             try store.save(unrelated)
         }
         try store.save(p)
+        let references = root.appendingPathComponent(".env.triwarden")
+        if referenceFile {
+            var fileProfile = p
+            if staleReference { fileProfile.itemID = "not-the-saved-item" }
+            try Data(EnvReferenceFile(profile: fileProfile).text.utf8).write(to: references)
+        }
         let server = Process(), ready = Pipe(), serverErrors = Pipe()
         server.executableURL = fixture
         server.arguments = ["server", root.appendingPathComponent("s").path, store.directory.path, mode]
@@ -64,6 +71,7 @@ struct SecretsIntegrationTests {
         let client = Process(), errors = Pipe(), output = Pipe()
         client.executableURL = fixture
         client.arguments = ["client", root.appendingPathComponent("s").path, store.directory.path, "test"]
+        if referenceFile { client.arguments = ["client-env", root.appendingPathComponent("s").path, store.directory.path, references.path] }
         var environment = ProcessInfo.processInfo.environment
         environment["OTHER_SECRET"] = "must-not-inherit"
         environment["NODE_OPTIONS"] = "must-not-inherit"
@@ -79,6 +87,19 @@ struct SecretsIntegrationTests {
         let (code, error) = try run(mode: "allow")
         #expect(code == 37, Comment(rawValue: error))
         #expect(error.isEmpty)
+    }
+
+    @Test func envReferencesDeliverTwoCanariesThroughSignedIPCAndExec() throws {
+        let (code, error) = try run(mode: "multiple", referenceFile: true)
+        #expect(code == 37, Comment(rawValue: error))
+        #expect(error.isEmpty)
+    }
+
+    @Test func staleEnvReferencesPreventExecution() throws {
+        let (code, error) = try run(mode: "multiple", referenceFile: true, staleReference: true)
+        #expect(code == 70)
+        #expect(error.contains("do not match"))
+        #expect(!error.contains("triwarden-canary"))
     }
 
     @Test func authenticatedPeerResolvesItsActualSignedParent() throws {

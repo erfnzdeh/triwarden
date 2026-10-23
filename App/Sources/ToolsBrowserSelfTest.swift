@@ -170,6 +170,34 @@ enum ToolsBrowserSelfTest {
             check(text == (try SavedToolCommands.list(profiles)) + "\n", "signed tw prints display names, paused state and exact stable commands")
             check(!text.contains("must-not-appear") && !text.contains("api-key") && !text.contains("dummy-fixture-only"),
                   "signed tw omits bindings, arguments and dummy key values")
+            let references = root.appendingPathComponent(".env.triwarden")
+            try Data(EnvReferenceFile(profile: profiles[0]).text.utf8).write(to: references)
+            func envProbe() throws -> (Int32, String, String) {
+                let probe = Process(), out = Pipe(), err = Pipe()
+                probe.executableURL = process.executableURL; probe.arguments = ["--selftest-secrets-env", id]
+                probe.standardOutput = out; probe.standardError = err
+                try probe.run()
+                let stdout = out.fileHandleForReading.readDataToEndOfFile()
+                let stderr = err.fileHandleForReading.readDataToEndOfFile()
+                probe.waitUntilExit()
+                return (probe.terminationStatus, String(decoding: stdout, as: UTF8.self), String(decoding: stderr, as: UTF8.self))
+            }
+            let envSelected = try envProbe()
+            check(envSelected.0 == 0 && envSelected.1 == "Selected saved tool: " + profiles[0].name + "\n" && envSelected.2.isEmpty,
+                  "signed tw selects exact saved bindings from a reference file without IPC")
+            var changed = profiles[0]; changed.itemID = "different-item"
+            try Data(EnvReferenceFile(profile: changed).text.utf8).write(to: references)
+            let envChanged = try envProbe()
+            check(envChanged.0 != 0 && envChanged.1.isEmpty && envChanged.2.contains("do not match"),
+                  "signed tw rejects changed references before IPC or execution")
+            try Data("# triwarden-env: 1\n# tool: \(profiles[0].name)\nAPI_KEY_0=secret-must-not-appear\n".utf8).write(to: references)
+            let envLiteral = try envProbe()
+            check(envLiteral.0 != 0 && envLiteral.1.isEmpty && !envLiteral.2.contains("secret-must-not-appear"),
+                  "signed tw rejects literal values without printing them")
+            try Data(EnvReferenceFile(profile: profiles[1]).text.utf8).write(to: references)
+            let envPaused = try envProbe()
+            check(envPaused.0 != 0 && envPaused.1.isEmpty && envPaused.2.contains("resume"),
+                  "signed tw refuses a paused tool selected through a reference file")
             let nonInteractive = Process(), input = Pipe(), nonInteractiveError = Pipe()
             nonInteractive.executableURL = process.executableURL
             nonInteractive.arguments = ["--selftest-secrets-select", id]

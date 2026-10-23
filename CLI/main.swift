@@ -15,6 +15,7 @@ usage: tw <command> [arguments]
 
   run                      choose a saved tool in this terminal
   run --profile ID         launch an exact saved tool from Tools in Triwarden
+  run --env-file FILE      launch a saved tool from its .env.triwarden references
   tools list               list saved tool names and exact launch commands
   status                    whether the vault is unlocked
   list [query]              items (name, username/site); needs approval
@@ -130,7 +131,7 @@ var isTools = first == "tools"
 var selectionProbe = false
 // Only a UUID-scoped disposable socket/profile can be selected by the native online diagnostic.
 // The regular run path still ignores caller-supplied sockets and always uses its saved profile.
-if ["--selftest-secrets-run", "--selftest-secrets-tools", "--selftest-secrets-select"].contains(first) {
+if ["--selftest-secrets-run", "--selftest-secrets-tools", "--selftest-secrets-select", "--selftest-secrets-env"].contains(first) {
     guard args.count == 2, UUID(uuidString: args[1]) != nil else { fail("Expected a self-test UUID.", code: 64) }
     let root = runStore.directory.deletingLastPathComponent().appendingPathComponent("S" + args[1].prefix(8))
     guard (try? String(contentsOf: root.appendingPathComponent("test-id"), encoding: .utf8)) == args[1] else {
@@ -138,11 +139,12 @@ if ["--selftest-secrets-run", "--selftest-secrets-tools", "--selftest-secrets-se
     }
     runStore = SecretsProfileStore(directory: root.appendingPathComponent("p"))
     runArguments = ["--profile", "canary"]
-    selectionProbe = first == "--selftest-secrets-select"
+    selectionProbe = first == "--selftest-secrets-select" || first == "--selftest-secrets-env"
     isRun = first == "--selftest-secrets-run" || selectionProbe
     isTools = !isRun
     if isTools { runArguments = ["list"] }
     if selectionProbe { runArguments = [] }
+    if first == "--selftest-secrets-env" { runArguments = ["--env-file", root.appendingPathComponent(".env.triwarden").path] }
 }
 #endif
 if isTools {
@@ -156,6 +158,7 @@ if isRun {
     do {
         let store = runStore
         let selected: SecretsProfile?
+        var referenceFile: EnvReferenceFile?
         let name: String
         if runArguments.isEmpty {
             guard let choice = try TerminalToolSelection.choose(profiles: store.loadAll()) else {
@@ -164,9 +167,16 @@ if isRun {
             }
             selected = choice; name = choice.name
         } else {
-            selected = nil; name = try RunArguments.parse(runArguments)
+            selected = nil
+            switch try RunArguments.source(runArguments) {
+            case .profile(let id): name = id
+            case .environmentFile(let path):
+                let file = try EnvReferenceFile.read(URL(fileURLWithPath: path))
+                referenceFile = file; name = file.toolID
+            }
         }
         let profile = try store.load(named: name)
+        try referenceFile?.validate(against: profile)
         guard selected == nil || selected == profile else {
             throw SecretsFailure("The tool settings changed during selection. Use tw run to select the tool again.")
         }

@@ -82,7 +82,7 @@ There is no automatic `.zshrc` importer in this release. If a key previously rea
 
 ## Scope and next steps
 
-The current feature covers local environment injection. Multiple tools and key bindings are supported. Safe file import, tested editor integrations and API-key launch history remain later work. An already-running editor cannot acquire a new environment merely because another process ran `tw`.
+The current feature covers local environment injection, multiple tools, and multiple key bindings. Tools can now export a reference-only `.env.triwarden` file for `tw run --env-file FILE`. All references must match a saved tool before the normal approval and launch checks run. See the [environment reference file guide](local-secrets-dx.md#use-an-environment-reference-file). Plaintext file import, tested editor integrations, and API-key launch history remain later work. An already-running editor cannot acquire a new environment merely because another process ran `tw`.
 
 A service-specific proxy could keep original provider keys out of supported tools, but network proxying is outside this feature's current product scope. Triwarden remains a credential manager and explicitly authorized launcher. SSH private keys continue to use the existing SSH agent.
 

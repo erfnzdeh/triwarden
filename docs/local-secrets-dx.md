@@ -147,9 +147,85 @@ The user can select 10 minutes or Until lock.
 This change adds no permanent API-key permission or API-key history.
 Lock and revoke stop future delivery. They cannot recover keys that a program already received.
 
-## Planned environment file support
+## Use an environment reference file
 
-A reference-only `.env` mode is planned for a separate design.
-It is not available in this version.
-Triwarden currently supplies variables from the saved tool settings.
-It does not produce an environment file with actual key values.
+1. Select a saved tool in **Tools**.
+2. Open its options menu (…) or **Launch details**.
+3. Select **Save .env References…**.
+4. Select **Save File…**. Check the destination in the file picker.
+5. Keep the `.env.triwarden` suffix. Save the file in your project.
+6. Select **Copy Launch**. Paste the command into Terminal.
+
+The command has this form:
+
+```sh
+tw run --env-file '/path/to/project/.env.triwarden'
+```
+
+You can use a relative path from your terminal:
+
+```sh
+tw run --env-file .env.triwarden
+```
+
+The exported file contains vault references and no key values:
+
+```dotenv
+# triwarden-env: 1
+# tool: tool-example
+API_KEY=triwarden://vault/account-id/item-id/hidden/api-key
+SECOND_KEY=triwarden://vault/account-id/other-item-id/password
+```
+
+The app creates these references. You do not need to type vault IDs.
+Account IDs, item IDs, and field names use URL encoding where required.
+The file contains vault identifiers. Review this metadata before you share the file.
+
+The file selects an existing tool on this Mac. It does not create a tool on another Mac.
+The tool header selects a saved tool. Changing that header can select another tool with matching bindings.
+That selection still uses the selected tool's normal approval checks.
+The file cannot define an executable, arguments, or a project folder.
+The file location does not change the working folder.
+Only one selector is accepted. Do not combine `--env-file` with `--profile` or a command override.
+
+All references must match the saved tool's selected keys and variable names.
+Triwarden rejects extra keys, missing keys, and changed references before it requests approval.
+After you change key selections or variable names, save a new file from Tools.
+A value rotation on the same vault item does not require a new file.
+
+The normal launch checks still apply. Once remains the initial approval choice.
+Temporary grants have the same scope as launches through `--profile`.
+No new permission comes from the reference file or its location.
+The target program receives the raw key values through its environment.
+
+### Format and limits
+
+- Use UTF-8. Keep the file at 256 KiB or less.
+- Include one `# triwarden-env: 1` header and one `# tool: ID` header.
+- Include all 1 to 16 bindings from the selected tool. Each variable name must be unique.
+- Blank lines, separate comment lines, CRLF, and matching quotes around a reference are accepted.
+- Literal values, shell expansion, shell commands, and comments after an assignment are rejected.
+- The file must be a regular file. Links, pipes, and devices are rejected.
+- Error messages identify the line or repair action. They do not print rejected values.
+
+Use this file with `tw`. Ordinary dotenv loaders cannot resolve Triwarden references.
+Do not rename it to `.env` or load it with `source`.
+This feature does not import, scan, or change existing plaintext `.env` files.
+It creates no plaintext key file, temporary key file, virtual mount, or shell startup entry.
+
+### Check the file workflow with a dummy key
+
+Use the Python dummy-key test in issue #93. Export its saved tool through **Save .env References…**.
+Run the copied `tw run --env-file` command. Complete the normal approval in Triwarden.
+The test script must confirm the dummy value without printing it.
+
+Try these failure cases:
+
+1. Replace one reference value with a dummy literal. Confirm that the launch fails without printing that literal.
+2. Restore the exported file. Change one item ID. Confirm that the launch fails before an approval card appears.
+3. Save a new file. Pause the tool. Confirm that the launch fails.
+4. Resume the tool. Deny the launch in Triwarden. Confirm that the script does not start.
+
+The automated tests use dummy values and isolated storage.
+Signed IPC and exec tests use a test server. They do not verify real macOS authentication.
+The file picker and a real Touch ID or Mac password launch still need a human acceptance test.

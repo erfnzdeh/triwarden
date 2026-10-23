@@ -17,6 +17,7 @@ struct ToolLaunchesPane: View {
     @State private var advanced = false
     @State private var replacement: SecretsProfile?
     @State private var chosenKey: VaultItem?
+    @State private var exportingReferences: SecretsProfile?
     @FocusState private var searchFocused: Bool
     @FocusState private var listFocused: Bool
     #if DEBUG
@@ -118,6 +119,9 @@ struct ToolLaunchesPane: View {
             ToolKeyPicker { key in chosenKey = key; choosingKey = false }.environment(model)
         }
         .sheet(isPresented: $helperSetup, onDismiss: { helperCheck += 1 }) { TerminalHelperSetup().environment(model) }
+        .sheet(isPresented: Binding(get: { exportingReferences != nil }, set: { if !$0 { exportingReferences = nil } })) {
+            if let profile = exportingReferences { EnvReferenceExport(profile: profile).environment(model) }
+        }
         .confirmationDialog("Remove this tool setup?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
             Button("Remove Tool", role: .destructive) {
                 guard let removing else { return }
@@ -384,6 +388,7 @@ struct ToolLaunchesPane: View {
                 Button("Copy Shell Alias") { copyAlias(entry.profile) }.buttonStyle(.appSecondarySmall)
                 Text("Paste the alias into your terminal. Change its name if another tool uses it. The alias uses the saved tool ID.")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
+                Button("Save .env References…") { exportingReferences = entry.profile }.buttonStyle(.appSecondarySmall)
                 launchField("Executable", value: entry.profile.executable)
                 if !entry.profile.arguments.isEmpty {
                     launchField("Arguments", value: entry.profile.arguments.enumerated().map { "\($0.offset + 1): \($0.element)" }.joined(separator: "\n"))
@@ -430,6 +435,7 @@ struct ToolLaunchesPane: View {
     private func detailActions(_ entry: ToolBrowserIndex.Entry, index: ToolBrowserIndex) -> [ActionMenuEntry] {
         [ActionMenuEntry(title: String(localized: "Edit Setup…"), symbol: "pencil") { edit(entry, index: index) },
          ActionMenuEntry(title: String(localized: "Copy Shell Alias"), symbol: "doc.on.doc") { copyAlias(entry.profile) },
+         ActionMenuEntry(title: String(localized: "Save .env References…"), symbol: "doc.badge.arrow.up") { exportingReferences = entry.profile },
          ActionMenuEntry(title: entry.profile.enabled ? String(localized: "Pause Tool") : String(localized: "Resume Tool"),
                          symbol: entry.profile.enabled ? "pause" : "play", separatorBefore: true) { setEnabled(!entry.profile.enabled, entry.profile) }]
         + workspaceActions + [

@@ -52,6 +52,8 @@ enum Snapshot {
         }
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let views: [(String, AnyView, CGSize)] = [
+                ("env-export", AnyView(EnvReferenceExport(profile: ToolsPreviewFixture.profiles(1, keys: 2)[0])), CGSize(width: 520, height: 480)),
+                ("env-saved", AnyView(EnvReferenceExport(profile: ToolsPreviewFixture.profiles(1, keys: 2)[0], previewSavedURL: URL(fileURLWithPath: "/Users/alex/Projects/my-assistant/.env.triwarden"))), CGSize(width: 520, height: 480)),
                 ("ready-detail", AnyView(ToolLaunchesPane(previewProfiles: ToolsPreviewFixture.profiles(1, keys: 1), previewDetail: true)), CGSize(width: 440, height: 780)),
                 ("repair-key", AnyView(ToolLaunchesPane(previewProfiles: [ToolsPreviewFixture.profiles(4, keys: 1)[3]], previewDetail: true)), CGSize(width: 440, height: 900)),
                 ("repair-paused", AnyView(ToolLaunchesPane(previewProfiles: [ToolsPreviewFixture.profiles(3, keys: 1)[2]], previewDetail: true)), CGSize(width: 440, height: 900)),

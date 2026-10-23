@@ -234,9 +234,18 @@ public struct SecretsProfileStore: Sendable {
 }
 
 public enum RunArguments {
+    public enum Source: Equatable, Sendable { case profile(String), environmentFile(String) }
+    public static func source(_ args: [String]) throws -> Source {
+        if args.count == 2, args[0] == "--env-file", !args[1].isEmpty,
+           !args[1].hasPrefix("-"), SecretsProfile.safeText(args[1]) {
+            return .environmentFile(args[1])
+        }
+        return .profile(try parse(args))
+    }
+
     public static func parse(_ args: [String]) throws -> String {
         guard args.count == 2, args[0] == "--profile", !args[1].isEmpty else {
-            throw SecretsFailure("usage: tw run [--profile ID]\nUse tw run in a terminal to choose a saved tool. Command overrides are disabled.")
+            throw SecretsFailure("usage: tw run [--profile ID | --env-file FILE]\nUse tw run in a terminal to choose a saved tool. Command overrides are disabled.")
         }
         return args[1]
     }
