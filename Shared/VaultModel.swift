@@ -125,6 +125,15 @@ struct Grouping: Identifiable, Hashable {
     var canManage = false
 }
 
+extension Array where Element == Grouping {
+    /// The folder a new item goes in when there is no real choice: the only one this account can write to.
+    /// Nil when there are several (the user picks) or none, which is when the checklist starts empty.
+    var soleWritableCollection: String? {
+        let writable = filter(\.canWrite)
+        return writable.count == 1 ? writable[0].id : nil
+    }
+}
+
 struct ItemField: Hashable, Identifiable {
     var id: String { label }
     let label: String

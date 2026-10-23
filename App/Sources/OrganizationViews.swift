@@ -110,7 +110,12 @@ struct MoveToOrganizationSheet: View {
     @State private var saving = false
 
     private var items: [VaultItem] { model.items.filter { itemIDs.contains($0.id) } }
-    private var organizations: [Grouping] { items.first.flatMap { model.session(for: $0.accountId)?.organizations } ?? [] }
+    private var organizations: [Grouping] {
+        if let live = items.first.flatMap({ model.session(for: $0.accountId)?.organizations }) { return live }
+        // Previews and `--demo` have no sessions: the model's own list is the vault's.
+        let accountId = items.first?.accountId
+        return model.organizations.filter { $0.accountId == nil || $0.accountId == accountId }
+    }
     private var collections: [Grouping] { organizations.first { $0.id == orgId }?.children ?? [] }
 
     var body: some View {
@@ -157,8 +162,18 @@ struct MoveToOrganizationSheet: View {
         }
         .frame(width: 480, height: 520)
         .background(Color.windowBase)
-        .onAppear { orgId = orgId ?? organizations.first?.id }
-        .onChange(of: orgId) { chosen = [] }
+        .onAppear {
+            let first = orgId ?? organizations.first?.id
+            orgId = first
+            chosen = presetChosen(for: first)
+        }
+        .onChange(of: orgId) { _, id in chosen = presetChosen(for: id) }
+    }
+
+    /// One folder to choose from: pick it, rather than asking for a click that decides nothing.
+    private func presetChosen(for organizationId: String?) -> Set<String> {
+        let folders = organizations.first { $0.id == organizationId }?.children ?? []
+        return folders.soleWritableCollection.map { [$0] } ?? []
     }
 }
 
