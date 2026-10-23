@@ -79,6 +79,9 @@ struct SendsPane: View {
                 }
                 .thinScroller()
                 .background(Color.panel, in: .rect(cornerRadius: 18, style: .continuous))
+                // The empty part of the list takes a right-click too: it offers the ways to make a Send, where a row's
+                // own menu (above, which wins over this one) offers what to do with that Send.
+                .appContextMenu(emptyAreaActions)
                 .overlay {
                     if scopedSends.isEmpty {
                         Text(query.isEmpty && filter == .all ? "Your Sends appear here." : "No Sends match.")
@@ -123,6 +126,30 @@ struct SendsPane: View {
     }
 
     private func compose() { withAnimation(.snappy(duration: 0.25)) { model.composeNewSend() } }
+
+    /// A right-click on the list's empty space: the ways to make a Send, and the two things that change what the list
+    /// shows. The same entries the sidebar's Sends section offers, so the two places agree.
+    private var emptyAreaActions: [ActionMenuEntry] {
+        func newSend(_ kind: SendComposer.Kind, _ title: String) -> ActionMenuEntry {
+            ActionMenuEntry(title: title, symbol: "paperplane", enabled: !model.composingSend && model.editingSend == nil) {
+                model.sendContextAccountIDs = nil
+                model.newSendKind = kind
+                model.newSendNonce = UUID()
+                model.editingSend = nil
+                model.composingSend = true
+                model.expiredSendsOnly = false
+            }
+        }
+        return [
+            newSend(.text, String(localized: "New Text Send")),
+            newSend(.file, String(localized: "New File Send")),
+            ActionMenuEntry(title: model.expiredSendsOnly ? String(localized: "Show All Sends") : String(localized: "Show Expired Sends"),
+                            symbol: "clock", separatorBefore: true) {
+                model.expiredSendsOnly.toggle()
+            },
+            ActionMenuEntry(title: String(localized: "Search Sends"), symbol: "magnifyingglass") { searchFocused = true }
+        ]
+    }
 
     private var filterEntries: [ActionMenuEntry] {
         [.heading(String(localized: "Show only"))] + SendFilter.allCases.map { choice in
