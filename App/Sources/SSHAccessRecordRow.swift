@@ -6,11 +6,6 @@ struct SSHAccessRecordRow: View {
     let event: SSHAccessEvent
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            Image(systemName: symbol)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 18, height: 18)
-                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: event.appName)
                     .font(.system(size: 13, weight: .medium))
@@ -22,11 +17,17 @@ struct SSHAccessRecordRow: View {
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 4) {
-                Text(label)
-                    .font(.system(size: 11))
-                    .foregroundStyle(event.outcome == .denied ? Color.red : Color.secondary)
-                    .multilineTextAlignment(.trailing)
-                    .lineLimit(2)
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Image(systemName: symbol)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                    Text(label)
+                        .font(.system(size: 11))
+                        .foregroundStyle(event.outcome == .denied ? Color.red : Color.secondary)
+                        .multilineTextAlignment(.trailing)
+                        .lineLimit(2)
+                }
                 Text(verbatim: SSHAccessClock.label(since: event.date))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
