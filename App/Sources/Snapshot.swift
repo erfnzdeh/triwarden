@@ -47,7 +47,8 @@ enum Snapshot {
         let history = (0..<200).map { n in
             SSHAccessEvent(id: UUID(), date: Date.now.addingTimeInterval(-Double(n * 60)), appName: "Terminal \(n % 12)", via: n % 2 == 0 ? "ssh" : "git",
                            path: "/usr/bin/ssh", keyName: "Development Key \(n % 16)",
-                           outcome: [SSHAccessOutcome.allowedOnce, .denied, .timedOut, .allowlisted, .locked][n % 5])
+                           outcome: [SSHAccessOutcome.allowedOnce, .denied, .timedOut, .allowlisted, .locked,
+                                     .allowedForTenMinutes, .allowedUntilLock, .reusedTrust][n % 8])
         }
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let views: [(String, AnyView, CGSize)] = [
