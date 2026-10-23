@@ -700,6 +700,8 @@ final class AppModel {
     var sidebarSearchScope: SidebarScope?
     var folderContextAccountIDs: [String]?
     var sendContextAccountIDs: [String]?
+    /// Asks the Sends page to focus its search field (sidebar's "Search Sends").
+    var sendSearchRequest = UUID()
     var newSendKind = SendComposer.Kind.text
     var newSendNonce = UUID()
     /// "Share by Link…": the composer opens already filled in from an item; cleared when it dismisses.

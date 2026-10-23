@@ -7,6 +7,7 @@ struct SendsPane: View {
     @Environment(AppModel.self) private var model
     /// The list's own search, like the vault's item list.
     @State private var query = ""
+    @FocusState private var searchFocused: Bool
     @AppStorage("sendSort") private var sortRaw = SendSort.deletion.rawValue
     @AppStorage("sendSortAscending") private var ascending = true
     @AppStorage("sendFilter") private var filterRaw = SendFilter.all.rawValue
@@ -38,7 +39,7 @@ struct SendsPane: View {
             VStack(spacing: 10) {
                 // The same search and filter row the item list has, so the two lists work alike.
                 HStack(spacing: 6) {
-                    SendSearchField(query: $query)
+                    SendSearchField(query: $query, focused: $searchFocused)
                     ActionMenu(entries: filterEntries) {
                         Image(systemName: "line.3.horizontal.decrease")
                             .font(.system(size: 13, weight: .semibold))
@@ -123,6 +124,8 @@ struct SendsPane: View {
         // right column's detail keeps it too, and a card touching the window's edge looks cut off.
         .padding(.bottom, 8)
         .sheet(item: Bindable(model).createdSend) { created in SendCreatedSheet(created: created) }
+        // The sidebar's "Search Sends" puts the caret in the field, as the item list's "Search Here" does.
+        .onChange(of: model.sendSearchRequest) { searchFocused = true }
     }
 
     private func compose() { withAnimation(.snappy(duration: 0.25)) { model.composeNewSend() } }
@@ -289,8 +292,8 @@ enum SendFilter: String, CaseIterable, Identifiable {
 /// glass — so the two lists' rows read as one control, without carrying the vault's machinery.
 struct SendSearchField: View {
     @Binding var query: String
+    var focused: FocusState<Bool>.Binding
     @State private var hovering = false
-    @FocusState private var focused: Bool
 
     var body: some View {
         HStack(spacing: 7) {
@@ -300,16 +303,16 @@ struct SendSearchField: View {
             TextField("Search", text: $query, prompt: Text("Search sends"))
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
-                .focused($focused)
+                .focused(focused)
                 // Esc clears the text first, then gives up focus — the vault field's first two steps.
                 .onKeyPress(.escape) {
                     if !query.isEmpty { query = ""; return .handled }
-                    focused = false
+                    focused.wrappedValue = false
                     return .handled
                 }
-                .onSubmit { focused = false }
+                .onSubmit { focused.wrappedValue = false }
             if !query.isEmpty {
-                Button { query = ""; focused = true } label: {
+                Button { query = ""; focused.wrappedValue = true } label: {
                     Image(systemName: "xmark.circle.fill").font(.system(size: 12)).foregroundStyle(.tertiary)
                 }
                 .buttonStyle(.plain)
@@ -320,9 +323,9 @@ struct SendSearchField: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 32)
-        .modifier(HeaderChrome(shape: .capsule, hovering: hovering || focused))
+        .modifier(HeaderChrome(shape: .capsule, hovering: hovering || focused.wrappedValue))
         .contentShape(.capsule)
-        .onTapGesture { focused = true }
+        .onTapGesture { focused.wrappedValue = true }
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.15), value: query.isEmpty)
         .help(Text("Search sends by name, private notes, text or file name."))
