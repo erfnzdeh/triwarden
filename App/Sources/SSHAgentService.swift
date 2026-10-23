@@ -32,6 +32,7 @@ final class SSHAgentService {
     private var server: SSHAgentServer?
     private var parsed: [String: (pem: String, key: SSHPrivateKey)] = [:]
     private var trust = SSHTrustStore()
+    var activeTrusts: [SSHTrust] { trust.entries.filter { $0.until.map { $0 > .now } ?? true } }
     private let prompts = SSHApprovalQueue()
     private var inflight: [String: Task<(Bool, SSHChoice), Never>] = [:]
     private var inflightPrompt: [String: UUID] = [:]
@@ -43,13 +44,16 @@ final class SSHAgentService {
     private var pendingDeadline: ContinuousClock.Instant?
     private let approvalPanel = SSHApprovalPanel()
     private weak var model: AppModel?
+    private let accessLogFile: URL
+    private let allowlistFile: URL
     /// Self-test hook: skip the card and Touch ID. Arguments stay (key name, peer process name).
     var approveOverride: ((String, String) -> Bool)?
 
-    init(model: AppModel) {
+    init(model: AppModel? = nil, logURL: URL = SSHAgentService.logURL, allowlistURL: URL = SSHAgentService.allowlistURL) {
         self.model = model
-        accessLog = SSHAccessLog.load(from: Self.logURL)
-        allowlist = SSHAllowlist.load(from: Self.allowlistURL)
+        accessLogFile = logURL; allowlistFile = allowlistURL
+        accessLog = SSHAccessLog.load(from: logURL)
+        allowlist = SSHAllowlist.load(from: allowlistURL)
     }
 
     func start(at socket: URL = defaultSocket) {
@@ -104,8 +108,10 @@ final class SSHAgentService {
     }
 
     func clearAccessLog() {
+        do {
+            if FileManager.default.fileExists(atPath: accessLogFile.path) { try FileManager.default.removeItem(at: accessLogFile) }
+        } catch { model?.flash(String(localized: "Couldn't clear the SSH history. The records are still listed.")); return }
         accessLog.clear()
-        try? FileManager.default.removeItem(at: Self.logURL)
         recent = []
     }
 
@@ -218,10 +224,10 @@ final class SSHAgentService {
             var list = allowlist
             list.add(SSHAllowlistEntry(trustKey: requester.trustKey, displayName: requester.displayName))
             allowlist = list
-            try? allowlist.save(to: Self.allowlistURL)
+            try? allowlist.save(to: allowlistFile)
             try? FileManager.default.setAttributes(
                 [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
-                ofItemAtPath: Self.allowlistURL.path)
+                ofItemAtPath: allowlistFile.path)
             return true
         }
         let until: Date? = switch grant {
@@ -238,8 +244,12 @@ final class SSHAgentService {
     func revokeAllowlist(trustKey: String) {
         var list = allowlist
         list.remove(trustKey: trustKey)
+        do { try list.save(to: allowlistFile) }
+        catch { model?.flash(String(localized: "Couldn't save the SSH permission change. The permission is still listed.")); return }
         allowlist = list
-        try? allowlist.save(to: Self.allowlistURL)
+        // Removing permanent permission also ends this caller's cached temporary trust.
+        trust.revoke(trustKey: trustKey)
+        trustedUntilLock = trust.untilLock
     }
 
     private func refreshPending() async {
@@ -284,10 +294,10 @@ final class SSHAgentService {
         if recent.count > 8 { recent.removeLast() }
         accessLog.append(SSHAccessEvent(id: UUID(), date: .now, appName: requester.displayName, via: requester.via,
                                          path: requester.peerPath, keyName: key, outcome: outcome, trustKey: requester.trustKey))
-        try? accessLog.save(to: Self.logURL)
+        try? accessLog.save(to: accessLogFile)
         try? FileManager.default.setAttributes(
             [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
-            ofItemAtPath: Self.logURL.path)
+            ofItemAtPath: accessLogFile.path)
     }
 
     private static func outcome(ok: Bool, choice: SSHChoice) -> SSHAccessOutcome {

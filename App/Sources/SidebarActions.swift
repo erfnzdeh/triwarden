@@ -160,6 +160,7 @@ extension AppModel {
         case .toolLaunches: return [action(String(localized: "Choose an API Key"), "key.horizontal") {
             self.requestedSection = .section(.apiKeys)
         }]
+        case .access: return [action(String(localized: "Open Access"), "checkmark.shield") { self.requestedSection = .access }]
         case .generator:
             func generate(_ mode: GeneratorView.Mode, _ title: String) -> SidebarContextAction {
                 action(title, "dice") { UserDefaults.standard.set(mode.rawValue, forKey: "generatorMode"); self.generatorRequest = UUID(); self.requestedSection = .generator }

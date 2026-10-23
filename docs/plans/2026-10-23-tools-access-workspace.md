@@ -18,3 +18,19 @@ The user approved replacing full tool cards with a searchable list/detail worksp
 3. Add AccessPane, wire sidebar/palette/settings navigation, move existing SSH rows out of Developer settings, and expose filtered active SSH trust for presentation without changing authorization.
 4. Add synthetic 0/1/10/64-tool and 16-binding light/dark/compact previews and Access cases with active/expired permissions and 200 history records. Inspect representative renders and record developer measurements without claiming user research or provider acceptance.
 5. Run native browser/Keychain diagnostics, relevant Secrets/SSH checks, signed Debug build, strict signature verification and diff checks. Fix selection, keyboard/focus, no-results and long-label issues before committing. Keep the existing worktree and branch for review.
+
+## Implemented behavior
+
+- Tools now uses the native selectable list, natural name sorting, search and status filters. The 780-point content breakpoint switches between list/detail and list-to-detail navigation; compact Back restores list focus. Command-F stays in the current Tools/Access workspace. Saving selects the tool just saved and clears obsolete filters; each key has its own vault destination, with the appropriate account and cleared vault filters. Locked accounts have an Unlock Account action. The Add Tool entry explains the 64-tool limit before another setup is started.
+- The presentation index retains only item metadata and references, not credential values. Its readiness checks inspect the already-unlocked model; actual online refresh and authorization remain in the existing launch controller.
+- Access sits beside Tools in the sidebar and command palette. Developer settings now link to it while retaining integration setup. Temporary API-key and SSH permissions, persistent SSH permissions and SSH history have distinct scopes and actions. Clearing history does not revoke permissions. Removing persistent SSH permission also removes that caller's cached temporary signing grants, leaving other apps alone. Failed permission persistence leaves the permission visible and reports the failure.
+- Native previews exposed a visible segmented-picker label wrapping vertically and duplicate no-result placeholders; both were corrected. History result colors now have darker light-appearance variants, and full record metadata is available as a tooltip.
+
+## Verification record — 2026-10-23
+
+- Signed Debug build succeeded; strict recursive code-signature verification and `git diff --check` passed.
+- The complete VaultCore run succeeded: suite summaries list 80 API, 28 crypto, 50 Secrets and 23 SSH tests; 19 server-dependent tests were explicitly skipped because no development server was configured. The new SSH regression covers removing every cached key for one caller while preserving another caller.
+- 28 isolated native browser/access checks and 22 native Keychain/catalog checks passed. Persistence checks use temporary files and no real account, agent socket, SSH permission list or history file.
+- The developer measurement for 100 searches across 64 synthetic tools / 1,024 bindings was approximately 56 ms on this Mac. This is a diagnostic measurement, not an end-user performance study or a benchmark over a large real vault.
+- Synthetic native light/dark renders cover 28 layouts: empty, one, ten and 64 tools; compact list and 16-key detail; search misses, duplicate names, attention states and long names; Access permissions and 200-record history. Representative wide/compact, light/dark, repair, history and empty screens were inspected.
+- This increment does not claim a new live Touch ID/provider test, real multi-account navigation acceptance or a manual keyboard/VoiceOver walkthrough. Those remain interactive acceptance work. No proxy or broader authorization was introduced.

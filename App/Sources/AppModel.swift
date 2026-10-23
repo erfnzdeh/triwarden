@@ -162,6 +162,14 @@ final class AppModel {
     var wantsSearchFocus = false
     /// Focus the OTP page's own search field after navigation.
     var wantsCodesSearchFocus = false
+    var wantsToolsSearchFocus = false
+    var wantsAccessSearchFocus = false
+    var requestedToolSelection: String?
+    struct VaultItemDestination: Equatable {
+        let accountID: String
+        let itemID: String
+    }
+    var requestedVaultItem: VaultItemDestination?
 
     /// Whether an item passes the search filters (the vault itself is `vaultFilter`'s).
     func passesSearchFilters(_ item: VaultItem) -> Bool {
@@ -450,7 +458,7 @@ final class AppModel {
     /// Whether any locked account can be opened with Touch ID (unlock screen).
     var touchIDEnabled = false
 
-    /// Serves SSH key items to ssh/git while unlocked (Settings › SSH).
+    /// Serves SSH key items to ssh/git while unlocked (setup in Developer settings; permissions in Access).
     @ObservationIgnored private(set) var sshAgent: SSHAgentService!
     @ObservationIgnored private(set) var cli: CLIBridge!
     @ObservationIgnored private(set) var secrets: SecretsController!

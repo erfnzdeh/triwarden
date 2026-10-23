@@ -248,8 +248,7 @@ struct ToolLaunchSetup: View {
         if let previewProfile { source = previewProfile }
         #endif
         originalRevision = source.flatMap { try? $0.revision() }
-        if let p = source, p.accountID == reference.accountID, p.itemID == reference.itemID,
-           p.field == .hidden(APIKeyTemplate.keyField) {
+        if let p = source {
             shortcut = p.name; title = p.title; variable = p.variable
             enabled = p.enabled
             additionalBindings = p.additionalBindings ?? []
@@ -301,6 +300,7 @@ struct ToolLaunchSetup: View {
             }
             try model.secrets.save(draft)
             if let error = model.secrets.lastError { throw SecretsFailure(error) }
+            model.requestedToolSelection = draft.name
             model.requestedSection = .toolLaunches
             model.flash(String(localized: "Tool saved — ready to launch from your terminal"))
             dismiss()

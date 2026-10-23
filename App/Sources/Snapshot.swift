@@ -13,6 +13,70 @@ import SecretsAgent
 /// to PNGs, so UI can be reviewed without screen-recording permission. Exits when done.
 @MainActor
 enum Snapshot {
+    /// Scalable Tools/Access layouts, with isolated accounts and entirely synthetic records.
+    static func runToolsWorkspaceIfRequested() {
+        guard CommandLine.arguments.contains("--selftest-tools-preview") else { return }
+        AccountStore.namespace = "SecretsUXPreview-" + UUID().uuidString
+        AutoFillIdentities.isEnabled = false
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("tools-workspace-preview-" + UUID().uuidString)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let model = AppModel()
+        model.setPreviewAccounts([SavedAccount(id: "demo", email: "alex@example.com", serverKind: "selfHosted",
+            serverURL: "https://vault.example.com", kdf: .pbkdf2(iterations: 600_000), protectedUserKey: "")])
+        model.previewUnlocked = true; model.phase = .vault
+        model.items = ToolsPreviewFixture.keys()
+        let profiles = ToolsPreviewFixture.profiles(64)
+        var long = profiles[0]
+        long.displayName = "Documentation and research assistant for customer support projects across multiple development environments"
+        long.directory = "/Users/alex/Projects/customer-support-and-documentation-assistant/experiments/knowledge-base"
+        var grants = SecretsGrantStore()
+        var target = profiles[0]; target.executable = "/usr/bin/true"; target.directory = "/tmp"
+        if let launch = try? LaunchIdentity.capture(target) {
+            for n in 0..<2 {
+                let caller = SecretsCallerIdentity(pid: Int32(1200 + n), uid: 501, startedSeconds: 1, startedMicros: 0, codeHash: Data([1]), path: "/bin/zsh")
+                grants.grant(n == 0 ? .tenMinutes : .untilLock, for: .init(caller: caller, helper: "/Applications/Triwarden.app/Contents/MacOS/tw",
+                    revision: "synthetic", credentialFingerprint: "synthetic", launch: launch, tool: profiles[n].name))
+            }
+        }
+        let sshTrusts = [
+            SSHTrust(trustKey: "terminal", keyID: "fake-github", displayName: "Terminal", keyName: "GitHub development", until: Date.now.addingTimeInterval(600)),
+            SSHTrust(trustKey: "editor", keyID: "fake-server", displayName: "Editor", keyName: "Development server", until: nil),
+            SSHTrust(trustKey: "expired", keyID: "old", displayName: "Expired fixture must stay hidden", keyName: "Expired key", until: Date.now.addingTimeInterval(-1))
+        ]
+        let always = [SSHAllowlistEntry(trustKey: "trusted-terminal", displayName: "Trusted Terminal")]
+        let history = (0..<200).map { n in
+            SSHAccessEvent(id: UUID(), date: Date.now.addingTimeInterval(-Double(n * 60)), appName: "Terminal \(n % 12)", via: n % 2 == 0 ? "ssh" : "git",
+                           path: "/usr/bin/ssh", keyName: "Development Key \(n % 16)",
+                           outcome: [SSHAccessOutcome.allowedOnce, .denied, .timedOut, .allowlisted, .locked][n % 5])
+        }
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            let views: [(String, AnyView, CGSize)] = [
+                ("empty", AnyView(ToolLaunchesPane(previewProfiles: [])), CGSize(width: 1040, height: 720)),
+                ("one", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(1)))), CGSize(width: 1040, height: 760)),
+                ("ten", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(10)))), CGSize(width: 1040, height: 760)),
+                ("64", AnyView(ToolLaunchesPane(previewProfiles: profiles, previewGrants: grants.activeGrants())), CGSize(width: 1100, height: 800)),
+                ("64-compact", AnyView(ToolLaunchesPane(previewProfiles: profiles)), CGSize(width: 440, height: 780)),
+                ("16-key-detail", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(1)), previewDetail: true)), CGSize(width: 440, height: 820)),
+                ("no-results", AnyView(ToolLaunchesPane(previewProfiles: profiles, previewQuery: "not-a-saved-tool")), CGSize(width: 1040, height: 760)),
+                ("attention", AnyView(ToolLaunchesPane(previewProfiles: profiles, previewFilter: .attention)), CGSize(width: 1040, height: 760)),
+                ("duplicates", AnyView(ToolLaunchesPane(previewProfiles: profiles, previewQuery: "Shared assistant")), CGSize(width: 1040, height: 760)),
+                ("long", AnyView(ToolLaunchesPane(previewProfiles: [long], previewDetail: true)), CGSize(width: 440, height: 820)),
+                ("access", AnyView(AccessPane(previewProfiles: profiles, previewGrants: grants.activeGrants(), previewSSHTrusts: sshTrusts, previewAlways: always, previewHistory: history)), CGSize(width: 960, height: 850)),
+                ("access-compact", AnyView(AccessPane(previewProfiles: profiles, previewGrants: grants.activeGrants(), previewSSHTrusts: sshTrusts, previewAlways: always, previewHistory: history)), CGSize(width: 440, height: 800)),
+                ("history-200", AnyView(AccessPane(previewProfiles: [], previewGrants: [], previewSSHTrusts: [], previewAlways: [], previewHistory: history, previewShowsHistory: true)), CGSize(width: 960, height: 760)),
+                ("history-compact", AnyView(AccessPane(previewProfiles: [], previewGrants: [], previewSSHTrusts: [], previewAlways: [], previewHistory: history, previewShowsHistory: true)), CGSize(width: 440, height: 800))
+            ]
+            for (stage, view, size) in views {
+                render(view.background { WindowBackdrop() }.environment(model).environment(\.colorScheme, name == "dark" ? .dark : .light),
+                       size: size, appearance: appearance, to: directory.appendingPathComponent("tools-workspace-" + stage + "-" + name + ".png"))
+            }
+        }
+        if ProcessInfo.processInfo.environment["TRIWARDEN_SNAPSHOT_STDOUT"] == "1" {
+            try? FileManager.default.removeItem(at: directory)
+        } else { print(directory.path) }
+        exit(0)
+    }
+
     /// Synthetic journey renders, isolated before model construction; no provider, account login or key delivery.
     static func runAPIKeyJourneyIfRequested() {
         guard CommandLine.arguments.contains("--selftest-api-key-preview") else { return }

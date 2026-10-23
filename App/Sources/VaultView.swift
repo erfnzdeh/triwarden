@@ -95,7 +95,7 @@ struct VaultView: View {
 
     /// An item's detail is showing, with its actions in the header.
     private var detailHasActions: Bool { isItemSection && model.selectedItem != nil && (!compact || depth == 2) }
-    private var isItemSection: Bool { ![.codes, .generator, .sends, .watchtower, .toolLaunches].contains(section) }
+    private var isItemSection: Bool { ![.codes, .generator, .sends, .watchtower, .toolLaunches, .access].contains(section) }
     private var maxDepth: Int { isItemSection ? (model.selectedItem == nil && model.newItemForm == nil ? 1 : 2) : 1 }
 
     /// The sidebar's choice; leaving a new item with input in it asks first.
@@ -184,6 +184,7 @@ struct VaultView: View {
         case .generator: GeneratorPane()
         case .sends: SendsPane()
         case .toolLaunches: ToolLaunchesPane()
+        case .access: AccessPane()
         default:
             WatchtowerView { item in
                 section = .section(item.isDeleted ? .trash : .all)
@@ -344,6 +345,10 @@ struct VaultView: View {
             // A tool page has no detail panel for a new item's form.
             if !isItemSection { model.closeNewItemForm(restoringSelection: false) }
             if compact { depth = model.newItemForm == nil ? 1 : 2 } // picked a section: slide to it (or stay on the form)
+            if isItemSection, let destination = model.requestedVaultItem, model.selectedID == destination.itemID {
+                if compact { depth = 2 }
+                model.requestedVaultItem = nil
+            }
         }
         .onChange(of: model.selectedItem == nil) { _, none in if none, depth == 2, model.newItemForm == nil { depth = 1 } }
         // The system sidebar toggle on a narrow window: show the strip's sidebar pane instead.
@@ -360,6 +365,26 @@ struct VaultView: View {
         .onChange(of: model.sidebarSearchRequest) { query = "" }
         .onChange(of: model.requestedSection) { _, requested in
             if let requested { section = requested; model.requestedSection = nil }
+        }
+        .onChange(of: model.requestedVaultItem) { _, destination in
+            guard let destination else { return }
+            guard let item = model.items.first(where: { $0.accountId == destination.accountID && $0.id == destination.itemID }),
+                  model.isUnlocked(destination.accountID), !item.isDeleted, !item.isArchived else {
+                model.requestedVaultItem = nil
+                model.flash(String(localized: "This key is no longer available. Unlock its account and try again."))
+                return
+            }
+            model.accountFocus = destination.accountID
+            model.clearSearchFilters()
+            query = ""
+            let target = SidebarSelection.section(item.isAPIKey ? .apiKeys : .all)
+            let changesSection = section != target
+            section = target
+            model.selectedID = item.id
+            if !changesSection {
+                if compact { depth = 2 }
+                model.requestedVaultItem = nil
+            }
         }
         .onChange(of: model.requestedFilter) { _, requested in
             guard let requested else { return }
@@ -425,8 +450,10 @@ struct VaultView: View {
         .onChange(of: model.items.isEmpty) { _, empty in if !empty { selectFirst() } }
     }
 
-    /// ⌘F: to the list's search field (from a tool page, back to All Items first).
+    /// ⌘F searches the current management workspace without leaving it.
     private func focusSearch() {
+        if section == .toolLaunches { model.wantsToolsSearchFocus = true; return }
+        if section == .access { model.wantsAccessSearchFocus = true; return }
         if !isItemSection { section = .section(.all) }
         if compact { depth = 1 }
         model.wantsSearchFocus = true
@@ -454,6 +481,7 @@ enum SidebarSelection: Hashable {
     case generator
     case codes
     case toolLaunches
+    case access
 
     /// The vault a row stands for ("personal" or an organization id), for the vault filter.
     var vaultKey: String? {
@@ -468,7 +496,7 @@ enum SidebarSelection: Hashable {
         switch self {
         case .folders: !item.isDeleted && !item.isArchived && item.folderName != nil
         case .codes: !item.isDeleted && !item.isArchived && item.hasTOTP
-        case .watchtower, .sends, .generator, .toolLaunches: false
+        case .watchtower, .sends, .generator, .toolLaunches, .access: false
         case .account(let id): !item.isDeleted && !item.isArchived && item.accountId == id
         case .section(let s): s.includes(item)
         case .folder(let path): !item.isDeleted && !item.isArchived && (item.folderName == path || item.folderName?.hasPrefix(path + "/") == true)
@@ -593,7 +621,7 @@ private struct Sidebar: View {
                 if !tree.isEmpty, !closed.contains(key) { shared(tree, org: org, parent: .organization(org.id), into: &list) }
             }
         }
-        list += [.sends, .codes, .generator, .toolLaunches, .watchtower].map { SidebarEntry(destination: $0) }
+        list += [.sends, .codes, .generator, .toolLaunches, .access, .watchtower].map { SidebarEntry(destination: $0) }
         let folders = FolderNode.tree(model.folders)
         list.append(SidebarEntry(destination: .folders, expanded: folders.isEmpty ? nil : $foldersExpanded))
         if !folders.isEmpty, foldersExpanded { own(folders, parent: .folders, into: &list) }
@@ -692,7 +720,8 @@ private struct Sidebar: View {
                     tool("One-Time Codes", symbol: "clock.badge.checkmark", .codes,
                          count: model.vaultItems.filter { !$0.isDeleted && !$0.isArchived && $0.totp != nil }.count)
                     tool("Generator", symbol: "dice", .generator)
-                    tool("Tools & Projects", symbol: "terminal", .toolLaunches)
+                    tool("Tools", symbol: "terminal", .toolLaunches)
+                    tool("Access", symbol: "checkmark.shield", .access)
                     tool("Watchtower", symbol: "checkmark.shield", .watchtower, count: model.watchtowerIssueCount)
                     // Your own ways of sorting items, and items set aside: kept (Archive) or on their way out (Trash).
                     SidebarHeading(title: "Manage")

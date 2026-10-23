@@ -109,6 +109,7 @@ public struct SSHTrustStore {
     }
 
     public mutating func revoke(id: String) { entries.removeAll { $0.id == id } }
+    public mutating func revoke(trustKey: String) { entries.removeAll { $0.trustKey == trustKey } }
 
     public mutating func expire(now: Date) {
         entries.removeAll { $0.until.map { $0 <= now } ?? false }

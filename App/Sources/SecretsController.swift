@@ -116,7 +116,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
             try server.start()
             self.server = server
         } catch {
-            // Missing settings are normal on first run; other failures appear in Tools & Projects.
+            // Missing settings are normal on first run; other failures appear in Tools.
             if FileManager.default.fileExists(atPath: store.fileURL.path) { lastError = error.localizedDescription }
             server?.stop(); server = nil
         }
@@ -144,7 +144,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
         }
         let matches = session.items.filter { $0.id == binding.itemID && !$0.isDeleted && !$0.isArchived && $0.isSupported }
         guard matches.count == 1 else {
-            throw SecretsFailure("A selected key is missing or unavailable. Edit this tool in Tools & Projects and select the key again.")
+            throw SecretsFailure("A selected key is missing or unavailable. Edit this tool in Tools and select the key again.")
         }
         guard !matches[0].reprompt else {
             throw SecretsFailure("This item requires an additional master-password prompt, which tw run does not yet support. Use a dedicated API credential item with an appropriate policy.")
@@ -160,7 +160,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
             let catalog = try store.loadAll()
             guard let saved = catalog.first(where: { $0.name == request.profile.name }), saved.enabled, saved == request.profile,
                   try saved.revision() == request.revision else {
-                peer.reply(failure("The tool setup changed or is paused. Review it in Tools & Projects and run its saved command again."))
+                peer.reply(failure("The tool setup changed or is paused. Review it in Tools and run its saved command again."))
                 return
             }
             try store.requireApprovedRevision(confirmation.read(), profiles: catalog)

@@ -8,8 +8,8 @@ struct SecretsSettings: View {
     var body: some View {
         Form {
             Section {
-                Text("Save API keys in your vault. Use Tools & Projects to choose how a tool receives a saved key.")
-                Button("Open Tools & Projects") { model.showToolsAndProjects() }
+                Text("Save API keys in your vault. Use Tools to choose how a tool receives a saved key.")
+                Button("Open Tools") { model.showToolsAndProjects() }
                 Button("Terminal Helper Setup…") { model.showSettings(.developer) }
             } header: { Text("Local Tool Access") }
             Section {
@@ -84,7 +84,7 @@ private struct AdvancedSecretsSettings: View {
                 Text("Save a development command and its credential reference. Launches require approval unless temporary access is still active.")
                     .font(.caption).foregroundStyle(.secondary)
                 if !additionalBindings.isEmpty {
-                    Text("This tool also has \(additionalBindings.count) additional key bindings. They are preserved here; edit them in Tools & Projects.")
+                    Text("This tool also has \(additionalBindings.count) additional key bindings. They are preserved here; edit them in Tools.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             } header: { Text("Local Secrets Agent") }

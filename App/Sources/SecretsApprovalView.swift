@@ -131,7 +131,7 @@ struct SecretsApprovalView: View {
         switch duration {
         case .once: "Ask again the next time this tool starts."
         case .tenMinutes: "Allow this saved tool from the same terminal session or launcher process for 10 minutes, or until the vault locks. Expiry cannot recall a key already delivered."
-        case .untilLock: "Allow this saved tool from the same terminal session or launcher process until the vault locks. You can revoke access in Tools & Projects. Locking cannot recall a key already delivered."
+        case .untilLock: "Allow this saved tool from the same terminal session or launcher process until the vault locks. You can revoke access in Access. Locking cannot recall a key already delivered."
         }
     }
 

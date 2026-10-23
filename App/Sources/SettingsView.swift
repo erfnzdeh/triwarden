@@ -507,7 +507,7 @@ private struct DeveloperSettings: View {
             } header: {
                 Text("SSH agent")
             } footer: {
-                Text("SSH key items from unlocked accounts are offered to ssh and git. Each signature asks you, then asks macOS for Touch ID or your Mac login password. Keys never leave the app.")
+                Text("SSH key items from unlocked accounts are offered to ssh and git. New approvals require Touch ID or your Mac login password. Review temporary and Always Allowed permissions in Access. Private keys stay in Triwarden.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -570,55 +570,10 @@ private struct DeveloperSettings: View {
             }
 
             Section {
-                if agent.allowlist.entries.isEmpty {
-                    Text("Choose Always Allow when an app asks to sign. It can sign whenever this vault is unlocked, including after you lock and open it again.")
-                        .font(.caption).foregroundStyle(.secondary)
-                } else {
-                    ForEach(agent.allowlist.entries) { entry in
-                        HStack {
-                            Text(verbatim: entry.displayName).font(.system(size: 13))
-                            Spacer()
-                            Button("Remove") { agent.revokeAllowlist(trustKey: entry.trustKey) }
-                        }
-                    }
-                }
-            } header: {
-                Text("Always allowed")
-            }
-
-            Section {
-                if agent.trustedUntilLock.isEmpty {
-                    Text("Trust an app from the prompt when it asks to sign. Trust lasts until the vault locks.")
-                        .font(.caption).foregroundStyle(.secondary)
-                } else {
-                    ForEach(agent.trustedUntilLock) { trust in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(verbatim: trust.displayName).font(.system(size: 13))
-                                Text(verbatim: trust.keyName).font(.system(size: 11)).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button("Remove") { agent.revokeTrust(id: trust.id) }
-                        }
-                    }
-                }
-            } header: {
-                Text("Trusted until the vault locks")
-            }
-
-            Section {
-                if agent.accessLog.events.isEmpty {
-                    Text("No SSH requests yet.")
-                        .font(.caption).foregroundStyle(.secondary)
-                } else {
-                    ForEach(agent.accessLog.events) { event in
-                        SSHAccessSettingsRow(event: event)
-                    }
-                    Button("Clear Log") { agent.clearAccessLog() }
-                }
-            } header: {
-                Text("SSH access")
-            }
+                Button("Manage App Access…") { model.requestedSection = .access; model.bringToFront() }
+                Text("Review SSH permissions, temporary access and request history in Access.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } header: { Text("Access") }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
@@ -627,76 +582,7 @@ private struct DeveloperSettings: View {
 
 }
 
-/// One SSH access record in Settings: who asked, which key, how it ended, and how long ago (no seconds).
-private struct SSHAccessSettingsRow: View {
-    let event: SSHAccessEvent
 
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(tint)
-                .frame(width: 26, height: 26)
-                .background(tint.opacity(0.16), in: .rect(cornerRadius: 7, style: .continuous))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: event.appName)
-                    .font(.system(size: 13, weight: .medium))
-                    .lineLimit(1)
-                Text("via \(event.via) · \(event.keyName)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(label)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(tint.opacity(0.16), in: .capsule)
-                Text(verbatim: SSHAccessClock.label(since: event.date))
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-            }
-        }
-        .padding(.vertical, 2)
-    }
-
-    private var symbol: String {
-        switch event.outcome {
-        case .allowedOnce, .allowedForTenMinutes, .allowedUntilLock, .reusedTrust: "checkmark"
-        case .allowlisted: "checkmark.seal"
-        case .denied: "xmark"
-        case .timedOut: "clock"
-        case .locked: "lock"
-        }
-    }
-
-    private var tint: Color {
-        switch event.outcome {
-        case .allowedOnce, .allowedForTenMinutes, .allowedUntilLock, .allowlisted, .reusedTrust:
-            Color(red: 0.35, green: 0.78, blue: 0.55)
-        case .denied: Color(red: 0.95, green: 0.45, blue: 0.42)
-        case .timedOut: Color(red: 0.95, green: 0.72, blue: 0.38)
-        case .locked: .secondary
-        }
-    }
-
-    private var label: LocalizedStringKey {
-        switch event.outcome {
-        case .allowedOnce: "Allowed once"
-        case .allowedForTenMinutes: "Allowed for 10 minutes"
-        case .allowedUntilLock: "Trusted until lock"
-        case .allowlisted: "Always allowed"
-        case .denied: "Denied"
-        case .timedOut: "Timed out"
-        case .locked: "Vault locked"
-        case .reusedTrust: "Used an existing grant"
-        }
-    }
-}
 
 // MARK: Accounts
 

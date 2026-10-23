@@ -2,6 +2,19 @@ import Foundation
 import Testing
 @testable import SSHAgent
 
+// Revoking an app's permanent permission must not leave its cached signing trust usable.
+@Test func revokingCallerRemovesAllItsCachedKeysButKeepsOtherApps() {
+    var store = SSHTrustStore()
+    let now = Date.now
+    store.grant(.init(trustKey: "terminal", keyID: "first", displayName: "Terminal", keyName: "First", until: nil))
+    store.grant(.init(trustKey: "terminal", keyID: "second", displayName: "Terminal", keyName: "Second", until: now.addingTimeInterval(600)))
+    store.grant(.init(trustKey: "editor", keyID: "first", displayName: "Editor", keyName: "First", until: nil))
+    store.revoke(trustKey: "terminal")
+    #expect(store.allows(trustKey: "terminal", keyID: "first", now: now) == nil)
+    #expect(store.allows(trustKey: "terminal", keyID: "second", now: now) == nil)
+    #expect(store.allows(trustKey: "editor", keyID: "first", now: now) != nil)
+}
+
 @Test func walksToTheAppBundle() {
     let nodes = [
         ProcessNode(pid: 10, parent: 9, path: "/usr/bin/ssh"),

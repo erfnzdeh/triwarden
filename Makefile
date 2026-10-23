@@ -55,6 +55,13 @@ selftest-compatibility: build ## Offline checks for unsupported item types (synt
 selftest-secrets: build ## Signed-app Keychain and Secrets profile checks (isolated records, no real vault)
 	@"$(BIN)" --selftest-secrets
 
+.PHONY: selftest-tools-browser selftest-tools-preview
+selftest-tools-browser: build ## Isolated tool search, selection and access-persistence checks
+	@"$(BIN)" --selftest-tools-browser
+
+selftest-tools-preview: build ## Render synthetic light/dark Tools and Access layouts; print the output folder
+	@"$(BIN)" --selftest-tools-preview
+
 selftest-secrets-online: build ## Native cancellation checks against the dev Vaultwarden at localhost:28880
 	@"$(BIN)" --selftest-secrets-online
 
