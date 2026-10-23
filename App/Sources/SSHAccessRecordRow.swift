@@ -6,6 +6,11 @@ struct SSHAccessRecordRow: View {
     let event: SSHAccessEvent
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 18, height: 18)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: event.appName)
                     .font(.system(size: 13, weight: .medium))
@@ -31,6 +36,16 @@ struct SSHAccessRecordRow: View {
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
         .help([event.appName, "via " + event.via, event.keyName, event.path ?? "", event.date.formatted()].filter { !$0.isEmpty }.joined(separator: "\n"))
+    }
+
+    private var symbol: String {
+        switch event.outcome {
+        case .allowedOnce, .allowedForTenMinutes, .allowedUntilLock, .reusedTrust: "checkmark"
+        case .allowlisted: "checkmark.seal"
+        case .denied: "xmark"
+        case .timedOut: "clock"
+        case .locked: "lock"
+        }
     }
 
     private var label: LocalizedStringKey {
