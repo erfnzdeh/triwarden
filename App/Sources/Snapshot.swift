@@ -52,16 +52,18 @@ enum Snapshot {
         }
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let views: [(String, AnyView, CGSize)] = [
+                ("ready-detail", AnyView(ToolLaunchesPane(previewProfiles: ToolsPreviewFixture.profiles(1, keys: 1), previewDetail: true)), CGSize(width: 440, height: 780)),
                 ("repair-key", AnyView(ToolLaunchesPane(previewProfiles: [ToolsPreviewFixture.profiles(4, keys: 1)[3]], previewDetail: true)), CGSize(width: 440, height: 900)),
                 ("repair-paused", AnyView(ToolLaunchesPane(previewProfiles: [ToolsPreviewFixture.profiles(3, keys: 1)[2]], previewDetail: true)), CGSize(width: 440, height: 900)),
                 ("repair-account", AnyView(ToolLaunchesPane(previewProfiles: [ToolsPreviewFixture.profiles(6, keys: 1)[5]], previewDetail: true)), CGSize(width: 440, height: 900)),
                 ("repair-helper", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(1)), previewHelperState: .wrongLink)), CGSize(width: 440, height: 780)),
+                ("repair-helper-detail", AnyView(ToolLaunchesPane(previewProfiles: ToolsPreviewFixture.profiles(1, keys: 1), previewDetail: true, previewHelperState: .wrongLink)), CGSize(width: 440, height: 780)),
                 ("helper-setup", AnyView(TerminalHelperSetup()), CGSize(width: 580, height: 600)),
                 ("launch-advanced", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(1)), previewDetail: true, previewAdvanced: true)), CGSize(width: 740, height: 1000)),
                 ("empty", AnyView(ToolLaunchesPane(previewProfiles: [])), CGSize(width: 1040, height: 720)),
                 ("one", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(1)))), CGSize(width: 1040, height: 760)),
                 ("ten", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(10)))), CGSize(width: 1040, height: 760)),
-                ("64", AnyView(ToolLaunchesPane(previewProfiles: profiles, previewGrants: grants.activeGrants())), CGSize(width: 1100, height: 800)),
+                ("64", AnyView(ToolLaunchesPane(previewProfiles: profiles)), CGSize(width: 1100, height: 800)),
                 ("64-compact", AnyView(ToolLaunchesPane(previewProfiles: profiles)), CGSize(width: 440, height: 780)),
                 ("16-key-detail", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(1)), previewDetail: true)), CGSize(width: 440, height: 820)),
                 ("no-results", AnyView(ToolLaunchesPane(previewProfiles: profiles, previewQuery: "not-a-saved-tool")), CGSize(width: 1040, height: 760)),
@@ -118,19 +120,6 @@ enum Snapshot {
         var multiProfile = profile
         multiProfile.name = "tool-research"; multiProfile.displayName = "Research assistant"
         multiProfile.additionalBindings = [.init(accountID: "demo", itemID: secondKey.id, field: .hidden(APIKeyTemplate.keyField), variable: "SEARCH_API_KEY")]
-        var trusted = SecretsGrantStore()
-        var fixtureProfile = profile; fixtureProfile.directory = "/tmp"
-        if let launch = try? LaunchIdentity.capture(fixtureProfile) {
-            for (pid, duration) in [(Int32(1234), SecretsGrantDuration.tenMinutes), (Int32(5678), .untilLock)] {
-                let caller = SecretsCallerIdentity(pid: pid, uid: 501, startedSeconds: 1, startedMicros: 0,
-                                                  codeHash: Data([1]), path: "/bin/zsh")
-                trusted.grant(duration, for: SecretsGrantBinding(caller: caller, helper: "/Applications/Triwarden.app/Contents/MacOS/tw",
-                    revision: "synthetic", credentialFingerprint: "synthetic", launch: launch, tool: profile.name))
-            }
-            let caller = SecretsCallerIdentity(pid: 9012, uid: 501, startedSeconds: 1, startedMicros: 0, codeHash: Data([1]), path: "/bin/zsh")
-            trusted.grant(.tenMinutes, for: SecretsGrantBinding(caller: caller, helper: "/Applications/Triwarden.app/Contents/MacOS/tw",
-                revision: "synthetic-multiple", credentialFingerprint: "synthetic-multiple", launch: launch, tool: multiProfile.name))
-        }
         var prefill = EditItemSheet.Prefill(); prefill.apiKey = true; prefill.accountIDs = ["demo"]
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let scheme: ColorScheme = name == "dark" ? .dark : .light
@@ -143,11 +132,9 @@ enum Snapshot {
                 ("setup", AnyView(ToolLaunchSetup(reference: reference)), CGSize(width: 640, height: 720)),
                 ("claude-setup", AnyView(ToolLaunchSetup(reference: reference, previewRecipe: .claudeCode)), CGSize(width: 640, height: 1000)),
                 ("review", AnyView(ToolLaunchSetup(reference: reference, previewReview: true, previewProfile: profile)), CGSize(width: 640, height: 720)),
-                ("saved-tool", AnyView(ToolLaunchesPane(previewProfile: profile)), CGSize(width: 760, height: 900)),
-                ("trusted-tools", AnyView(ToolLaunchesPane(previewProfile: profile, previewGrants: trusted.activeGrants().filter { $0.tool == profile.name })), CGSize(width: 760, height: 1120)),
-                ("trusted-tools-compact", AnyView(ToolLaunchesPane(previewProfile: profile, previewGrants: trusted.activeGrants().filter { $0.tool == profile.name })), CGSize(width: 440, height: 1120)),
-                ("multi-tools", AnyView(ToolLaunchesPane(previewProfiles: [profile, multiProfile], previewGrants: trusted.activeGrants())), CGSize(width: 760, height: 1640)),
-                ("multi-tools-compact", AnyView(ToolLaunchesPane(previewProfiles: [multiProfile], previewGrants: trusted.activeGrants().filter { $0.tool == multiProfile.name })), CGSize(width: 440, height: 1240)),
+                ("saved-tool", AnyView(ToolLaunchesPane(previewProfile: profile, previewDetail: true)), CGSize(width: 760, height: 900)),
+                ("multi-tools", AnyView(ToolLaunchesPane(previewProfiles: [profile, multiProfile])), CGSize(width: 760, height: 1640)),
+                ("multi-tools-compact", AnyView(ToolLaunchesPane(previewProfiles: [multiProfile])), CGSize(width: 440, height: 1240)),
                 ("multi-key-setup", AnyView(ToolLaunchSetup(reference: reference, previewProfile: multiProfile)), CGSize(width: 640, height: 1100)),
                 ("multi-key-review", AnyView(ToolLaunchSetup(reference: reference, previewReview: true, previewProfile: multiProfile)), CGSize(width: 640, height: 1100))
             ]

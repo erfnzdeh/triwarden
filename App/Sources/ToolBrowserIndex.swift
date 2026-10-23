@@ -47,11 +47,18 @@ struct ToolBrowserIndex {
         var id: String { binding.variable }
     }
     struct Entry: Identifiable {
+        enum Action: Equatable { case copyLaunch, resume, repairKey(String), editSetup }
         let profile: SecretsProfile
         let keys: [Key]
         let availability: Availability
         var id: String { profile.name }
         var folder: String { URL(fileURLWithPath: profile.directory).lastPathComponent }
+        /// Choose recovery before launch. This guides the UI; it does not authorize a launch.
+        var nextAction: Action {
+            if !profile.enabled { return .resume }
+            if let key = keys.first(where: { $0.repair != nil }) { return .repairKey(key.id) }
+            return availability == .ready ? .copyLaunch : .editSetup
+        }
     }
     let entries: [Entry]
     private let items: [Reference: Item]
@@ -67,8 +74,8 @@ struct ToolBrowserIndex {
                 let item = lookup[Reference(account: binding.accountID, item: binding.itemID)]
                 let missingAccount = configuredAccounts.map { !$0.contains(binding.accountID) } ?? false
                 let problem: String?
-                if missingAccount { problem = String(localized: "Add the required account to this Mac, then review this key binding.") }
-                else if !unlocked.contains(binding.accountID) { problem = String(localized: "Unlock this key's account to view or use it.") }
+                if missingAccount { problem = String(localized: "Add this key's account to continue.") }
+                else if !unlocked.contains(binding.accountID) { problem = String(localized: "Unlock this key's account to continue.") }
                 else if let item {
                     if item.reprompt { problem = String(localized: "This key needs a master-password prompt that tool launches do not support.") }
                     else if !item.isSupported { problem = String(localized: "This item type cannot be supplied to a tool.") }
@@ -85,7 +92,7 @@ struct ToolBrowserIndex {
                         if let length, length <= 32_768 { lengths += length; problem = nil }
                         else { problem = String(localized: "The saved field is missing, renamed, duplicated or empty. Edit the setup and select the key again.") }
                     }
-                } else { problem = String(localized: "This saved key is missing or unavailable. Edit the setup and select another key.") }
+                } else { problem = String(localized: "This key is not available. Select another saved key.") }
                 return Key(binding: binding, name: item?.name ?? String(localized: "Unavailable key"), problem: problem,
                            canView: item != nil && !missingAccount && unlocked.contains(binding.accountID),
                            repair: missingAccount ? .addAccount : (problem == nil ? nil : (unlocked.contains(binding.accountID) ? .selectKey : .unlockAccount)))

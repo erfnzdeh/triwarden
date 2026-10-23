@@ -13,6 +13,7 @@ struct ToolLaunchesPane: View {
     @State private var choosingKey = false
     @State private var helperSetup = false
     @State private var helperCheck = 0
+    @State private var helperState: TerminalHelperInstallation.State?
     @State private var advanced = false
     @State private var replacement: SecretsProfile?
     @State private var chosenKey: VaultItem?
@@ -21,7 +22,6 @@ struct ToolLaunchesPane: View {
     #if DEBUG
     var previewProfile: SecretsProfile?
     var previewProfiles: [SecretsProfile]?
-    var previewGrants: [SecretsActiveGrant]?
     var previewQuery = ""
     var previewFilter = ToolBrowserIndex.Filter.all
     var previewDetail = false
@@ -54,10 +54,11 @@ struct ToolLaunchesPane: View {
         GeometryReader { geometry in
             let wide = geometry.size.width >= 780
             let selection = ToolBrowserIndex.selection(selected, in: results, automatic: wide)
+            let showsDetail = !wide && compactDetail && results.contains { $0.id == selection }
             VStack(spacing: 0) {
-                header(total: profiles.count)
+                if !showsDetail { header(total: profiles.count) }
                 if let error = model.secrets.lastError { errorBanner(error) }
-                Divider().opacity(0.5)
+                if !showsDetail { Divider().opacity(0.5) }
                 if profiles.isEmpty {
                     emptyState
                 } else if results.isEmpty {
@@ -82,7 +83,7 @@ struct ToolLaunchesPane: View {
             }
         }
         .onChange(of: model.wantsToolsSearchFocus, initial: true) { _, wants in
-            if wants { model.wantsToolsSearchFocus = false; searchFocused = true }
+            if wants { model.wantsToolsSearchFocus = false; compactDetail = false; searchFocused = true }
         }
         .onChange(of: model.requestedToolSelection, initial: true) { _, name in
             guard let name, profiles.contains(where: { $0.name == name }) else { return }
@@ -90,6 +91,18 @@ struct ToolLaunchesPane: View {
             model.requestedToolSelection = nil
         }
         .onChange(of: compactDetail) { _, showing in if !showing { listFocused = true } }
+        .task(id: helperCheck) {
+            #if DEBUG
+            if previewProfiles != nil || previewProfile != nil || model.previewUnlocked {
+                helperState = previewHelperState; return
+            }
+            #endif
+            let app = Bundle.main.bundleURL
+            let result = await Task.detached(priority: .utility) { TerminalHelperInstallation.inspect(appURL: app) }.value
+            guard !Task.isCancelled else { return }
+            helperState = result.state
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in helperCheck += 1 }
         .onAppear {
             #if DEBUG
             query = previewQuery; filter = previewFilter
@@ -126,32 +139,39 @@ struct ToolLaunchesPane: View {
                 Text("Tools").font(.system(size: 20, weight: .bold))
                 Text(verbatim: String(total)).font(.system(size: 12)).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    Button { model.requestedSection = .access } label: {
-                        Label("Access · \(temporaryCount)", systemImage: "checkmark.shield")
-                    }.buttonStyle(.appSecondarySmall).help("View and revoke API-key and SSH access")
-                }
                 Button { replacement = nil; choosingKey = true } label: { Label("Add Tool", systemImage: "plus") }
                     .buttonStyle(.appPrimarySmall).accessibilityIdentifier("addTool")
                     .disabled(total >= 64)
                     .help(total >= 64 ? "The 64-tool limit is reached. Remove an unused tool setup first." : "Choose a saved API key and set up a tool")
+                ActionMenu(entries: workspaceActions) { moreIcon }
+                    .accessibilityLabel("Tools options")
             }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) { searchField; toolbarMenus }
                 VStack(spacing: 8) { searchField; HStack(spacing: 8) { toolbarMenus; Spacer() } }
             }
-            helperStatus.id(helperCheck)
+            if helperNeedsSetup {
+                HStack(spacing: 8) {
+                    Label("Set up the terminal helper to start tools.", systemImage: "terminal")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                    Button("Set Up…") { helperSetup = true }.buttonStyle(.appSecondarySmall)
+                        .accessibilityIdentifier("toolsHelperSetup")
+                }
+            }
         }.padding(18)
     }
 
-    @ViewBuilder private var helperStatus: some View {
-        #if DEBUG
-        if previewProfiles != nil || previewProfile != nil || model.previewUnlocked {
-            TerminalHelperStatusRow(openSetup: { helperSetup = true }, previewState: previewHelperState)
-        } else { TerminalHelperStatusRow(openSetup: { helperSetup = true }) }
-        #else
-        TerminalHelperStatusRow(openSetup: { helperSetup = true })
-        #endif
+    private var helperNeedsSetup: Bool { helperState.map { $0 != .installed } ?? false }
+
+    private var workspaceActions: [ActionMenuEntry] {
+        [ActionMenuEntry(title: String(localized: "Terminal Helper Setup…"), symbol: "terminal") { helperSetup = true },
+         ActionMenuEntry(title: String(localized: "View Access"), symbol: "checkmark.shield") { model.requestedSection = .access }]
+    }
+
+    private var moreIcon: some View {
+        Image(systemName: "ellipsis").font(.system(size: 13, weight: .semibold))
+            .frame(width: 32, height: 32).modifier(HeaderChrome(shape: .circle)).contentShape(.circle)
     }
 
     private var searchField: some View {
@@ -172,13 +192,6 @@ struct ToolLaunchesPane: View {
                     .frame(width: 32, height: 32).modifier(HeaderChrome(shape: .circle)).contentShape(.circle)
             }.fixedSize().accessibilityLabel("Sort tools")
         }
-    }
-
-    private var temporaryCount: Int {
-        #if DEBUG
-        if let previewGrants { return previewGrants.filter { $0.deadline.map { .now < $0 } ?? true }.count }
-        #endif
-        return model.secrets.activeGrantCount + model.sshAgent.activeTrusts.count
     }
 
     private func toolList(_ results: [ToolBrowserIndex.Entry], selection: String?, wide: Bool) -> some View {
@@ -236,111 +249,191 @@ struct ToolLaunchesPane: View {
 
     @ViewBuilder private func detail(_ entry: ToolBrowserIndex.Entry?, index: ToolBrowserIndex, back: Bool) -> some View {
         if let entry {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    if back {
-                        Button { compactDetail = false } label: { Label("All Tools", systemImage: "chevron.left") }
-                            .buttonStyle(.plain).accessibilityIdentifier("backToTools")
-                    }
-                    HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(verbatim: entry.profile.title).font(.system(size: 22, weight: .bold)).textSelection(.enabled)
-                            Label(entry.availability.title, systemImage: entry.availability.symbol)
-                                .font(.system(size: 12)).foregroundStyle(.secondary)
-                        }
+            VStack(spacing: 0) {
+                if back {
+                    HStack {
+                        Button { compactDetail = false } label: {
+                            Label("Tools", systemImage: "chevron.left").font(.system(size: 13, weight: .medium))
+                        }.buttonStyle(.plain).accessibilityIdentifier("backToTools")
                         Spacer(minLength: 0)
-                        Menu {
-                            Button(entry.profile.enabled ? "Pause" : "Resume") { setEnabled(!entry.profile.enabled, entry.profile) }
-                            Button("View Access") { model.requestedSection = .access }
-                            Divider()
-                            Button("Remove Tool…", role: .destructive) { removing = entry.profile }
-                        } label: { Image(systemName: "ellipsis.circle") }
-                            .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Manage \(entry.profile.title)")
-                    }
-                    Text(verbatim: entry.profile.directory).font(.system(size: 12)).foregroundStyle(.secondary)
-                        .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                    if entry.availability == .paused {
-                        HStack {
-                            Text("Resume this tool before you start it.").font(.system(size: 12)).foregroundStyle(.secondary)
-                            Spacer()
-                            Button("Resume Tool") { setEnabled(true, entry.profile) }.buttonStyle(.appSecondarySmall)
-                        }
-                    } else if entry.availability == .needsRepair {
-                        Text("Review this tool's key settings before you start it.").font(.system(size: 12)).foregroundStyle(.secondary)
-                    }
-                    VStack(alignment: .leading, spacing: 10) {
-                        Button { copyLaunch(entry.profile) } label: {
-                            Text("Copy Launch for \(entry.profile.title)").lineLimit(1).truncationMode(.middle)
-                        }.buttonStyle(AppButtonStyle(kind: .primary, small: true, large: true))
-                            .frame(maxWidth: 380).accessibilityIdentifier("copyToolLaunchCommand")
-                            .help("Copy Launch for \(entry.profile.title)")
-                        HStack {
-                            Button("Copy Shell Alias") { copyAlias(entry.profile) }.buttonStyle(.appSecondarySmall)
-                            Button("Edit Setup…") { edit(entry, index: index) }.buttonStyle(.appSecondarySmall)
-                        }
-                    }
-                    DisclosureGroup("Advanced", isExpanded: $advanced) {
+                        ActionMenu(entries: detailActions(entry, index: index)) { moreIcon }
+                            .accessibilityLabel("Manage \(entry.profile.title)")
+                    }.padding(.horizontal, 22).padding(.top, 14).padding(.bottom, 6)
+                }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Shell command").font(.system(size: 12, weight: .semibold))
-                            Text(verbatim: (try? SavedToolCommands.launch(entry.profile)) ?? "")
-                            Button("Copy Shell Command") { copyLaunch(entry.profile) }.buttonStyle(.appSecondarySmall)
-                            Text("Suggested shell alias").font(.system(size: 12, weight: .semibold)).padding(.top, 6)
-                            Text(verbatim: (try? SavedToolCommands.alias(entry.profile)) ?? "")
-                            Text("Paste the alias into your terminal. Change its name if another tool uses it.")
-                                .font(.system(size: 12)).foregroundStyle(.secondary)
-                            Text("Aliases use saved tool IDs. A tool name change does not change an existing alias.")
-                                .font(.system(size: 12)).foregroundStyle(.secondary)
-                            Divider().opacity(0.4)
-                            Text("Saved executable").font(.system(size: 12, weight: .semibold))
-                            Text(verbatim: entry.profile.executable)
-                            ForEach(Array(entry.profile.arguments.enumerated()), id: \.offset) { i, value in Text(verbatim: "\(i + 1): \(value.isEmpty ? "(empty)" : value)") }
-                        }.font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
-                    }.font(.system(size: 12))
-                    Divider().opacity(0.5)
-                    Text("Keys provided to this tool").font(.system(size: 13, weight: .semibold))
-                    ForEach(entry.keys) { key in
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(alignment: .top) {
-                                Text(verbatim: key.name).font(.system(size: 13, weight: .medium))
-                                Spacer(minLength: 8)
-                                switch key.repair {
-                                case .unlockAccount:
-                                    Button("Unlock Account") { model.accountFocus = key.binding.accountID }.buttonStyle(.appSecondarySmall)
-                                case .addAccount:
-                                    Button("Add Account…") { model.beginAddAccount() }.buttonStyle(.appSecondarySmall)
-                                case .selectKey:
-                                    Button(entry.profile.bindings.first == key.binding ? "Select Key Again…" : "Edit Key Setup…") {
-                                        if entry.profile.bindings.first == key.binding { replacement = entry.profile; choosingKey = true }
-                                        else { edit(entry, index: index) }
-                                    }.buttonStyle(.appSecondarySmall)
-                                case nil:
-                                    Button("View") {
-                                        if let item = index.item(for: key.binding) {
-                                            model.requestedVaultItem = .init(accountID: item.accountId, itemID: item.id)
-                                        }
-                                    }.buttonStyle(.appSecondarySmall).disabled(!key.canView)
-                                        .accessibilityLabel("View \(key.name) in the vault")
+                            HStack(alignment: .top, spacing: 12) {
+                                Text(verbatim: entry.profile.title).font(.system(size: 22, weight: .bold))
+                                    .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                                    .accessibilityAddTraits(.isHeader)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                if !back {
+                                    ActionMenu(entries: detailActions(entry, index: index)) { moreIcon }
+                                        .accessibilityLabel("Manage \(entry.profile.title)")
                                 }
                             }
-                            Text(verbatim: key.binding.variable).font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
-                            if let account = model.accounts.first(where: { $0.id == key.binding.accountID }) {
-                                Text(verbatim: account.email + " · " + account.serverSummary).font(.system(size: 11)).foregroundStyle(.secondary)
+                            Label { Text(verbatim: entry.folder) } icon: { Image(systemName: "folder") }
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                                .lineLimit(1).truncationMode(.middle).help(entry.profile.directory)
+                        }
+                        VStack(alignment: .leading, spacing: 12) {
+                            if entry.nextAction == .copyLaunch && helperNeedsSetup {
+                                Label("Terminal helper setup needed", systemImage: "terminal")
+                                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                            } else {
+                                Label(entry.availability.title, systemImage: entry.availability.symbol)
+                                    .font(.system(size: 12)).foregroundStyle(.secondary)
                             }
-                            if let problem = key.problem {
-                                Text(verbatim: problem).font(.system(size: 12)).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                            if case .repairKey(let id) = entry.nextAction,
+                               let problem = entry.keys.first(where: { $0.id == id })?.problem {
+                                Text(verbatim: problem).font(.system(size: 12)).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            primaryAction(entry, index: index)
+                            if entry.nextAction == .copyLaunch && !helperNeedsSetup {
+                                Text("Paste the command into your terminal to start this tool.")
+                                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                        Divider().opacity(0.4)
-                    }
-                    Text("Keys are supplied only when you start this saved command and approve access. The receiving program can read and retain them.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }.padding(22).frame(maxWidth: 740, alignment: .leading).frame(maxWidth: .infinity, alignment: .topLeading)
-            }.thinScroller().id(entry.id).accessibilityIdentifier("toolDetail")
+                        launchDetails(entry)
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(spacing: 6) {
+                                Text("API keys").font(.system(size: 13, weight: .semibold))
+                                Text(verbatim: String(entry.keys.count)).font(.system(size: 11)).foregroundStyle(.secondary)
+                            }
+                            VStack(spacing: 0) {
+                                ForEach(entry.keys) { key in
+                                    keyRow(key, entry: entry, index: index)
+                                    if key.id != entry.keys.last?.id { Divider().opacity(0.4).padding(.leading, 16) }
+                                }
+                            }
+                            .background(Color.panelStrong, in: .rect(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.panelEdge))
+                        }
+                    }.padding(.horizontal, 22).padding(.top, back ? 6 : 22).padding(.bottom, 24)
+                        .frame(maxWidth: 680, alignment: .leading).frame(maxWidth: .infinity, alignment: .topLeading)
+                }.thinScroller()
+            }.id(entry.id).accessibilityIdentifier("toolDetail")
         } else {
             ContentUnavailableView("Select a tool", systemImage: "terminal", description: Text("Choose a tool to view its keys and launch settings."))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    @ViewBuilder private func primaryAction(_ entry: ToolBrowserIndex.Entry, index: ToolBrowserIndex) -> some View {
+        switch entry.nextAction {
+        case .copyLaunch:
+            if helperNeedsSetup {
+                Button("Set Up Terminal Helper…") { helperSetup = true }.buttonStyle(.appPrimary)
+                    .accessibilityIdentifier("toolsHelperSetup")
+            } else {
+                Button { copyLaunch(entry.profile) } label: { Label("Copy Launch", systemImage: "doc.on.doc") }
+                    .buttonStyle(.appPrimary).accessibilityIdentifier("copyToolLaunchCommand")
+                    .accessibilityLabel("Copy Launch for \(entry.profile.title)").help("Copy Launch for \(entry.profile.title)")
+            }
+        case .resume:
+            Button("Resume Tool") { setEnabled(true, entry.profile) }.buttonStyle(.appPrimary)
+        case .repairKey(let id):
+            if let key = entry.keys.first(where: { $0.id == id }) {
+                Button(repairTitle(key, entry: entry)) { repair(key, entry: entry, index: index) }.buttonStyle(.appPrimary)
+            }
+        case .editSetup:
+            Button("Edit Setup…") { edit(entry, index: index) }.buttonStyle(.appPrimary)
+        }
+    }
+
+    private func keyRow(_ key: ToolBrowserIndex.Key, entry: ToolBrowserIndex.Entry, index: ToolBrowserIndex) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(verbatim: key.name).font(.system(size: 13, weight: .medium))
+                Text(verbatim: key.binding.variable).font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let problem = key.problem, entry.nextAction != .repairKey(key.id) {
+                    Text(verbatim: problem).font(.system(size: 12)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true).padding(.top, 3)
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+            if key.repair != nil {
+                if entry.nextAction != .repairKey(key.id) {
+                    Button(repairTitle(key, entry: entry)) { repair(key, entry: entry, index: index) }.buttonStyle(.appSecondarySmall)
+                }
+            } else {
+                Button {
+                    if let item = index.item(for: key.binding) {
+                        model.requestedVaultItem = .init(accountID: item.accountId, itemID: item.id)
+                    }
+                } label: {
+                    Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary).frame(width: 28, height: 28).contentShape(.rect)
+                }.buttonStyle(.plain).disabled(!key.canView)
+                    .accessibilityLabel("View \(key.name) in the vault").help("View key in the vault")
+            }
+        }.padding(16).help(keyAccountSummary(key))
+    }
+
+    private func launchDetails(_ entry: ToolBrowserIndex.Entry) -> some View {
+        DisclosureGroup("Launch details", isExpanded: $advanced) {
+            VStack(alignment: .leading, spacing: 16) {
+                launchField("Project folder", value: entry.profile.directory)
+                launchField("Shell command", value: (try? SavedToolCommands.launch(entry.profile)) ?? "")
+                Button("Copy Shell Command") { copyLaunch(entry.profile) }.buttonStyle(.appSecondarySmall)
+                launchField("Suggested shell alias", value: (try? SavedToolCommands.alias(entry.profile)) ?? "")
+                Button("Copy Shell Alias") { copyAlias(entry.profile) }.buttonStyle(.appSecondarySmall)
+                Text("Paste the alias into your terminal. Change its name if another tool uses it. The alias uses the saved tool ID.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                launchField("Executable", value: entry.profile.executable)
+                if !entry.profile.arguments.isEmpty {
+                    launchField("Arguments", value: entry.profile.arguments.enumerated().map { "\($0.offset + 1): \($0.element)" }.joined(separator: "\n"))
+                }
+                launchField("Vault accounts", value: Array(Set(entry.keys.map { keyAccountSummary($0) })).sorted().joined(separator: "\n"))
+                Text("Keys are supplied after you approve access. The receiving program can read and retain them.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }.padding(.top, 14).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+        }.font(.system(size: 12)).tint(.secondary)
+    }
+
+    private func keyAccountSummary(_ key: ToolBrowserIndex.Key) -> String {
+        guard let account = model.accounts.first(where: { $0.id == key.binding.accountID }) else { return key.binding.accountID }
+        return account.email + " · " + account.serverSummary
+    }
+
+    private func launchField(_ title: LocalizedStringKey, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            Text(verbatim: value).font(.system(size: 12, design: .monospaced)).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func repairTitle(_ key: ToolBrowserIndex.Key, entry: ToolBrowserIndex.Entry) -> String {
+        switch key.repair {
+        case .unlockAccount: String(localized: "Unlock Account")
+        case .addAccount: String(localized: "Add Account…")
+        case .selectKey: entry.profile.bindings.first == key.binding ? String(localized: "Select Key…") : String(localized: "Edit Key Setup…")
+        case nil: String(localized: "Edit Setup…")
+        }
+    }
+
+    private func repair(_ key: ToolBrowserIndex.Key, entry: ToolBrowserIndex.Entry, index: ToolBrowserIndex) {
+        switch key.repair {
+        case .unlockAccount: model.accountFocus = key.binding.accountID
+        case .addAccount: model.beginAddAccount()
+        case .selectKey:
+            if entry.profile.bindings.first == key.binding { replacement = entry.profile; choosingKey = true }
+            else { edit(entry, index: index) }
+        case nil: edit(entry, index: index)
+        }
+    }
+
+    private func detailActions(_ entry: ToolBrowserIndex.Entry, index: ToolBrowserIndex) -> [ActionMenuEntry] {
+        [ActionMenuEntry(title: String(localized: "Edit Setup…"), symbol: "pencil") { edit(entry, index: index) },
+         ActionMenuEntry(title: String(localized: "Copy Shell Alias"), symbol: "doc.on.doc") { copyAlias(entry.profile) },
+         ActionMenuEntry(title: entry.profile.enabled ? String(localized: "Pause Tool") : String(localized: "Resume Tool"),
+                         symbol: entry.profile.enabled ? "pause" : "play", separatorBefore: true) { setEnabled(!entry.profile.enabled, entry.profile) }]
+        + workspaceActions + [
+         ActionMenuEntry(title: String(localized: "Remove Tool…"), symbol: "trash", destructive: true, separatorBefore: true) { removing = entry.profile }]
     }
 
     private var emptyState: some View {
@@ -398,7 +491,7 @@ private struct ToolBrowserRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(verbatim: entry.profile.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-            Text(verbatim: entry.folder + " · " + entry.id)
+            Text(verbatim: entry.folder)
                 .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
             HStack(spacing: 8) {
                 Label("\(entry.keys.count) keys", systemImage: "key.horizontal")

@@ -59,6 +59,16 @@ enum ToolsBrowserSelfTest {
               "locked key offers account repair before key replacement")
         check(index.entries.first { $0.id == "tool-00" }?.keys.first?.repair == nil,
               "valid key has no repair action")
+        check(index.entries.first { $0.id == "tool-00" }?.nextAction == .copyLaunch,
+              "ready tool offers launch as its main action")
+        check(index.entries.first { $0.id == "tool-03" }?.nextAction == .repairKey("API_KEY_0"),
+              "missing key offers repair instead of a launch command")
+        check(index.entries.first { $0.id == "tool-05" }?.nextAction == .repairKey("API_KEY_0"),
+              "locked account offers repair instead of a launch command")
+        check(index.entries.first { $0.id == "tool-02" }?.nextAction == .resume,
+              "paused tool offers resume before launch")
+        check(ToolBrowserIndex(profiles: ToolsPreviewFixture.profiles(1), items: keys, unlocked: ["demo"], configurationError: true)
+            .entries[0].nextAction == .editSetup, "catalog errors never present launch as the main action")
         let knownAccounts = ToolBrowserIndex(profiles: ToolsPreviewFixture.profiles(6), items: keys,
                                             unlocked: ["demo"], configuredAccounts: ["demo"])
         check(knownAccounts.entries.first { $0.id == "tool-05" }?.keys.first?.repair == .addAccount,

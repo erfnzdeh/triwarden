@@ -28,7 +28,7 @@ The recipe does not verify provider credentials or establish compatibility with 
 ## Install the helper
 
 1. Open **Tools** in Triwarden.
-2. Select **Terminal Helper Setup…**.
+2. Open the **Tools options** menu (…). Select **Terminal Helper Setup…**.
 3. Check the install location and the helper path.
 4. Select **Copy Install Command**.
 5. Paste the command into Terminal and run it.
@@ -51,17 +51,17 @@ Triwarden does not change your shell startup files.
 ## Copy a launch
 
 1. Select the saved tool in **Tools**.
-2. Select **Copy Launch for [tool name]**.
+2. Check the tool name, then select **Copy Launch**.
 3. Paste the command into Terminal and run it.
 
-The action identifies the tool by its display name.
+The selected tool name identifies the launch. The copy confirmation shows that name.
 The copied shell command uses its stable ID, for example:
 
 ```sh
 tw run --profile tool-123
 ```
 
-Open **Advanced** to see the exact shell command and the saved executable.
+Open **Launch details** to see the exact shell command and the saved executable.
 Duplicate display names do not change the selected ID.
 
 ## Choose a tool in Terminal
@@ -85,20 +85,23 @@ Command overrides remain disabled.
 
 ## Repair a setup
 
-Tools shows the terminal helper status and a direct setup action.
-The status refreshes when you return to Triwarden or close helper setup.
+Tools shows a setup action if the terminal helper needs attention.
+A working helper adds no status row.
+The check runs again when you return to Triwarden or close helper setup.
 It does not prove that a key, provider account, or project script works.
 
 - Select **Resume Tool** for a paused tool.
 - Select **Unlock Account** for a locked account.
 - Select **Add Account…** if the required account is absent from this Mac.
-- Select **Select Key Again…** to replace a broken primary binding.
+- Select **Select Key…** to replace a broken primary binding.
 - Select **Edit Key Setup…** to repair an additional binding.
 
+The main action repairs a missing key or account before it offers a launch command.
 The review step shows the replacement key and the retained variable name before you save.
 
 ## Use a shell alias
 
+Open the tool options menu (…) or **Launch details**.
 Select **Copy Shell Alias** to copy a suggested alias:
 
 ```sh
