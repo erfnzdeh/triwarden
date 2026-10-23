@@ -51,6 +51,18 @@ struct ActionMenuContents: View {
         path.reduce(entries) { list, index in list.indices.contains(index) ? list[index].children : [] }
     }
 
+    /// The rows' height, worked out from what they are rather than measured. A scroll view has no height of its own,
+    /// so a popover sized from its preferred content size kept the height it was first given and drew an empty band
+    /// under a short menu. `fixedSize` did not settle it; adding up the rows does.
+    private var estimatedHeight: CGFloat {
+        current.reduce(0) { total, entry in
+            if entry.heading { return total + 20 + (entry.separatorBefore ? 7 : 0) }
+            return total + 26 + (entry.separatorBefore ? 7 : 0)
+        }
+        // The 1 pt spacing between rows, and a heading's own top padding.
+        + CGFloat(max(current.count - 1, 0)) + 4
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             if !path.isEmpty {
@@ -70,10 +82,21 @@ struct ActionMenuContents: View {
                                 .padding(.horizontal, 10).padding(.top, index == 0 ? 2 : 6).padding(.bottom, 2)
                         } else {
                             Button { activate(index) } label: {
-                                HStack(spacing: 8) {
-                                    Image(systemName: entry.symbol).frame(width: 18)
+                                // Centred, with no per-row offsets: measured off a render, a symbol's middle and the
+                                // cap-height middle of the label beside it land within half a point of each other.
+                                // The variation that looks like misalignment is the glyphs themselves — an ascender
+                                // or a descender changes a word's bounding box, not its baseline.
+                                HStack(alignment: .center, spacing: 8) {
+                                    Image(systemName: entry.symbol)
+                                        .font(.system(size: 12))
                                         .foregroundStyle(entry.destructive ? Color.red : selected == index ? Color.primary : Color.secondary)
+                                        // One box for every symbol, at the label's own line height. SF Symbols come in
+                                        // different intrinsic sizes (13 pt for text.alignleft, 15 pt for doc), so
+                                        // without a shared box each row's weight differs and the row looks misaligned
+                                        // even though every centre is on the same line.
+                                        .frame(width: 18, height: 20, alignment: .center)
                                     Text(verbatim: entry.title)
+                                        .frame(height: 20, alignment: .center)
                                     Spacer(minLength: 12)
                                     if !entry.shortcut.isEmpty {
                                         Text(verbatim: entry.shortcut).foregroundStyle(entry.destructive ? Color.red : selected == index ? Color.primary : Color.secondary)
@@ -85,7 +108,8 @@ struct ActionMenuContents: View {
                                     }
                                 }
                                 .font(.system(size: 13))
-                                .padding(.horizontal, 10).frame(height: 26)
+                                .frame(height: 26)
+                                .padding(.horizontal, 10)
                                 .foregroundStyle(entry.destructive ? Color.red : Color.primary)
                                 .background(selected == index ? (scheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.10)) : .clear,
                                             in: .rect(cornerRadius: 8))
@@ -100,7 +124,8 @@ struct ActionMenuContents: View {
                 }
             }
             .scrollIndicators(.never)
-            .frame(maxHeight: 520).fixedSize(horizontal: false, vertical: true)
+            // Exactly the rows' height, so the popover wraps them; a menu longer than 520 pt scrolls instead.
+            .frame(height: min(estimatedHeight, 520))
             .onChange(of: selected) { _, index in if let index { proxy.scrollTo(index) } }
             }
         }
