@@ -82,4 +82,48 @@ struct SecretsGrantTests {
         #expect(grants.activeCount() == 0)
         #expect(grants.allowed(scope) == nil)
     }
+
+    @Test func activeListShowsIndependentCallersAndMonotonicExpiry() throws {
+        var grants = SecretsGrantStore()
+        let now = ContinuousClock.now
+        grants.grant(.tenMinutes, for: try binding(pid: 42), now: now)
+        grants.grant(.untilLock, for: try binding(pid: 43), now: now)
+        let active = grants.activeGrants(now: now)
+        #expect(active.map(\.caller.pid) == [42, 43])
+        #expect(active[0].duration == .tenMinutes)
+        #expect(active[0].deadline == now.advanced(by: .seconds(600)))
+        #expect(active[1].duration == .untilLock)
+        #expect(active[1].deadline == nil)
+        #expect(grants.activeGrants(now: now.advanced(by: .seconds(599))).map(\.id) == active.map(\.id))
+        #expect(grants.activeGrants(now: now.advanced(by: .seconds(600))).map(\.caller.pid) == [43])
+        grants.reset()
+        #expect(grants.activeGrants(now: now).isEmpty)
+    }
+
+    @Test func revokeOneCallerLeavesOtherCallerAuthorized() throws {
+        var grants = SecretsGrantStore()
+        let first = try binding(pid: 42), second = try binding(pid: 43)
+        grants.grant(.untilLock, for: first)
+        grants.grant(.tenMinutes, for: second)
+        let active = grants.activeGrants()
+        grants.revoke(active[0].id)
+        #expect(grants.allowed(first) == nil)
+        #expect(grants.allowed(second) == .tenMinutes)
+        #expect(grants.activeGrants().map(\.id) == [active[1].id])
+        grants.revoke(active[0].id)
+        #expect(grants.allowed(second) == .tenMinutes)
+    }
+
+    @Test func staleRowCannotRevokeReplacementGrant() throws {
+        var grants = SecretsGrantStore()
+        let scope = try binding()
+        grants.grant(.tenMinutes, for: scope)
+        let staleID = try #require(grants.activeGrants().first?.id)
+        grants.grant(.untilLock, for: scope)
+        grants.revoke(staleID)
+        #expect(grants.allowed(scope) == .untilLock)
+        #expect(grants.activeGrants().first?.id != staleID)
+        grants.grant(.once, for: scope)
+        #expect(grants.activeGrants().isEmpty)
+    }
 }

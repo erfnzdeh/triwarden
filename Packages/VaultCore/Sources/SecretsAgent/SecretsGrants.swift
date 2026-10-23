@@ -72,9 +72,18 @@ public struct SecretsGrantBinding: Equatable, Sendable {
     }
 }
 
+/// Safe presentation state: no credential, fingerprint or reusable authorization binding.
+public struct SecretsActiveGrant: Identifiable, Sendable {
+    public let id: UUID
+    public let caller: SecretsCallerIdentity
+    public let duration: SecretsGrantDuration
+    public let deadline: ContinuousClock.Instant?
+}
+
 /// Memory-only, reference/fingerprint state. No credential values or persistent trust.
 public struct SecretsGrantStore {
     private struct Entry {
+        let id = UUID()
         let binding: SecretsGrantBinding
         let duration: SecretsGrantDuration
         let deadline: ContinuousClock.Instant?
@@ -86,6 +95,12 @@ public struct SecretsGrantStore {
         entries.first { $0.binding == binding && $0.active(now) }?.duration
     }
     public func activeCount(now: ContinuousClock.Instant = .now) -> Int { entries.filter { $0.active(now) }.count }
+    public func activeGrants(now: ContinuousClock.Instant = .now) -> [SecretsActiveGrant] {
+        entries.filter { $0.active(now) }.map {
+            SecretsActiveGrant(id: $0.id, caller: $0.binding.caller, duration: $0.duration, deadline: $0.deadline)
+        }
+    }
+    public mutating func revoke(_ id: UUID) { entries.removeAll { $0.id == id } }
     public mutating func retain(revision: String, credentialFingerprint: String, launch: LaunchIdentity) {
         entries.removeAll { $0.binding.revision != revision || $0.binding.credentialFingerprint != credentialFingerprint || $0.binding.launch != launch }
     }

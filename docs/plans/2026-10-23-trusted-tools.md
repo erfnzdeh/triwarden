@@ -1,0 +1,9 @@
+# Trusted tools
+
+The user approved a manageable list of temporary tool approvals, rather than permanent trust by executable name or path. The entry point is **Tools & Projects**, beside the saved tool setup. Successful ten-minute or until-lock delivery automatically creates a row; saving a setup or approving once does not.
+
+Each row shows the saved tool, vault item name, kernel-observed terminal/launcher identity, and a monotonic countdown or until-lock label. Different launcher processes remain separate even for the same saved tool. Individual Revoke removes the row's opaque, memory-only ID, leaving other approvals in place. Revoke All uses the existing controller reset, which also cancels pending delivery. Existing caller/helper/revision/credential/target checks and macOS authentication remain unchanged. Revocation cannot recall a delivered key.
+
+The view receives a filtered presentation snapshot containing no secret value, credential fingerprint or authorization binding. It refreshes every second so expired rows disappear and observes store mutations for immediate revocation feedback. A replacement grant receives a new ID, preventing a stale row action from removing new consent. All entries still disappear on lock, logout, setup save/pause, denial/cancellation or App exit; they are not persisted.
+
+Verification: 39 SecretsAgent tests passed, including three new cases for separate callers and exact expiry/stable row identity, individual revocation, and stale-row replacement. The signed Debug build and strict deep code-signature verification passed. Six synthetic native renders cover light/dark, active/empty and compact layouts, without accessing a real vault or delivering a credential. These checks validate state and presentation; this increment does not repeat user-assisted device authentication or a live provider request.

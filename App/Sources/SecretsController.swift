@@ -36,6 +36,12 @@ final class SecretsController: NSObject, NSWindowDelegate {
     private var grants = SecretsGrantStore()
     @ObservationIgnored private let fingerprintKey = SymmetricKey(size: .bits256)
     var activeGrantCount: Int { grants.activeCount() }
+    var activeGrants: [SecretsActiveGrant] { grants.activeGrants() }
+
+    func revokeGrant(_ id: UUID) {
+        // Cached requests recheck this store immediately before delivery, including after refresh.
+        grants.revoke(id)
+    }
     #if DEBUG
     private(set) var lastDeliveryDuration: SecretsGrantDuration?
     // UI fixture configuration only; this never grants access or bypasses authentication.

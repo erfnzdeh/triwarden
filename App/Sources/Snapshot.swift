@@ -40,6 +40,16 @@ enum Snapshot {
             field: .hidden(APIKeyTemplate.keyField), variable: "ANTHROPIC_API_KEY", executable: "/usr/bin/env",
             arguments: ["node", "scripts/assistant.mjs"], directory: "/Users/alex/Projects/documentation-assistant",
             displayName: "Documentation assistant")
+        var trusted = SecretsGrantStore()
+        var fixtureProfile = profile; fixtureProfile.directory = "/tmp"
+        if let launch = try? LaunchIdentity.capture(fixtureProfile) {
+            for (pid, duration) in [(Int32(1234), SecretsGrantDuration.tenMinutes), (Int32(5678), .untilLock)] {
+                let caller = SecretsCallerIdentity(pid: pid, uid: 501, startedSeconds: 1, startedMicros: 0,
+                                                  codeHash: Data([1]), path: "/bin/zsh")
+                trusted.grant(duration, for: SecretsGrantBinding(caller: caller, helper: "/Applications/Triwarden.app/Contents/MacOS/tw",
+                    revision: "synthetic", credentialFingerprint: "synthetic", launch: launch))
+            }
+        }
         var prefill = EditItemSheet.Prefill(); prefill.apiKey = true; prefill.accountIDs = ["demo"]
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let scheme: ColorScheme = name == "dark" ? .dark : .light
@@ -51,7 +61,9 @@ enum Snapshot {
                 ("tools-empty", AnyView(ToolLaunchesPane()), CGSize(width: 760, height: 680)),
                 ("setup", AnyView(ToolLaunchSetup(reference: reference)), CGSize(width: 640, height: 720)),
                 ("review", AnyView(ToolLaunchSetup(reference: reference, previewReview: true, previewProfile: profile)), CGSize(width: 640, height: 720)),
-                ("saved-tool", AnyView(ToolLaunchesPane(previewProfile: profile)), CGSize(width: 760, height: 760))
+                ("saved-tool", AnyView(ToolLaunchesPane(previewProfile: profile)), CGSize(width: 760, height: 900)),
+                ("trusted-tools", AnyView(ToolLaunchesPane(previewProfile: profile, previewGrants: trusted.activeGrants())), CGSize(width: 760, height: 1120)),
+                ("trusted-tools-compact", AnyView(ToolLaunchesPane(previewProfile: profile, previewGrants: trusted.activeGrants())), CGSize(width: 440, height: 1120))
             ]
             for (stage, view, size) in views {
                 render(view.background { WindowBackdrop() }.environment(model).environment(\.colorScheme, scheme), size: size, appearance: appearance,

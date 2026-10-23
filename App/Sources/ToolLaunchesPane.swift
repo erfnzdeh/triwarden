@@ -5,6 +5,7 @@ struct ToolLaunchesPane: View {
     @Environment(AppModel.self) private var model
     #if DEBUG
     var previewProfile: SecretsProfile?
+    var previewGrants: [SecretsActiveGrant]?
     #endif
 
     private var savedProfile: SecretsProfile? {
@@ -51,15 +52,6 @@ struct ToolLaunchesPane: View {
                 if let error = model.secrets.lastError {
                     Text(verbatim: error).font(.system(size: 12)).foregroundStyle(.orange)
                 }
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    if model.secrets.activeGrantCount > 0 {
-                        HStack {
-                            Text("Temporary access is active for this tool.")
-                                .font(.system(size: 12)).foregroundStyle(.secondary)
-                            Button("Revoke Access") { model.secrets.reset() }.buttonStyle(.appSecondarySmall)
-                        }
-                    }
-                }
                 if let item, item.isAPIKey {
                     HStack {
                         Button("Edit Tool Setup…") { model.provideKeyToTool(item) }.buttonStyle(.appSecondary)
@@ -71,6 +63,10 @@ struct ToolLaunchesPane: View {
                 } else {
                     Button("Advanced Settings…") { model.showSettings(.secrets) }.buttonStyle(.appSecondary)
                 }
+            }
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                TrustedToolsCard(tool: profile.title, keyName: item?.name, grants: visibleGrants,
+                                 revoke: { model.secrets.revokeGrant($0) }, revokeAll: { model.secrets.reset() })
             }
             FormCard(title: "Use it from your terminal") {
                 Text("Run this whenever you want to start the tool. Triwarden asks for approval unless temporary access from this terminal or launcher is still active.")
@@ -97,9 +93,19 @@ struct ToolLaunchesPane: View {
         }
     }
 
+    private var visibleGrants: [SecretsActiveGrant] {
+        #if DEBUG
+        if let previewGrants { return previewGrants.filter { $0.deadline.map { .now < $0 } ?? true } }
+        #endif
+        return model.secrets.activeGrants
+    }
+
     private func status(_ profile: SecretsProfile) -> LocalizedStringKey {
         if !profile.enabled { return "Paused" }
         if model.secrets.lastError != nil { return "Needs attention" }
+        #if DEBUG
+        if previewProfile != nil { return "Ready for approval" }
+        #endif
         if model.session(for: profile.accountID) == nil { return "Unlock this account to use the tool" }
         return "Ready for approval"
     }
@@ -108,5 +114,74 @@ struct ToolLaunchesPane: View {
         var updated = profile; updated.enabled = enabled
         do { try model.secrets.save(updated) }
         catch { model.flash(error.localizedDescription) }
+    }
+}
+
+/// Displays only active, memory-only approvals. Saving a tool never adds it to this list.
+private struct TrustedToolsCard: View {
+    let tool: String
+    let keyName: String?
+    let grants: [SecretsActiveGrant]
+    let revoke: (UUID) -> Void
+    let revokeAll: () -> Void
+
+    var body: some View {
+        FormCard {
+            HStack {
+                Text("Trusted tools").font(.system(size: 13, weight: .semibold))
+                Spacer()
+                if !grants.isEmpty {
+                    Button("Revoke All", action: revokeAll).buttonStyle(.appSecondarySmall)
+                        .accessibilityIdentifier("revokeAllToolAccess")
+                }
+            }
+            if grants.isEmpty {
+                Text("No tools have temporary access.").font(.system(size: 13, weight: .medium))
+                Text("Choose 10 minutes or Until lock when approving a launch to see it here.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            } else {
+                Text("Each terminal or launcher has its own temporary approval.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                ForEach(grants) { grant in
+                    Divider()
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .top, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(verbatim: tool).font(.system(size: 14, weight: .semibold)).foregroundStyle(.primary)
+                                if let keyName {
+                                    Label(SecretsController.display(keyName), systemImage: "key.horizontal")
+                                } else {
+                                    Text("The saved credential is currently unavailable.")
+                                }
+                                Text("Started from: \(SecretsController.display(grant.caller.label))")
+                                    .help(SecretsController.display(grant.caller.path))
+                            }
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                            Button("Revoke") { revoke(grant.id) }.buttonStyle(.appSecondarySmall)
+                                .accessibilityLabel("Revoke access for \(tool), \(SecretsController.display(grant.caller.label))")
+                                .accessibilityIdentifier("revokeToolAccess-\(grant.id)")
+                        }
+                        Label {
+                            if let deadline = grant.deadline {
+                                let parts = ContinuousClock.now.duration(to: deadline).components
+                                let remaining = max(0, parts.seconds + (parts.attoseconds > 0 ? 1 : 0))
+                                Text("\(remaining / 60)m \(remaining % 60)s remaining").monospacedDigit()
+                            } else {
+                                Text("Until Triwarden locks")
+                            }
+                        } icon: {
+                            Image(systemName: grant.deadline == nil ? "lock" : "clock")
+                        }
+                        .font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                    }
+                }
+                Text("Revoking access makes the next launch ask again. Programs that already received a key can keep using it.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityIdentifier("trustedTools")
     }
 }
