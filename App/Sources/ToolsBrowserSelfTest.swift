@@ -62,6 +62,12 @@ enum ToolsBrowserSelfTest {
         check(ToolBrowserIndex.selection("deleted", in: sorted, automatic: true) == sorted.first?.id, "wide layout recovers selection after removal")
         check(ToolBrowserIndex.selection("deleted", in: sorted, automatic: false) == nil, "narrow layout returns to list after removal")
         check(ToolBrowserIndex.selection(nil, in: [], automatic: true) == nil, "empty and no-results states never select a missing row")
+        check(ToolBrowserIndex.stepping(nil, by: 1, in: sorted) == sorted.first?.id, "Down enters the first tool without a selection")
+        check(ToolBrowserIndex.stepping(nil, by: -1, in: sorted) == sorted.last?.id, "Up enters the last tool without a selection")
+        check(ToolBrowserIndex.stepping(sorted[0].id, by: 1, in: sorted) == sorted[1].id, "Down follows the displayed sort order")
+        check(ToolBrowserIndex.stepping(sorted.first?.id, by: -1, in: sorted) == sorted.first?.id, "Up stops at the first tool")
+        check(ToolBrowserIndex.stepping(sorted.last?.id, by: 1, in: sorted) == sorted.last?.id, "Down stops at the last tool")
+        check(ToolBrowserIndex.stepping(nil, by: 1, in: []) == nil, "keyboard navigation is inert for no results")
         var reprompt = keys; reprompt[0].reprompt = true
         let p = ToolsPreviewFixture.profiles(1)
         check(ToolBrowserIndex(profiles: p, items: reprompt, unlocked: ["demo"]).entries[0].availability == .needsRepair, "protected item does not look launch-ready")

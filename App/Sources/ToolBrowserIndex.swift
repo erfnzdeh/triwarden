@@ -114,4 +114,10 @@ struct ToolBrowserIndex {
         if let selected, results.contains(where: { $0.id == selected }) { return selected }
         return automatic ? results.first?.id : nil
     }
+
+    static func stepping(_ selected: String?, by delta: Int, in results: [Entry]) -> String? {
+        guard !results.isEmpty else { return nil }
+        let current = results.firstIndex { $0.id == selected } ?? (delta > 0 ? -1 : results.count)
+        return results[min(max(current + delta, 0), results.count - 1)].id
+    }
 }

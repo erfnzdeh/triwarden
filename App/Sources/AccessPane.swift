@@ -109,27 +109,16 @@ struct AccessPane: View {
     }
 
     private var search: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Search apps, tools or keys", text: $query).textFieldStyle(.plain).focused($searchFocused).accessibilityIdentifier("accessSearch")
-                .onKeyPress(.escape) { guard !query.isEmpty else { return .ignored }; query = ""; return .handled }
-            if !query.isEmpty {
-                Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
-                    .buttonStyle(.plain).accessibilityLabel("Clear access search")
-            }
-        }.font(.system(size: 12)).padding(8).background(Color.formInputFill, in: .rect(cornerRadius: 8))
+        WorkspaceSearchField(prompt: "Search apps, tools or keys", text: $query, focused: $searchFocused)
+            .frame(minWidth: 140).accessibilityIdentifier("accessSearch")
     }
     private var filters: some View {
         Group {
-            Picker("Access type", selection: $source) {
-                ForEach(Source.allCases, id: \.self) { Text(verbatim: $0.title).tag($0) }
-            }.labelsHidden().pickerStyle(.menu).fixedSize()
+            WorkspaceFilter(title: "Access type", options: Source.allCases.map { ($0, $0.title) }, selection: $source)
             if history {
-                Picker("Result", selection: $outcome) {
-                    ForEach(HistoryFilter.allCases, id: \.self) { Text(verbatim: $0.title).tag($0) }
-                }.labelsHidden().pickerStyle(.menu).fixedSize()
+                WorkspaceFilter(title: "Result", options: HistoryFilter.allCases.map { ($0, $0.title) }, selection: $outcome)
             }
-        }.font(.system(size: 12))
+        }
     }
     private func matches(_ parts: [String]) -> Bool {
         let text = parts.joined(separator: " ")

@@ -31,12 +31,15 @@ struct ToolLaunchesPane: View {
         #endif
         return model.secrets.profiles
     }
-    private var index: ToolBrowserIndex {
+    private var unlockedAccounts: Set<String> {
         var unlocked = Set(model.sessions.map(\.id))
         #if DEBUG
         if previewProfile != nil || previewProfiles != nil { unlocked.formUnion(model.accounts.map(\.id)) }
         #endif
-        return ToolBrowserIndex(profiles: profiles, items: model.items, unlocked: unlocked,
+        return unlocked
+    }
+    private var index: ToolBrowserIndex {
+        ToolBrowserIndex(profiles: profiles, items: model.items, unlocked: unlockedAccounts,
                                 configurationError: model.secrets.lastError != nil)
     }
 
@@ -126,32 +129,31 @@ struct ToolLaunchesPane: View {
                     .disabled(total >= 64)
                     .help(total >= 64 ? "The 64-tool limit is reached. Remove an unused tool setup first." : "Choose a saved API key and set up a tool")
             }
-            HStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Search tools, folders or keys", text: $query).textFieldStyle(.plain)
-                        .focused($searchFocused).accessibilityIdentifier("toolsSearch")
-                        .onKeyPress(.escape) { guard !query.isEmpty else { return .ignored }; query = ""; return .handled }
-                    if !query.isEmpty {
-                        Button { query = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
-                            .buttonStyle(.plain).accessibilityLabel("Clear tool search")
-                    }
-                }
-                .padding(8).background(Color.formInputFill, in: .rect(cornerRadius: 8))
-                Picker("Status", selection: $filter) {
-                    ForEach(ToolBrowserIndex.Filter.allCases, id: \.self) { Text(verbatim: $0.title).tag($0) }
-                }.labelsHidden().pickerStyle(.menu).fixedSize().accessibilityIdentifier("toolsStatusFilter")
-                Menu {
-                    Picker("Sort tools", selection: $order) {
-                        ForEach(ToolBrowserIndex.Order.allCases, id: \.self) { Text(verbatim: $0.title).tag($0) }
-                    }
-                    Divider()
-                    Button("Terminal Helper Setup…") { model.showSettings(.developer) }
-                } label: { Image(systemName: "arrow.up.arrow.down") }
-                    .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Sort tools and helper setup")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { searchField; toolbarMenus }
+                VStack(spacing: 8) { searchField; HStack(spacing: 8) { toolbarMenus; Spacer() } }
             }
-            .font(.system(size: 12))
         }.padding(18)
+    }
+
+    private var searchField: some View {
+        WorkspaceSearchField(prompt: "Search tools, folders or keys", text: $query, focused: $searchFocused) {
+            listFocused = true
+            if selected == nil { selected = index.results(query: query, filter: filter, order: order).first?.id }
+        }.frame(minWidth: 140).accessibilityIdentifier("toolsSearch")
+    }
+
+    private var toolbarMenus: some View {
+        Group {
+            WorkspaceFilter(title: "Status", options: ToolBrowserIndex.Filter.allCases.map { ($0, $0.title) }, selection: $filter)
+                .accessibilityIdentifier("toolsStatusFilter")
+            ActionMenu(entries: ToolBrowserIndex.Order.allCases.map { choice in
+                ActionMenuEntry(title: choice.title, checked: order == choice) { order = choice }
+            } + [ActionMenuEntry(title: String(localized: "Terminal Helper Setup…"), symbol: "terminal", separatorBefore: true) { model.showSettings(.developer) }]) {
+                Image(systemName: "arrow.up.arrow.down").font(.system(size: 13, weight: .semibold))
+                    .frame(width: 32, height: 32).modifier(HeaderChrome(shape: .circle)).contentShape(.circle)
+            }.fixedSize().accessibilityLabel("Sort tools and helper setup")
+        }
     }
 
     private var temporaryCount: Int {
@@ -170,39 +172,35 @@ struct ToolLaunchesPane: View {
                     Button("Clear Filters") { query = ""; filter = .all }.buttonStyle(.appSecondarySmall)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                List(selection: Binding(get: { selection }, set: { value in
-                    selected = value
-                })) {
+                ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 6) {
                     ForEach(results) { entry in
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(verbatim: entry.profile.title).font(.system(size: 13, weight: .semibold)).lineLimit(2)
-                            Text(verbatim: entry.folder + " · " + entry.profile.name)
-                                .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                            HStack(spacing: 8) {
-                                Label("\(entry.keys.count) keys", systemImage: "key.horizontal")
-                                Label(entry.availability.title, systemImage: entry.availability.symbol)
-                            }.font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                        .padding(.vertical, 6).tag(entry.id)
+                        ToolBrowserRow(entry: entry, selected: selection == entry.id)
+                        .id(entry.id)
                         .accessibilityElement(children: .combine)
+                        .accessibilityAddTraits(selection == entry.id ? [.isButton, .isSelected] : .isButton)
                         .accessibilityIdentifier("toolRow-\(entry.id)")
-                        .onTapGesture { selected = entry.id; if !wide { compactDetail = true } }
+                        .onTapGesture { selected = entry.id; listFocused = true; if !wide { compactDetail = true } }
                         .accessibilityAction { selected = entry.id; if !wide { compactDetail = true } }
-                        .contextMenu {
-                            Button("Copy Launch Command") { model.copyPlain("tw run --profile " + entry.id) }
-                            Button(entry.profile.enabled ? "Pause" : "Resume") { setEnabled(!entry.profile.enabled, entry.profile) }
-                            Divider()
-                            Button("Remove Tool…", role: .destructive) { removing = entry.profile }
-                        }
+                        .appContextMenu([
+                            ActionMenuEntry(title: String(localized: "Copy Launch Command")) { model.copyPlain("tw run --profile " + entry.id) },
+                            ActionMenuEntry(title: entry.profile.enabled ? String(localized: "Pause") : String(localized: "Resume")) { setEnabled(!entry.profile.enabled, entry.profile) },
+                            ActionMenuEntry(title: String(localized: "Remove Tool…"), destructive: true, separatorBefore: true) { removing = entry.profile }
+                        ])
                     }
+                    }.padding(6)
                 }
-                .listStyle(.inset).scrollContentBackground(.hidden).focused($listFocused)
-                .thinScroller()
+                .focusable().focused($listFocused).focusEffectDisabled()
+                .onKeyPress(.downArrow) { step(1, in: results, selection: selection, proxy: proxy); return .handled }
+                .onKeyPress(.upArrow) { step(-1, in: results, selection: selection, proxy: proxy); return .handled }
                 .accessibilityIdentifier("toolsList").accessibilityLabel("Saved tools")
                 .onKeyPress(.return) {
-                    guard !wide, selected != nil else { return .ignored }
+                    guard !wide, selection != nil else { return .ignored }
                     compactDetail = true; return .handled
                 }
+                .onChange(of: selection, initial: true) { _, id in if let id { proxy.scrollTo(id) } }
+                }.thinScroller()
             }
             HStack {
                 Text("\(results.count) of \(profiles.count) tools")
@@ -211,6 +209,10 @@ struct ToolLaunchesPane: View {
             }
                 .font(.system(size: 11)).foregroundStyle(.secondary).padding(12)
         }
+    }
+
+    private func step(_ delta: Int, in results: [ToolBrowserIndex.Entry], selection: String?, proxy: ScrollViewProxy) {
+        if let id = ToolBrowserIndex.stepping(selection, by: delta, in: results) { selected = id; proxy.scrollTo(id) }
     }
 
     @ViewBuilder private func detail(_ entry: ToolBrowserIndex.Entry?, index: ToolBrowserIndex, back: Bool) -> some View {
@@ -252,7 +254,7 @@ struct ToolLaunchesPane: View {
                             HStack(alignment: .top) {
                                 Text(verbatim: key.name).font(.system(size: 13, weight: .medium))
                                 Spacer(minLength: 8)
-                                if !key.canView, !model.isUnlocked(key.binding.accountID), model.accounts.contains(where: { $0.id == key.binding.accountID }) {
+                                if !key.canView, !unlockedAccounts.contains(key.binding.accountID), model.accounts.contains(where: { $0.id == key.binding.accountID }) {
                                     Button("Unlock Account") { model.accountFocus = key.binding.accountID }
                                         .buttonStyle(.appSecondarySmall)
                                 } else {
@@ -323,6 +325,36 @@ struct ToolLaunchesPane: View {
         defer { chosenKey = nil; replacement = nil }
         guard let chosenKey else { return }
         model.toolLaunchReference = .init(accountID: chosenKey.accountId, itemID: chosenKey.id, toolName: replacement?.name)
+    }
+}
+
+private struct ToolBrowserRow: View {
+    let entry: ToolBrowserIndex.Entry
+    let selected: Bool
+    @State private var hovering = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: entry.profile.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+            Text(verbatim: entry.folder + " · " + entry.id)
+                .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+            HStack(spacing: 8) {
+                Label("\(entry.keys.count) keys", systemImage: "key.horizontal")
+                Label(entry.availability.title, systemImage: entry.availability.symbol)
+            }.font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 9)
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .background {
+            if selected {
+                RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.rowSelected)
+                    .shadow(color: .black.opacity(0.12), radius: 9, y: 6)
+            } else if hovering {
+                RoundedRectangle(cornerRadius: 13, style: .continuous).fill(.primary.opacity(0.04))
+            }
+        }
+        .contentShape(.rect).onHover { hovering = $0 }
+        .help(entry.profile.title + "\n" + entry.profile.directory + "\n" + entry.id)
     }
 }
 
