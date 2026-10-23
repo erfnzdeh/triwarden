@@ -27,6 +27,11 @@ struct SSHAccessRecordRow: View {
                         .lineLimit(2)
                 }
                 .foregroundStyle(event.outcome == .denied ? Color.red : Color.secondary)
+                .padding(.horizontal, 7).padding(.vertical, 3)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+                }
                 Text(verbatim: SSHAccessClock.label(since: event.date))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
