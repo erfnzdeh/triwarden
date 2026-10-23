@@ -49,11 +49,14 @@ private struct AdvancedSecretsSettings: View {
     @State private var enabled = false
     @State private var error: String?
     @State private var saved = false
+    @State private var selectedTool = ""
+    @State private var additionalBindings: [SecretsBinding] = []
 
     private var draft: SecretsProfile {
         SecretsProfile(name: name, accountID: accountID, itemID: itemID,
                        field: field.hasPrefix("hidden:") ? .hidden(String(field.dropFirst(7))) : .password,
-                       variable: variable, executable: executable, arguments: arguments, directory: directory, enabled: enabled, displayName: displayName)
+                       variable: variable, executable: executable, arguments: arguments, directory: directory, enabled: enabled, displayName: displayName,
+                       additionalBindings: additionalBindings.isEmpty ? nil : additionalBindings)
     }
 
     private var items: [VaultItem] {
@@ -70,11 +73,20 @@ private struct AdvancedSecretsSettings: View {
     var body: some View {
         Form {
             Section {
+                Picker("Saved tool", selection: $selectedTool) {
+                    Text("New manual setup").tag("")
+                    ForEach(model.secrets.profiles, id: \.name) { p in Text(verbatim: p.title).tag(p.name) }
+                }.onChange(of: selectedTool) { _, _ in load() }
                 Toggle("Enable local secret launches", isOn: $enabled)
                 TextField("Command shortcut", text: $name)
                     .accessibilityIdentifier("secretsProfileName")
-                Text("Save one development command and one vault field. Every launch asks for approval and Touch ID or your Mac login password.")
+                    .disabled(!selectedTool.isEmpty)
+                Text("Save a development command and its credential reference. Launches require approval unless temporary access is still active.")
                     .font(.caption).foregroundStyle(.secondary)
+                if !additionalBindings.isEmpty {
+                    Text("This tool also has \(additionalBindings.count) additional key bindings. They are preserved here; edit them in Tools & Projects.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             } header: { Text("Local Secrets Agent") }
 
             Section {
@@ -142,7 +154,7 @@ private struct AdvancedSecretsSettings: View {
                 if let error = error ?? model.secrets.lastError {
                     Text(verbatim: error).foregroundStyle(.red).font(.caption)
                 }
-                if let profile = model.secrets.profile {
+                if let profile = model.secrets.profiles.first(where: { $0.name == selectedTool }) {
                     LabeledContent("Run from a terminal") {
                         Text(verbatim: "tw run --profile " + profile.name).textSelection(.enabled)
                             .font(.system(.body, design: .monospaced))
@@ -154,19 +166,22 @@ private struct AdvancedSecretsSettings: View {
         }
         .formStyle(.grouped)
         .thinScroller()
-        .onAppear { load() }
+        .onAppear { selectedTool = model.secrets.profiles.first?.name ?? ""; load() }
         .onChange(of: draft) { _, _ in saved = false }
     }
 
     private func load() {
-        guard let p = model.secrets.profile else {
-            accountID = model.sessions.first?.id ?? ""; return
+        guard let p = model.secrets.profiles.first(where: { $0.name == selectedTool }) else {
+            name = "tool-" + UUID().uuidString.prefix(8).lowercased(); displayName = nil
+            accountID = model.sessions.first?.id ?? ""; itemID = ""; field = "password"; variable = "API_KEY"
+            executable = ""; arguments = []; directory = ""; enabled = false; additionalBindings = []; return
         }
         name = p.name; accountID = p.accountID; itemID = p.itemID
         displayName = p.displayName
         field = switch p.field { case .password: "password"; case .hidden(let name): "hidden:" + name }
         variable = p.variable; executable = p.executable; arguments = p.arguments
         directory = p.directory; enabled = p.enabled
+        additionalBindings = p.additionalBindings ?? []
     }
 
     private func save() {
@@ -184,6 +199,7 @@ private struct AdvancedSecretsSettings: View {
                 }
             }
             try model.secrets.save(draft)
+            selectedTool = name
             saved = true
         } catch { self.error = error.localizedDescription }
     }

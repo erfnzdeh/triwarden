@@ -21,6 +21,8 @@ struct ToolLaunchSetup: View {
     @State private var originalRevision: String?
     @State private var discard = false
     @State private var enabled = true
+    @State private var additionalBindings: [SecretsBinding] = []
+    @State private var nextKey = ""
     #if DEBUG
     var previewReview = false
     var previewProfile: SecretsProfile?
@@ -54,14 +56,15 @@ struct ToolLaunchSetup: View {
     private var draft: SecretsProfile {
         SecretsProfile(name: shortcut, accountID: reference.accountID, itemID: reference.itemID,
             field: .hidden(APIKeyTemplate.keyField), variable: variable, executable: executable,
-            arguments: launchArguments, directory: directory, enabled: enabled, displayName: title)
+            arguments: launchArguments, directory: directory, enabled: enabled, displayName: title,
+            additionalBindings: additionalBindings.isEmpty ? nil : additionalBindings)
     }
     private var hasChanges: Bool { initial.map { $0 != draft } ?? false }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             FormHeader(symbol: "terminal", title: reviewing ? "Review Tool Access" : "Provide to Tool",
-                       subtitle: reviewing ? "Confirm exactly what will run with this key." : "Choose how this tool uses your saved API key.")
+                       subtitle: reviewing ? "Confirm the command and every key it will receive." : "Choose how this tool uses your saved API keys.")
                 .padding(24)
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -136,6 +139,37 @@ struct ToolLaunchSetup: View {
                 Text("Use the saved launch command to start this tool. Triwarden supplies the selected key after you approve the launch.")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
             }
+            FormCard(title: "Additional keys for this tool") {
+                Text("Add only the keys this tool needs. Each key must use a different environment variable.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                ForEach(additionalBindings.indices, id: \.self) { index in
+                    let binding = additionalBindings[index]
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(verbatim: keyName(binding)).font(.system(size: 13, weight: .medium))
+                            Spacer()
+                            Button("Remove") { additionalBindings.remove(at: index) }.buttonStyle(.appSecondarySmall)
+                                .accessibilityLabel("Remove key \(keyName(binding)) from this tool")
+                        }
+                        TextField("Environment variable", text: $additionalBindings[index].variable)
+                            .textFieldStyle(SoftFieldStyle())
+                            .accessibilityLabel("Environment variable for \(keyName(binding))")
+                    }
+                }
+                if additionalBindings.count < 15 {
+                    Picker("Saved API key", selection: $nextKey) {
+                        Text("Choose another key…").tag("")
+                        ForEach(availableKeys) { key in
+                            Text(verbatim: key.name + " · " + accountLabel(key.accountId)).tag(key.accountId + "|" + key.id)
+                        }
+                    }.pickerStyle(.menu)
+                    Button("Add Key") { addKey() }.buttonStyle(.appSecondarySmall).disabled(nextKey.isEmpty)
+                    if availableKeys.isEmpty {
+                        Text("Save another API key in your vault or unlock its account to add it here.")
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                }
+            }
             DisclosureGroup("Advanced command options") {
                 FormCard {
                     if recipe != .custom { path("Program", value: $executable, directory: false) }
@@ -166,14 +200,16 @@ struct ToolLaunchSetup: View {
                 }
                 reviewRow("Project folder", directory)
                 reviewRow("Environment variable", variable)
+                ForEach(additionalBindings.indices, id: \.self) { index in
+                    let binding = additionalBindings[index]
+                    Divider()
+                    reviewRow("Additional key", keyName(binding) + " · " + accountLabel(binding.accountID))
+                    reviewRow("Environment variable", binding.variable)
+                }
                 Text(enabled ? "Saving enables local launches for this tool." : "This tool remains paused after saving.")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
             }
-            if let existing = model.secrets.profile {
-                Label("This version supports one saved tool. Saving replaces “\(existing.title)” and its key binding.", systemImage: "exclamationmark.triangle")
-                    .font(.system(size: 12)).foregroundStyle(.orange)
-            }
-            Text("The first launch needs your approval and macOS authentication. You can allow one launch, 10 minutes, or until the vault locks. Temporary access applies only to this saved command from the same terminal session or launcher process. The program and its child processes can read or transmit the key. Project scripts and plugins are not verified.")
+            Text("The first launch needs your approval and macOS authentication. You can allow one launch, 10 minutes, or until the vault locks. Temporary access applies only to this saved command from the same terminal session or launcher process. The program and its child processes can read or transmit the selected keys. Project scripts and plugins are not verified.")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
         }
     }
@@ -207,15 +243,16 @@ struct ToolLaunchSetup: View {
 
     private func load() {
         guard initial == nil else { return }
-        originalRevision = model.secrets.profile.flatMap { try? $0.revision() }
-        var source = model.secrets.profile
+        var source = reference.toolName.flatMap { name in model.secrets.profiles.first { $0.name == name } }
         #if DEBUG
         if let previewProfile { source = previewProfile }
         #endif
+        originalRevision = source.flatMap { try? $0.revision() }
         if let p = source, p.accountID == reference.accountID, p.itemID == reference.itemID,
            p.field == .hidden(APIKeyTemplate.keyField) {
             shortcut = p.name; title = p.title; variable = p.variable
             enabled = p.enabled
+            additionalBindings = p.additionalBindings ?? []
             recipe = .custom; executable = p.executable; directory = p.directory; arguments = p.arguments
         } else {
             title = String(localized: "My development tool")
@@ -236,6 +273,14 @@ struct ToolLaunchSetup: View {
               !field.value.isEmpty, !field.value.utf8.contains(0), field.value.utf8.count <= 32_768 else {
             throw SecretsFailure("This API key is empty or invalid. Update it in your vault before configuring a tool.")
         }
+        for binding in additionalBindings {
+            guard let selected = model.items.first(where: { $0.accountId == binding.accountID && $0.id == binding.itemID && !$0.isDeleted && !$0.isArchived }),
+                  selected.isAPIKey, !selected.reprompt, model.session(for: binding.accountID) != nil,
+                  let field = selected.customFields.first(where: { $0.name == APIKeyTemplate.keyField && $0.kind == .hidden }),
+                  !field.value.isEmpty, !field.value.utf8.contains(0), field.value.utf8.count <= 32_768 else {
+                throw SecretsFailure("An additional key is unavailable or its account is locked. Unlock the account, or remove and select that key again.")
+            }
+        }
         if (recipe == .node || recipe == .python) && script.isEmpty {
             throw SecretsFailure("Choose the script you want this tool to run.")
         }
@@ -251,7 +296,7 @@ struct ToolLaunchSetup: View {
     private func save() {
         do {
             try validate()
-            guard model.secrets.profile.flatMap({ try? $0.revision() }) == originalRevision else {
+            guard model.secrets.profiles.first(where: { $0.name == shortcut }).flatMap({ try? $0.revision() }) == originalRevision else {
                 throw SecretsFailure("Tool settings changed while this setup was open. Close it and start again to review the current setting.")
             }
             try model.secrets.save(draft)
@@ -263,4 +308,27 @@ struct ToolLaunchSetup: View {
     }
 
     private func cancel() { if hasChanges { discard = true } else { dismiss() } }
+
+    private func accountLabel(_ id: String) -> String {
+        model.accounts.first { $0.id == id }.map { $0.email + " · " + $0.serverSummary } ?? String(localized: "Unavailable account")
+    }
+
+    private func keyName(_ binding: SecretsBinding) -> String {
+        model.items.first { $0.accountId == binding.accountID && $0.id == binding.itemID && !$0.isDeleted && !$0.isArchived }?.name
+            ?? String(localized: "Unavailable key — select it again")
+    }
+
+    private var availableKeys: [VaultItem] {
+        let used = draft.bindings.map { $0.accountID + "|" + $0.itemID }
+        return model.items.filter { $0.isAPIKey && !$0.isDeleted && !$0.isArchived && !$0.reprompt &&
+            model.session(for: $0.accountId) != nil && !used.contains($0.accountId + "|" + $0.id) }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
+    private func addKey() {
+        guard let key = availableKeys.first(where: { $0.accountId + "|" + $0.id == nextKey }) else { return }
+        additionalBindings.append(.init(accountID: key.accountId, itemID: key.id, field: .hidden(APIKeyTemplate.keyField),
+                                        variable: key.apiKeyVariable))
+        nextKey = ""
+    }
 }

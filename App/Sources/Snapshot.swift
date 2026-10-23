@@ -25,7 +25,11 @@ enum Snapshot {
             serverURL: "https://vault.example.com", kdf: .pbkdf2(iterations: 600_000), protectedUserKey: "")])
         model.previewUnlocked = true; model.phase = .vault
         let item = APIKeyTemplate.fixture
-        model.items = [item]
+        var secondKey = VaultItem(id: "search-key-demo", accountId: "demo", kind: .note, name: "Search API · development",
+            username: nil, host: nil, password: nil, totp: nil, notes: nil, favorite: false)
+        secondKey.customFields = [CustomField(name: APIKeyTemplate.keyField, value: "second-test-only", kind: .hidden),
+                                 CustomField(name: APIKeyTemplate.environmentField, value: "SEARCH_API_KEY", kind: .text)]
+        model.items = [item, secondKey]
         var longVariableItem = item
         let longVariable = String(repeating: "PROJECT_", count: 15) + "API_KEY"
         if let index = longVariableItem.customFields.firstIndex(where: { $0.name == APIKeyTemplate.environmentField }) {
@@ -40,6 +44,9 @@ enum Snapshot {
             field: .hidden(APIKeyTemplate.keyField), variable: "ANTHROPIC_API_KEY", executable: "/usr/bin/env",
             arguments: ["node", "scripts/assistant.mjs"], directory: "/Users/alex/Projects/documentation-assistant",
             displayName: "Documentation assistant")
+        var multiProfile = profile
+        multiProfile.name = "tool-research"; multiProfile.displayName = "Research assistant"
+        multiProfile.additionalBindings = [.init(accountID: "demo", itemID: secondKey.id, field: .hidden(APIKeyTemplate.keyField), variable: "SEARCH_API_KEY")]
         var trusted = SecretsGrantStore()
         var fixtureProfile = profile; fixtureProfile.directory = "/tmp"
         if let launch = try? LaunchIdentity.capture(fixtureProfile) {
@@ -47,8 +54,11 @@ enum Snapshot {
                 let caller = SecretsCallerIdentity(pid: pid, uid: 501, startedSeconds: 1, startedMicros: 0,
                                                   codeHash: Data([1]), path: "/bin/zsh")
                 trusted.grant(duration, for: SecretsGrantBinding(caller: caller, helper: "/Applications/Triwarden.app/Contents/MacOS/tw",
-                    revision: "synthetic", credentialFingerprint: "synthetic", launch: launch))
+                    revision: "synthetic", credentialFingerprint: "synthetic", launch: launch, tool: profile.name))
             }
+            let caller = SecretsCallerIdentity(pid: 9012, uid: 501, startedSeconds: 1, startedMicros: 0, codeHash: Data([1]), path: "/bin/zsh")
+            trusted.grant(.tenMinutes, for: SecretsGrantBinding(caller: caller, helper: "/Applications/Triwarden.app/Contents/MacOS/tw",
+                revision: "synthetic-multiple", credentialFingerprint: "synthetic-multiple", launch: launch, tool: multiProfile.name))
         }
         var prefill = EditItemSheet.Prefill(); prefill.apiKey = true; prefill.accountIDs = ["demo"]
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
@@ -62,8 +72,12 @@ enum Snapshot {
                 ("setup", AnyView(ToolLaunchSetup(reference: reference)), CGSize(width: 640, height: 720)),
                 ("review", AnyView(ToolLaunchSetup(reference: reference, previewReview: true, previewProfile: profile)), CGSize(width: 640, height: 720)),
                 ("saved-tool", AnyView(ToolLaunchesPane(previewProfile: profile)), CGSize(width: 760, height: 900)),
-                ("trusted-tools", AnyView(ToolLaunchesPane(previewProfile: profile, previewGrants: trusted.activeGrants())), CGSize(width: 760, height: 1120)),
-                ("trusted-tools-compact", AnyView(ToolLaunchesPane(previewProfile: profile, previewGrants: trusted.activeGrants())), CGSize(width: 440, height: 1120))
+                ("trusted-tools", AnyView(ToolLaunchesPane(previewProfile: profile, previewGrants: trusted.activeGrants().filter { $0.tool == profile.name })), CGSize(width: 760, height: 1120)),
+                ("trusted-tools-compact", AnyView(ToolLaunchesPane(previewProfile: profile, previewGrants: trusted.activeGrants().filter { $0.tool == profile.name })), CGSize(width: 440, height: 1120)),
+                ("multi-tools", AnyView(ToolLaunchesPane(previewProfiles: [profile, multiProfile], previewGrants: trusted.activeGrants())), CGSize(width: 760, height: 1640)),
+                ("multi-tools-compact", AnyView(ToolLaunchesPane(previewProfiles: [multiProfile], previewGrants: trusted.activeGrants().filter { $0.tool == multiProfile.name })), CGSize(width: 440, height: 1240)),
+                ("multi-key-setup", AnyView(ToolLaunchSetup(reference: reference, previewProfile: multiProfile)), CGSize(width: 640, height: 1100)),
+                ("multi-key-review", AnyView(ToolLaunchSetup(reference: reference, previewReview: true, previewProfile: multiProfile)), CGSize(width: 640, height: 1100))
             ]
             for (stage, view, size) in views {
                 render(view.background { WindowBackdrop() }.environment(model).environment(\.colorScheme, scheme), size: size, appearance: appearance,
@@ -116,20 +130,28 @@ enum Snapshot {
                 ("urgent", .darkAqua, CGSize(width: 540, height: 520), false, false, 5),
                 ("ten-minutes", .darkAqua, CGSize(width: 600, height: 800), false, false, 48),
                 ("until-lock", .aqua, CGSize(width: 600, height: 800), false, false, 42),
-                ("unverified-caller", .aqua, CGSize(width: 600, height: 720), false, false, 60)
+                ("unverified-caller", .aqua, CGSize(width: 600, height: 720), false, false, 60),
+                ("multi-key", .darkAqua, CGSize(width: 600, height: 920), false, false, 60)
             ]
             for (name, appearance, size, busy, long, seconds) in cases {
-                let profile = SecretsProfile(name: "agent-dev", accountID: "synthetic", itemID: "synthetic", field: .hidden("api-key"),
+                var profile = SecretsProfile(name: "agent-dev", accountID: "synthetic", itemID: "synthetic", field: .hidden("api-key"),
                     variable: "ANTHROPIC_API_KEY", executable: "/usr/bin/env",
                     arguments: long ? ["node", "./packages/development-assistant/scripts/run-local-agent-with-project-configuration.mjs", "--project", "/Users/alex/Projects/assistant/experiments/customer-support-and-document-search", ""] : ["node", "scripts/agent.mjs"],
                     directory: "/tmp")
+                if name == "multi-key" {
+                    profile.additionalBindings = [.init(accountID: "synthetic", itemID: "second", field: .hidden("api-key"), variable: "SEARCH_API_KEY")]
+                }
                 let request = SecretsRunRequest(profile: profile, revision: try profile.revision(), launch: try LaunchIdentity.capture(profile))
                 let prompt = SecretsController.Prompt(request: request,
                     credential: long ? "Development API credential for the local documentation and customer support assistant" : "Anthropic · development",
                     account: "alex@example.com · vault.example.com", helper: "/Applications/Triwarden.app/Contents/MacOS/tw",
                     deadline: .now.advanced(by: .seconds(seconds)),
                     caller: name == "unverified-caller" ? nil : SecretsCallerIdentity(pid: 1234, uid: 501, startedSeconds: 1,
-                        startedMicros: 0, codeHash: Data([1]), path: "/bin/zsh"))
+                        startedMicros: 0, codeHash: Data([1]), path: "/bin/zsh"),
+                    credentials: name == "multi-key" ? [
+                        .init(name: "Anthropic · development", account: "alex@example.com · vault.example.com", field: "api-key", variable: "ANTHROPIC_API_KEY"),
+                        .init(name: "Search API · development", account: "alex@example.com · vault.example.com", field: "api-key", variable: "SEARCH_API_KEY")
+                    ] : [])
                 render(SecretsApprovalView(prompt: prompt, authenticating: busy, deny: {}, allow: { _ in },
                     initialDuration: name == "ten-minutes" ? .tenMinutes : name == "until-lock" ? .untilLock : .once)
                     .environment(\.colorScheme, appearance == .darkAqua ? .dark : .light),

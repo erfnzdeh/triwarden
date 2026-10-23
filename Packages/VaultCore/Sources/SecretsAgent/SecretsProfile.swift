@@ -43,7 +43,17 @@ public enum SecretSelector: Codable, Equatable, Sendable {
     }
 }
 
-/// One reference-only profile. No resolved credential values are stored here.
+public struct SecretsBinding: Codable, Equatable, Sendable {
+    public var accountID: String
+    public var itemID: String
+    public var field: SecretSelector
+    public var variable: String
+    public init(accountID: String, itemID: String, field: SecretSelector, variable: String) {
+        self.accountID = accountID; self.itemID = itemID; self.field = field; self.variable = variable
+    }
+}
+
+/// Reference-only tool settings. No resolved credential values are stored here.
 public struct SecretsProfile: Codable, Equatable, Sendable {
     public var name: String
     public var accountID: String
@@ -55,14 +65,20 @@ public struct SecretsProfile: Codable, Equatable, Sendable {
     public var directory: String
     public var enabled: Bool
     public var displayName: String?
+    public var additionalBindings: [SecretsBinding]?
+    public var bindings: [SecretsBinding] {
+        [SecretsBinding(accountID: accountID, itemID: itemID, field: field, variable: variable)] + (additionalBindings ?? [])
+    }
     public var title: String { displayName ?? name }
 
     public init(name: String, accountID: String, itemID: String, field: SecretSelector, variable: String,
-                executable: String, arguments: [String], directory: String, enabled: Bool = true, displayName: String? = nil) {
+                executable: String, arguments: [String], directory: String, enabled: Bool = true, displayName: String? = nil,
+                additionalBindings: [SecretsBinding]? = nil) {
         self.name = name; self.accountID = accountID; self.itemID = itemID; self.field = field
         self.variable = variable; self.executable = executable; self.arguments = arguments
         self.directory = directory; self.enabled = enabled
         self.displayName = displayName
+        self.additionalBindings = additionalBindings
     }
 
     public func validate() throws {
@@ -79,7 +95,13 @@ public struct SecretsProfile: Codable, Equatable, Sendable {
                 throw SecretsFailure("Give this tool a name of up to 128 characters without control characters.")
             }
         }
-        try LaunchPolicy.validateVariable(variable)
+        guard bindings.count <= 16, Set(bindings.map(\.variable)).count == bindings.count,
+              bindings.allSatisfy({ !$0.accountID.isEmpty && !$0.itemID.isEmpty &&
+                  [$0.accountID, $0.itemID, $0.field.label].allSatisfy(Self.safeText) }),
+              try JSONEncoder().encode(self).count <= 48 * 1024 else {
+            throw SecretsFailure("Use up to 16 valid key references with different environment variable names.")
+        }
+        for binding in bindings { try LaunchPolicy.validateVariable(binding.variable) }
     }
 
     /// Exclude control and bidi-formatting characters from approval text as well as exec arguments.
@@ -102,6 +124,7 @@ public struct SecretsProfile: Codable, Equatable, Sendable {
 }
 
 public struct SecretsProfileStore: Sendable {
+    private struct Catalog: Codable { var version = 1; var profiles: [SecretsProfile] }
     public let directory: URL
     public var fileURL: URL { directory.appendingPathComponent("profile.json") }
     public init(directory: URL) { self.directory = directory }
@@ -115,34 +138,98 @@ public struct SecretsProfileStore: Sendable {
 
     public var socketURL: URL { directory.deletingLastPathComponent().appendingPathComponent("run.sock") }
 
-    public func load() throws -> SecretsProfile {
+    public func loadAll() throws -> [SecretsProfile] {
         let fd = open(fileURL.path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
-        guard fd >= 0 else { throw SecretsFailure("Create and save a profile in Triwarden Settings › Secrets first.") }
+        guard fd >= 0 else {
+            if errno == ENOENT { return [] }
+            throw SecretsFailure("Couldn't read the saved tools. Review Tools & Projects.")
+        }
         defer { close(fd) }
         var info = stat()
         guard fstat(fd, &info) == 0, info.st_uid == getuid(), info.st_mode & S_IFMT == S_IFREG,
-              info.st_mode & 0o077 == 0, info.st_size > 0, info.st_size <= 65_536 else {
+              info.st_mode & 0o077 == 0, info.st_size > 0, info.st_size <= 4 * 1024 * 1024 else {
             throw SecretsFailure("The profile file has unsafe permissions or an invalid size. Save it again in Settings › Secrets.")
         }
         let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
-        let data = try handle.read(upToCount: 65_537) ?? Data()
-        let profile = try JSONDecoder().decode(SecretsProfile.self, from: data)
-        try profile.validate()
+        let data = try handle.read(upToCount: 4 * 1024 * 1024 + 1) ?? Data()
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let profiles: [SecretsProfile]
+        if object?["profiles"] != nil || object?["version"] != nil {
+            let catalog = try JSONDecoder().decode(Catalog.self, from: data)
+            guard catalog.version == 1 else { throw SecretsFailure("This tool settings format is unsupported.") }
+            profiles = catalog.profiles
+        } else { profiles = [try JSONDecoder().decode(SecretsProfile.self, from: data)] }
+        guard profiles.count <= 64, Set(profiles.map(\.name)).count == profiles.count else {
+            throw SecretsFailure("The saved tools contain duplicate names or exceed the limit of 64.")
+        }
+        for profile in profiles { try profile.validate() }
+        return profiles.sorted { $0.name < $1.name }
+    }
+
+    public func load() throws -> SecretsProfile {
+        let profiles = try loadAll()
+        guard profiles.count == 1 else { throw SecretsFailure("Choose an exact saved tool name in Tools & Projects.") }
+        return profiles[0]
+    }
+
+    public func load(named name: String) throws -> SecretsProfile {
+        guard let profile = try loadAll().first(where: { $0.name == name }) else {
+            throw SecretsFailure("The requested tool is missing. Choose its launch command in Tools & Projects.")
+        }
         return profile
     }
 
-    public func save(_ profile: SecretsProfile) throws {
+    public func revision() throws -> String {
+        try Self.revision(of: loadAll())
+    }
+
+    public static func revision(of profiles: [SecretsProfile]) throws -> String {
+        if profiles.count == 1 { return try profiles[0].revision() }
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        return SHA256.hash(data: try encoder.encode(Catalog(profiles: profiles.sorted { $0.name < $1.name }))).map { String(format: "%02x", $0) }.joined()
+    }
+
+    public func requireApprovedRevision(_ approved: String?, profiles: [SecretsProfile]? = nil) throws {
+        guard let approved, try Self.revision(of: profiles ?? loadAll()) == approved else {
+            throw SecretsFailure("Saved tools were modified outside Triwarden or have not been confirmed. Review and save them in Triwarden before launching.")
+        }
+    }
+
+    @discardableResult
+    public func save(_ profile: SecretsProfile, basedOn snapshot: [SecretsProfile]? = nil) throws -> String {
         try profile.validate()
+        var profiles = try snapshot ?? loadAll()
+        profiles.removeAll { $0.name == profile.name }
+        profiles.append(profile)
+        return try write(profiles)
+    }
+
+    @discardableResult
+    public func remove(named name: String, basedOn snapshot: [SecretsProfile]? = nil) throws -> String {
+        try write((snapshot ?? loadAll()).filter { $0.name != name })
+    }
+
+    /// Explicit recovery to a known empty catalog. Never imports unreviewed file contents.
+    @discardableResult
+    public func clear() throws -> String { try write([]) }
+
+    private func write(_ profiles: [SecretsProfile]) throws -> String {
+        guard profiles.count <= 64, Set(profiles.map(\.name)).count == profiles.count else {
+            throw SecretsFailure("Use up to 64 tools with unique names. Remove an unused setup first.")
+        }
+        for profile in profiles { try profile.validate() }
+        let intendedRevision = try Self.revision(of: profiles)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let temporary = directory.appendingPathComponent(UUID().uuidString)
         let fd = open(temporary.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
         guard fd >= 0 else { throw SecretsFailure("Couldn't create the private profile file.") }
         defer { close(fd); unlink(temporary.path) }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try FileHandle(fileDescriptor: fd, closeOnDealloc: false).write(contentsOf: encoder.encode(profile))
+        try FileHandle(fileDescriptor: fd, closeOnDealloc: false).write(contentsOf: encoder.encode(Catalog(profiles: profiles.sorted { $0.name < $1.name })))
         guard fsync(fd) == 0, rename(temporary.path, fileURL.path) == 0 else {
             throw SecretsFailure("Couldn't save the profile.")
         }
+        return intendedRevision
     }
 }
 

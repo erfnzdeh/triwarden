@@ -41,6 +41,12 @@ struct SecretsIntegrationTests {
                                variable: "API_KEY", executable: "/bin/sh",
                                arguments: ["-c", "test \"$API_KEY\" = triwarden-canary && test -z \"$OTHER_SECRET\" && test -z \"$NODE_OPTIONS\" || exit 99; exit 37"], directory: directory ?? root.path)
         if mode == "large" { p.arguments = ["-c", "test \"${#API_KEY}\" -eq 32768 || exit 99; exit 37"] }
+        if mode == "multiple" || mode == "partial" {
+            p.additionalBindings = [.init(accountID: "synthetic", itemID: "second", field: .password, variable: "SECOND_KEY")]
+            p.arguments = ["-c", "test \"$API_KEY\" = triwarden-canary && test \"$SECOND_KEY\" = second-canary && test -z \"$OTHER_SECRET\" && test -z \"$NODE_OPTIONS\" || exit 99; exit 37"]
+            var unrelated = p; unrelated.name = "unrelated"; unrelated.enabled = false
+            try store.save(unrelated)
+        }
         try store.save(p)
         let server = Process(), ready = Pipe(), serverErrors = Pipe()
         server.executableURL = fixture
@@ -57,7 +63,7 @@ struct SecretsIntegrationTests {
         }
         let client = Process(), errors = Pipe(), output = Pipe()
         client.executableURL = fixture
-        client.arguments = ["client", root.appendingPathComponent("s").path, store.directory.path]
+        client.arguments = ["client", root.appendingPathComponent("s").path, store.directory.path, "test"]
         var environment = ProcessInfo.processInfo.environment
         environment["OTHER_SECRET"] = "must-not-inherit"
         environment["NODE_OPTIONS"] = "must-not-inherit"
@@ -114,6 +120,19 @@ struct SecretsIntegrationTests {
     @Test func maximumEscapedValueUsesOneCompleteFrame() throws {
         let (code, error) = try run(mode: "large")
         #expect(code == 37, Comment(rawValue: error))
+    }
+
+    @Test func multipleCredentialsReachOnlyTheNamedToolTogether() throws {
+        let (code, error) = try run(mode: "multiple")
+        #expect(code == 37, Comment(rawValue: error))
+        #expect(error.isEmpty)
+    }
+
+    @Test func partialCredentialResponseCannotExecuteTarget() throws {
+        let (code, error) = try run(mode: "partial")
+        #expect(code == 70)
+        #expect(error.contains("exactly the approved credentials"))
+        #expect(!error.contains("canary"))
     }
 
 }

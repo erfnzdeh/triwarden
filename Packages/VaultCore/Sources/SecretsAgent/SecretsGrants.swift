@@ -61,20 +61,23 @@ public struct SecretsCallerIdentity: Equatable, Sendable {
 }
 
 public struct SecretsGrantBinding: Equatable, Sendable {
+    public let tool: String
     public let caller: SecretsCallerIdentity
     public let helper: String
     public let revision: String
     public let credentialFingerprint: String
     public let launch: LaunchIdentity
-    public init(caller: SecretsCallerIdentity, helper: String, revision: String, credentialFingerprint: String, launch: LaunchIdentity) {
+    public init(caller: SecretsCallerIdentity, helper: String, revision: String, credentialFingerprint: String, launch: LaunchIdentity, tool: String = "") {
         self.caller = caller; self.helper = helper; self.revision = revision
         self.credentialFingerprint = credentialFingerprint; self.launch = launch
+        self.tool = tool
     }
 }
 
 /// Safe presentation state: no credential, fingerprint or reusable authorization binding.
 public struct SecretsActiveGrant: Identifiable, Sendable {
     public let id: UUID
+    public let tool: String
     public let caller: SecretsCallerIdentity
     public let duration: SecretsGrantDuration
     public let deadline: ContinuousClock.Instant?
@@ -97,12 +100,12 @@ public struct SecretsGrantStore {
     public func activeCount(now: ContinuousClock.Instant = .now) -> Int { entries.filter { $0.active(now) }.count }
     public func activeGrants(now: ContinuousClock.Instant = .now) -> [SecretsActiveGrant] {
         entries.filter { $0.active(now) }.map {
-            SecretsActiveGrant(id: $0.id, caller: $0.binding.caller, duration: $0.duration, deadline: $0.deadline)
+            SecretsActiveGrant(id: $0.id, tool: $0.binding.tool, caller: $0.binding.caller, duration: $0.duration, deadline: $0.deadline)
         }
     }
     public mutating func revoke(_ id: UUID) { entries.removeAll { $0.id == id } }
-    public mutating func retain(revision: String, credentialFingerprint: String, launch: LaunchIdentity) {
-        entries.removeAll { $0.binding.revision != revision || $0.binding.credentialFingerprint != credentialFingerprint || $0.binding.launch != launch }
+    public mutating func retain(revision: String, credentialFingerprint: String, launch: LaunchIdentity, tool: String = "") {
+        entries.removeAll { $0.binding.tool == tool && ($0.binding.revision != revision || $0.binding.credentialFingerprint != credentialFingerprint || $0.binding.launch != launch) }
     }
     public mutating func grant(_ duration: SecretsGrantDuration, for binding: SecretsGrantBinding, now: ContinuousClock.Instant = .now) {
         entries.removeAll { $0.binding == binding || !$0.active(now) }

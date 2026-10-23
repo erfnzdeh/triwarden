@@ -89,5 +89,6 @@ extension AppModel {
 struct ToolLaunchReference: Identifiable {
     let accountID: String
     let itemID: String
-    var id: String { accountID + "|" + itemID }
+    var toolName: String? = nil
+    var id: String { accountID + "|" + itemID + "|" + (toolName ?? "new") }
 }

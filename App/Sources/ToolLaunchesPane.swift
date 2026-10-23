@@ -5,14 +5,19 @@ struct ToolLaunchesPane: View {
     @Environment(AppModel.self) private var model
     #if DEBUG
     var previewProfile: SecretsProfile?
+    var previewProfiles: [SecretsProfile]?
     var previewGrants: [SecretsActiveGrant]?
     #endif
 
-    private var savedProfile: SecretsProfile? {
+    @State private var removing: SecretsProfile?
+    @State private var resetting = false
+
+    private var savedProfiles: [SecretsProfile] {
         #if DEBUG
-        if let previewProfile { return previewProfile }
+        if let previewProfiles { return previewProfiles }
+        if let previewProfile { return [previewProfile] }
         #endif
-        return model.secrets.profile
+        return model.secrets.profiles
     }
 
     var body: some View {
@@ -20,8 +25,29 @@ struct ToolLaunchesPane: View {
             VStack(alignment: .leading, spacing: 18) {
                 FormHeader(symbol: "terminal", title: "Tools & Projects",
                            subtitle: "Use saved API keys without copying them into commands or configuration.")
-                if let profile = savedProfile {
-                    configured(profile)
+                if let error = model.secrets.lastError {
+                    FormCard(title: "Tool settings need attention") {
+                        Text(verbatim: error).font(.system(size: 12)).foregroundStyle(.orange)
+                        Text("If these settings cannot be recovered, reset the local tool setups and configure them again. Your vault keys are kept.")
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                        Button("Reset Tool Setups…") { resetting = true }.buttonStyle(.appSecondarySmall)
+                    }
+                }
+                if !savedProfiles.isEmpty {
+                    HStack {
+                        Button("Add Tool…") { model.requestedSection = .section(.apiKeys) }.buttonStyle(.appSecondary)
+                        Text("Choose a saved key, then Provide to Tool.").font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                    ForEach(savedProfiles, id: \.name) { configured($0) }
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        TrustedToolsCard(profiles: savedProfiles, items: model.items, grants: visibleGrants,
+                                         revoke: { model.secrets.revokeGrant($0) }, revokeAll: { model.secrets.reset() })
+                    }
+                    FormCard(title: "Terminal helper") {
+                        Text("Install the terminal helper, keep Triwarden running, and unlock the selected keys' accounts. Each launch refreshes the vault online and asks for approval unless temporary access is still active.")
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                        Button("Terminal Helper Setup…") { model.showSettings(.developer) }.buttonStyle(.appSecondarySmall)
+                    }
                 } else {
                     FormCard {
                         Text("Give a tool access to a saved key").font(.system(size: 17, weight: .semibold))
@@ -32,12 +58,29 @@ struct ToolLaunchesPane: View {
                         Button("Add API Key") { model.beginAPIKey() }.buttonStyle(.appSecondary)
                     }
                 }
-                Text("This version supports one saved tool with one key. Keys stay in your Bitwarden or Vaultwarden vault; tool settings are local to this Mac.")
+                Text("Keys stay in your Bitwarden or Vaultwarden vault. Each tool receives only its selected keys; launch settings are local to this Mac.")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
             }
             .padding(24).frame(maxWidth: 760).frame(maxWidth: .infinity)
         }
         .thinScroller()
+        .confirmationDialog("Remove this tool setup?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
+            Button("Remove Tool", role: .destructive) {
+                guard let profile = removing else { return }
+                do { try model.secrets.remove(profile.name) } catch { model.flash(error.localizedDescription) }
+                removing = nil
+            }
+            Button("Cancel", role: .cancel) { removing = nil }
+        } message: {
+            Text("The launch setup is removed from this Mac. Your saved vault keys are kept.")
+        }
+        .confirmationDialog("Reset all local tool setups?", isPresented: $resetting) {
+            Button("Reset Tool Setups", role: .destructive) {
+                do { try model.secrets.clearSetups() } catch { model.flash(error.localizedDescription) }
+            }
+        } message: {
+            Text("All saved launch commands and temporary approvals are removed from this Mac. Your vault keys are kept. You will need to set up your tools again.")
+        }
     }
 
     private func configured(_ profile: SecretsProfile) -> some View {
@@ -47,46 +90,38 @@ struct ToolLaunchesPane: View {
                 Text(verbatim: profile.title).font(.system(size: 18, weight: .semibold))
                 Label(status(profile), systemImage: profile.enabled ? "checkmark.shield" : "pause.circle")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
-                Text(verbatim: item?.name ?? String(localized: "Unlock the key's account to view or change its binding."))
-                    .font(.system(size: 13)).foregroundStyle(.secondary)
-                if let error = model.secrets.lastError {
-                    Text(verbatim: error).font(.system(size: 12)).foregroundStyle(.orange)
+                ForEach(profile.bindings, id: \.variable) { binding in
+                    let key = model.items.first { $0.id == binding.itemID && $0.accountId == binding.accountID && !$0.isDeleted && !$0.isArchived }
+                    Text(verbatim: (key?.name ?? String(localized: "Unavailable key — unlock its account")) + " → " + binding.variable)
+                        .font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if let item, item.isAPIKey {
                     HStack {
-                        Button("Edit Tool Setup…") { model.provideKeyToTool(item) }.buttonStyle(.appSecondary)
+                        Button("Edit Tool Setup…") {
+                            model.toolLaunchReference = ToolLaunchReference(accountID: profile.accountID, itemID: profile.itemID, toolName: profile.name)
+                        }.buttonStyle(.appSecondary)
                         Button("View Key") { model.requestedSection = .section(.apiKeys); model.selectedID = item.id }
-                            .buttonStyle(.appSecondary)
-                        Button(profile.enabled ? "Pause" : "Resume") { setEnabled(!profile.enabled, profile: profile) }
                             .buttonStyle(.appSecondary)
                     }
                 } else {
                     Button("Advanced Settings…") { model.showSettings(.secrets) }.buttonStyle(.appSecondary)
                 }
-            }
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                TrustedToolsCard(tool: profile.title, keyName: item?.name, grants: visibleGrants,
-                                 revoke: { model.secrets.revokeGrant($0) }, revokeAll: { model.secrets.reset() })
-            }
-            FormCard(title: "Use it from your terminal") {
-                Text("Run this whenever you want to start the tool. Triwarden asks for approval unless temporary access from this terminal or launcher is still active.")
-                    .font(.system(size: 13)).foregroundStyle(.secondary)
+                HStack {
+                    Button(profile.enabled ? "Pause" : "Resume") { setEnabled(!profile.enabled, profile: profile) }.buttonStyle(.appSecondarySmall)
+                    Button("Remove Tool…") { removing = profile }.buttonStyle(.appSecondarySmall)
+                }
+                Divider()
                 Text(verbatim: "tw run --profile " + profile.name)
                     .font(.system(size: 13, design: .monospaced)).textSelection(.enabled)
                 Button("Copy Launch Command") { model.copyPlain("tw run --profile " + profile.name) }
                     .buttonStyle(.appSecondary).accessibilityIdentifier("copyToolLaunchCommand")
-                Text("First time? Install the terminal helper, keep Triwarden running, and unlock the key's account. Each launch refreshes the vault online.")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-                Button("Terminal Helper Setup…") { model.showSettings(.developer) }.buttonStyle(.appSecondarySmall)
-            }
-            DisclosureGroup("Saved command details") {
-                FormCard {
+                DisclosureGroup("Saved command details") {
                     Text(verbatim: profile.executable).textSelection(.enabled)
                     ForEach(Array(profile.arguments.enumerated()), id: \.offset) { index, value in
                         Text(verbatim: "\(index + 1): \(value.isEmpty ? "(empty)" : value)")
                     }
                     Text(verbatim: profile.directory).textSelection(.enabled)
-                    Text(verbatim: profile.variable)
                 }
                 .font(.system(size: 12, design: .monospaced))
             }
@@ -104,9 +139,9 @@ struct ToolLaunchesPane: View {
         if !profile.enabled { return "Paused" }
         if model.secrets.lastError != nil { return "Needs attention" }
         #if DEBUG
-        if previewProfile != nil { return "Ready for approval" }
+        if previewProfile != nil || previewProfiles != nil { return "Ready for approval" }
         #endif
-        if model.session(for: profile.accountID) == nil { return "Unlock this account to use the tool" }
+        if profile.bindings.contains(where: { model.session(for: $0.accountID) == nil }) { return "Unlock the selected keys' accounts to use this tool" }
         return "Ready for approval"
     }
 
@@ -119,8 +154,8 @@ struct ToolLaunchesPane: View {
 
 /// Displays only active, memory-only approvals. Saving a tool never adds it to this list.
 private struct TrustedToolsCard: View {
-    let tool: String
-    let keyName: String?
+    let profiles: [SecretsProfile]
+    let items: [VaultItem]
     let grants: [SecretsActiveGrant]
     let revoke: (UUID) -> Void
     let revokeAll: () -> Void
@@ -143,15 +178,19 @@ private struct TrustedToolsCard: View {
                 Text("Each terminal or launcher has its own temporary approval.")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
                 ForEach(grants) { grant in
+                    let profile = profiles.first { $0.name == grant.tool }
+                    let tool = profile?.title ?? String(localized: "Unavailable tool")
                     Divider()
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(alignment: .top, spacing: 12) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(verbatim: tool).font(.system(size: 14, weight: .semibold)).foregroundStyle(.primary)
-                                if let keyName {
-                                    Label(SecretsController.display(keyName), systemImage: "key.horizontal")
-                                } else {
-                                    Text("The saved credential is currently unavailable.")
+                                if let profile {
+                                    ForEach(profile.bindings, id: \.variable) { binding in
+                                        let keyName = items.first { $0.id == binding.itemID && $0.accountId == binding.accountID && !$0.isDeleted && !$0.isArchived }?.name
+                                            ?? String(localized: "Unavailable key")
+                                        Text(verbatim: SecretsController.display(keyName) + " → " + binding.variable)
+                                    }
                                 }
                                 Text("Started from: \(SecretsController.display(grant.caller.label))")
                                     .help(SecretsController.display(grant.caller.path))

@@ -23,13 +23,18 @@ public enum LaunchPolicy {
     }
 
     public static func environment(parent: [String: String], variable: String, value: String) throws -> [String: String] {
-        try validateVariable(variable)
-        guard !value.isEmpty, !value.utf8.contains(0), value.utf8.count <= 32_768 else {
+        try environment(parent: parent, values: [variable: value])
+    }
+
+    public static func environment(parent: [String: String], values: [String: String]) throws -> [String: String] {
+        for variable in values.keys { try validateVariable(variable) }
+        guard !values.isEmpty, values.count <= 16, values.values.allSatisfy({ !$0.isEmpty && !$0.utf8.contains(0) }),
+              values.values.reduce(0, { $0 + $1.utf8.count }) <= 32_768 else {
             throw SecretsFailure("The credential cannot be passed as an environment variable.")
         }
         var env = parent.filter { inherited.contains($0.key) && !$0.value.utf8.contains(0) }
         env["PATH"] = searchPath
-        env[variable] = value
+        env.merge(values) { _, approved in approved }
         return env
     }
 }

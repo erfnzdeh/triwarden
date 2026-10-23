@@ -12,14 +12,22 @@ final class SecretsController: NSObject, NSWindowDelegate {
     static let approvalTimeout: Duration = .seconds(60)
 
     struct Prompt {
+        struct Credential: Identifiable {
+            let name: String
+            let account: String
+            let field: String
+            let variable: String
+            var id: String { variable }
+        }
         let request: SecretsRunRequest
         let credential: String
         let account: String
         let helper: String
         let deadline: ContinuousClock.Instant
         var caller: SecretsCallerIdentity? = nil
+        var credentials: [Credential] = []
     }
-    private(set) var profile: SecretsProfile?
+    private(set) var profiles: [SecretsProfile] = []
     private(set) var lastError: String?
     private(set) var pending: Prompt?
     private(set) var authenticating = false
@@ -60,18 +68,45 @@ final class SecretsController: NSObject, NSWindowDelegate {
 
     func save(_ profile: SecretsProfile) throws {
         guard configurationAllowed else { throw SecretsFailure("Saving a Secrets profile is disabled in demo and snapshot mode.") }
-        try store.save(profile)
-        try confirmation.write(profile.revision())
+        let existing = try store.loadAll()
+        // Never bless unreviewed changes to other tools when saving this tool.
+        if !existing.isEmpty && !(existing.count == 1 && existing[0].name == profile.name) {
+            try store.requireApprovedRevision(confirmation.read(), profiles: existing)
+        }
         reset()
+        let intendedRevision = try store.save(profile, basedOn: existing)
+        try confirm(intendedRevision)
+    }
+
+    func remove(_ name: String) throws {
+        guard configurationAllowed else { throw SecretsFailure("Removing saved tools is disabled in preview mode.") }
+        let existing = try store.loadAll()
+        try store.requireApprovedRevision(confirmation.read(), profiles: existing)
+        reset()
+        let intendedRevision = try store.remove(named: name, basedOn: existing)
+        try confirm(intendedRevision)
+    }
+
+    func clearSetups() throws {
+        guard configurationAllowed else { throw SecretsFailure("Resetting tool settings is disabled in preview mode.") }
+        reset()
+        let intendedRevision = try store.clear()
+        try confirm(intendedRevision)
+    }
+
+    private func confirm(_ intendedRevision: String) throws {
+        do { try confirmation.write(intendedRevision) }
+        catch { reload(); throw error }
         reload()
     }
 
     private func reload() {
         do {
-            profile = try store.load()
+            profiles = try store.loadAll()
             lastError = nil
-            guard let profile, profile.enabled else { server?.stop(); server = nil; return }
-            try profile.requireApprovedRevision(confirmation.read())
+            guard !profiles.isEmpty else { server?.stop(); server = nil; return }
+            try store.requireApprovedRevision(confirmation.read(), profiles: profiles)
+            guard profiles.contains(where: \.enabled) else { server?.stop(); server = nil; return }
             guard server == nil else { return }
             let server = SecretsServer(socketURL: store.socketURL,
                                        expectedCLI: Bundle.main.bundleURL.appending(path: "Contents/MacOS/tw")) { [weak self] request, peer in
@@ -81,7 +116,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
             try server.start()
             self.server = server
         } catch {
-            // A missing profile is the normal first-run state. Other failures are visible in Settings.
+            // Missing settings are normal on first run; other failures appear in Tools & Projects.
             if FileManager.default.fileExists(atPath: store.fileURL.path) { lastError = error.localizedDescription }
             server?.stop(); server = nil
         }
@@ -96,19 +131,20 @@ final class SecretsController: NSObject, NSWindowDelegate {
 
     private func current(_ request: SecretsRunRequest, peer: SecretsPeer) -> Bool {
         guard gate.allows(request.nonce), peer.isConnected,
-              let saved = try? store.load(), saved.enabled, saved == request.profile,
+              let catalog = try? store.loadAll(),
+              let saved = catalog.first(where: { $0.name == request.profile.name }), saved.enabled, saved == request.profile,
               (try? saved.revision()) == request.revision,
-              model?.session(for: saved.accountID) != nil else { return false }
-        return (try? saved.requireApprovedRevision(confirmation.read())) != nil
+              saved.bindings.allSatisfy({ model?.session(for: $0.accountID) != nil }) else { return false }
+        return (try? store.requireApprovedRevision(confirmation.read(), profiles: catalog)) != nil
     }
 
-    private func item(for profile: SecretsProfile) throws -> VaultItem {
-        guard let model, let session = model.session(for: profile.accountID) else {
-            throw SecretsFailure("Unlock the profile's account in Triwarden, then try again.")
+    private func item(for binding: SecretsBinding) throws -> VaultItem {
+        guard let model, let session = model.session(for: binding.accountID) else {
+            throw SecretsFailure("Unlock the selected key's account in Triwarden, then try again.")
         }
-        let matches = session.items.filter { $0.id == profile.itemID && !$0.isDeleted && !$0.isArchived && $0.isSupported }
+        let matches = session.items.filter { $0.id == binding.itemID && !$0.isDeleted && !$0.isArchived && $0.isSupported }
         guard matches.count == 1 else {
-            throw SecretsFailure("The saved vault item is missing or unavailable. Select it again in Settings › Secrets.")
+            throw SecretsFailure("A selected key is missing or unavailable. Edit this tool in Tools & Projects and select the key again.")
         }
         guard !matches[0].reprompt else {
             throw SecretsFailure("This item requires an additional master-password prompt, which tw run does not yet support. Use a dedicated API credential item with an appropriate policy.")
@@ -121,12 +157,13 @@ final class SecretsController: NSObject, NSWindowDelegate {
         do {
             try peer.validate()
             try request.profile.validate()
-            guard let saved = try? store.load(), saved.enabled, saved == request.profile,
+            let catalog = try store.loadAll()
+            guard let saved = catalog.first(where: { $0.name == request.profile.name }), saved.enabled, saved == request.profile,
                   try saved.revision() == request.revision else {
-                peer.reply(failure("The profile changed or is disabled. Save it in Settings › Secrets and run the command again."))
+                peer.reply(failure("The tool setup changed or is paused. Review it in Tools & Projects and run its saved command again."))
                 return
             }
-            try saved.requireApprovedRevision(confirmation.read())
+            try store.requireApprovedRevision(confirmation.read(), profiles: catalog)
             try gate.begin(request.nonce)
         } catch { peer.reply(failure(error.localizedDescription)); return }
         defer { gate.finish(request.nonce); complete(nil) }
@@ -142,32 +179,43 @@ final class SecretsController: NSObject, NSWindowDelegate {
         }
         defer { watcher.cancel() }
         do {
-            guard let session = model?.session(for: request.profile.accountID) else {
-                throw SecretsFailure("Unlock the profile's account in Triwarden, then try again.")
+            let sessions = try Set(request.profile.bindings.map(\.accountID)).sorted().map { accountID in
+                guard let session = model?.session(for: accountID) else {
+                    throw SecretsFailure("Unlock every selected key's account in Triwarden, then try again.")
+                }
+                return session
             }
             // Online required: no silent cache fallback for the initial slice.
-            let refresh = Task { try await session.refresh() }
+            let refresh = Task {
+                for session in sessions { try Task.checkCancellation(); try await session.refresh() }
+            }
             refreshWork = refresh
             defer { refreshWork = nil }
             do { try await refresh.value }
             catch { throw SecretsFailure("Couldn't refresh the vault online. No credential was supplied; check the account connection and try again.") }
-            guard current(request, peer: peer), model?.session(for: session.id) === session else {
+            guard current(request, peer: peer), sessions.allSatisfy({ model?.session(for: $0.id) === $0 }) else {
                 throw SecretsFailure("The request was cancelled, the account locked, or the profile changed.")
             }
-            let selected = try item(for: request.profile)
+            let selected = try request.profile.bindings.map { try item(for: $0) }
             try request.launch.verify(request.profile)
             let caller = try peer.caller()
             let fingerprint = try credentialFingerprint(selected, profile: request.profile)
-            grants.retain(revision: request.revision, credentialFingerprint: fingerprint, launch: request.launch)
+            grants.retain(revision: request.revision, credentialFingerprint: fingerprint, launch: request.launch, tool: request.profile.name)
             let binding = caller.map {
                 SecretsGrantBinding(caller: $0, helper: peer.executable.path, revision: request.revision,
-                                    credentialFingerprint: fingerprint, launch: request.launch)
+                                    credentialFingerprint: fingerprint, launch: request.launch, tool: request.profile.name)
             }
             let cached = binding.flatMap { grants.allowed($0) }
             let choice: SecretsGrantDuration?
             if let cached { choice = cached }
             else {
-                pending = Prompt(request: request, credential: Self.display(selected.name), account: Self.display(session.account.email + " · " + session.account.serverSummary), helper: peer.executable.path, deadline: deadline, caller: caller)
+                let credentials = zip(request.profile.bindings, selected).map { binding, item in
+                    let account = sessions.first { $0.id == binding.accountID }!.account
+                    return Prompt.Credential(name: Self.display(item.name), account: Self.display(account.email + " · " + account.serverSummary),
+                                             field: Self.display(binding.field.label), variable: binding.variable)
+                }
+                pending = Prompt(request: request, credential: credentials[0].name, account: credentials[0].account,
+                                 helper: peer.executable.path, deadline: deadline, caller: caller, credentials: credentials)
                 choice = await withCheckedContinuation { continuation in
                     answer = continuation
                     showPanel()
@@ -177,12 +225,11 @@ final class SecretsController: NSObject, NSWindowDelegate {
                 throw SecretsFailure("The launch was denied, cancelled, or expired. No command was started.")
             }
             try peer.validate()
-            let latest = try item(for: request.profile)
-            guard latest.revised == selected.revised, latest.customFields == selected.customFields, latest.password == selected.password else {
+            let latest = try request.profile.bindings.map { try item(for: $0) }
+            guard try credentialFingerprint(latest, profile: request.profile) == fingerprint else {
                 throw SecretsFailure("The credential changed during approval. Run again to review the current item.")
             }
-            let value = try request.profile.field.resolve(password: latest.password,
-                fields: latest.customFields.map { SecretField(name: $0.name, value: $0.value, hidden: $0.kind == .hidden) })
+            let values = try resolvedValues(latest, profile: request.profile)
             try request.launch.verify(request.profile)
             guard try peer.caller() == caller else { throw SecretsFailure("The calling process changed during approval. Run the command again.") }
             // Cached authorization must still be live at delivery, even if refresh/checks crossed its deadline.
@@ -196,7 +243,7 @@ final class SecretsController: NSObject, NSWindowDelegate {
             // Background restarts must not keep an idle vault unlocked indefinitely.
             if cached == nil { model?.noteActivity() }
             // Main actor: lock/reset cannot run between this check and the nonblocking send.
-            if peer.reply(.init(nonce: request.nonce, revision: request.revision, value: value)) {
+            if peer.reply(.init(nonce: request.nonce, revision: request.revision, values: values)) {
                 if cached == nil, let binding { grants.grant(choice, for: binding) }
                 #if DEBUG
                 lastDeliveryDuration = choice
@@ -220,9 +267,9 @@ final class SecretsController: NSObject, NSWindowDelegate {
         context.localizedCancelTitle = String(localized: "Deny")
         let reason: String
         switch duration {
-        case .once: reason = String(localized: "provide one API credential to the saved development command")
-        case .tenMinutes: reason = String(localized: "allow the saved development command to use one API credential for 10 minutes")
-        case .untilLock: reason = String(localized: "allow the saved development command to use one API credential until Triwarden locks")
+        case .once: reason = String(localized: "provide the selected API credentials to the saved development command once")
+        case .tenMinutes: reason = String(localized: "allow the saved development command to use the selected API credentials for 10 minutes")
+        case .untilLock: reason = String(localized: "allow the saved development command to use the selected API credentials until Triwarden locks")
         }
         Task { [weak self] in
             let allowed = (try? await context.evaluatePolicy(.deviceOwnerAuthentication,
@@ -242,10 +289,23 @@ final class SecretsController: NSObject, NSWindowDelegate {
         continuation?.resume(returning: duration)
     }
 
-    private func credentialFingerprint(_ item: VaultItem, profile: SecretsProfile) throws -> String {
-        let value = try profile.field.resolve(password: item.password,
-            fields: item.customFields.map { SecretField(name: $0.name, value: $0.value, hidden: $0.kind == .hidden) })
-        let data = try JSONEncoder().encode([item.name, String(describing: item.revised), value])
+    private func resolvedValues(_ items: [VaultItem], profile: SecretsProfile) throws -> [String: String] {
+        guard items.count == profile.bindings.count else { throw SecretsFailure("A selected credential is unavailable.") }
+        var values: [String: String] = [:]
+        for (binding, item) in zip(profile.bindings, items) {
+            values[binding.variable] = try binding.field.resolve(password: item.password,
+                fields: item.customFields.map { SecretField(name: $0.name, value: $0.value, hidden: $0.kind == .hidden) })
+        }
+        _ = try LaunchPolicy.environment(parent: [:], values: values)
+        return values
+    }
+
+    private func credentialFingerprint(_ items: [VaultItem], profile: SecretsProfile) throws -> String {
+        let values = try resolvedValues(items, profile: profile)
+        let scope = zip(profile.bindings, items).map { binding, item in
+            [binding.variable, item.name, String(describing: item.revised), values[binding.variable]!]
+        }
+        let data = try JSONEncoder().encode(scope)
         return HMAC<SHA256>.authenticationCode(for: data, using: fingerprintKey).map { String(format: "%02x", $0) }.joined()
     }
 

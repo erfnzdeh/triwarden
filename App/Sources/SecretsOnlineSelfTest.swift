@@ -254,7 +254,9 @@ enum SecretsOnlineSelfTest {
                     check(!model.items.contains(where: { $0.id == created.id }), "dummy vault item removed and confirmed by online refresh")
                 } catch { check(false, "Couldn't remove dummy vault item \(created.name); remove it from the dev account manually.") }
             }
-            if var profile = model.secrets.profile { profile.enabled = false; try? model.secrets.save(profile) }
+            if var profile = model.secrets.profiles.first(where: { $0.name == "canary" }) {
+                profile.enabled = false; try? model.secrets.save(profile)
+            }
             for account in model.accounts { model.logOut(account.id) }
         }
         do {

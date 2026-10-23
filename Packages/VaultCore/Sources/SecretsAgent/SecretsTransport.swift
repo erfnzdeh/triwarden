@@ -17,17 +17,30 @@ public struct SecretsRunResponse: Codable, Sendable {
     public let nonce: UUID
     public let revision: String
     public let value: String?
+    public let values: [String: String]?
     public let error: String?
-    public init(nonce: UUID, revision: String, value: String? = nil, error: String? = nil) {
+    public init(nonce: UUID, revision: String, value: String? = nil, values: [String: String]? = nil, error: String? = nil) {
         self.nonce = nonce; self.revision = revision; self.value = value; self.error = error
+        self.values = values
     }
     public func validatedValue(for request: SecretsRunRequest) throws -> String {
+        guard request.profile.bindings.count == 1 else { throw SecretsFailure("This launch requires multiple credentials.") }
+        return try validatedValues(for: request)[request.profile.variable]!
+    }
+    public func validatedValues(for request: SecretsRunRequest) throws -> [String: String] {
         guard nonce == request.nonce, revision == request.revision else {
             throw SecretsFailure("The launch response does not match this request.")
         }
         if let error { throw SecretsFailure(error) }
-        guard let value else { throw SecretsFailure("No credential was supplied. No command was started.") }
-        return value
+        let resolved: [String: String]
+        if let values, value == nil { resolved = values }
+        else if let value, values == nil, request.profile.bindings.count == 1 { resolved = [request.profile.variable: value] }
+        else { throw SecretsFailure("The credential response is missing or ambiguous. No command was started.") }
+        guard Set(resolved.keys) == Set(request.profile.bindings.map(\.variable)) else {
+            throw SecretsFailure("The response does not contain exactly the approved credentials. No command was started.")
+        }
+        _ = try LaunchPolicy.environment(parent: [:], values: resolved)
+        return resolved
     }
 }
 

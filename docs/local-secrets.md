@@ -1,8 +1,8 @@
 # Local API credentials
 
-Triwarden can launch a saved development command with one credential from your Bitwarden or Vaultwarden vault. The key stays out of your shell startup file, launch arguments, project configuration and normal clipboard workflow.
+Triwarden can launch saved tools with the explicitly selected API keys from your Bitwarden or Vaultwarden vault. Keys stay out of your shell startup file, launch arguments, project configuration and normal clipboard workflow.
 
-This version supports **one saved tool with one credential**. Each launch needs an unlocked account and a successful online vault refresh. The first launch asks for approval and Touch ID or your Mac login password; you can choose one launch, 10 minutes, or until the vault locks. It does not use Bitwarden Secrets Manager.
+You can save **up to 64 tools**, each with **up to 16 credential bindings**. Each launch needs all selected accounts unlocked and a successful online refresh of each account. The first launch asks for approval and Touch ID or your Mac login password; you can choose one launch, 10 minutes, or until the vault locks. It does not use Bitwarden Secrets Manager. This is a credential-manager and launch feature; it does not run an API proxy.
 
 ## Save a key and provide it to a tool
 
@@ -10,7 +10,7 @@ This version supports **one saved tool with one credential**. Each launch needs 
 2. Open the saved key and choose **Provide to Tool…**. You can find these items under **All Items → API Keys**. No Settings page or manually created custom field is needed.
 3. Give the tool a name you'll recognize, such as “Documentation assistant”. Choose an npm development project, Node.js/Python script, or another program, then select the project folder. Common interpreter paths are filled when available; select the executable if it cannot be found.
 4. Check **Environment variable for this tool**. It starts with the saved key's default; older keys without this metadata use the service suggestion. Anthropic and OpenAI suggest their usual variable names; other services start with `API_KEY`. Match your tool's configuration. The form shows **selected key → variable → tool**. A tool-specific override leaves the key's vault default unchanged. This field takes a variable name, never the credential value. Invalid syntax and program-control names such as `PATH` or `NODE_OPTIONS` cannot be saved as defaults. Advanced options expose individual arguments without evaluating shell text.
-5. Choose **Review**, inspect the complete executable, arguments, folder and key binding, then **Save Tool**. This version has one saved tool; replacing it is explicitly identified in the review. **Back** returns to editing without losing input.
+5. If the tool needs more keys, use **Additional keys for this tool → Add Key** and set the exact variable expected for each. Variable names must be different within a tool. Choose **Review**, inspect the complete executable, arguments, folder and every key binding, then **Save Tool**. New setups keep existing tools. To change an existing setup, use its **Edit Tool Setup…** action in Tools & Projects. **Back** returns to editing without losing input.
 6. **Tools & Projects** shows the saved tool and the command to launch it again. Install the bundled `tw` helper once using **Terminal Helper Setup…** (Settings → Developer → Install tw), then copy the launch command shown there. It contains only the generated shortcut name, not your key:
 
    ```sh
@@ -18,9 +18,9 @@ This version supports **one saved tool with one credential**. Each launch needs 
    ```
 
    Use the exact command displayed in your app. `profile` is the CLI's internal identifier; the app shows your chosen tool name.
-7. Review the account, field, executable, every argument and working directory in the approval card. Select **Once**, **10 minutes**, or **Until lock** in the visible segmented control, confirm the matching button and authenticate with macOS. The default is once. The duration stays above the buttons while command details scroll. If the calling process cannot be verified, only once is available.
+7. Review every requested key, account, field and environment variable, plus the executable, every argument and working directory in the approval card. Select **Once**, **10 minutes**, or **Until lock** in the visible segmented control, confirm the matching button and authenticate with macOS. The default is once. The duration stays above the buttons while command details scroll. If the calling process cannot be verified, only once is available.
 
-For subsequent use, run the saved command from your terminal. Update the key in the vault when it changes; you do not need to copy it into the tool's configuration. **Tools & Projects** lets you view the key, edit the launch setup, pause/resume it, or copy its command again. Paused settings remain paused when edited. A locked account or service error is shown as a condition to fix, not as “ready”.
+For subsequent use, run the saved command from your terminal. Update keys in the vault when they change; you do not need to copy them into tool configuration. **Tools & Projects** lists each saved tool with its exact key-to-variable mappings, setup editor, pause/resume, removal and launch command. Removal affects the local launch setup; vault keys are kept. Paused settings remain paused when edited. A locked account or service error is shown as a condition to fix, not as “ready”.
 
 **Trusted tools** in Tools & Projects lists active temporary approvals automatically after a successful launch with **10 minutes** or **Until lock**. Each row identifies the saved tool, its vault key and the terminal/launcher process, with a live remaining time or “Until Triwarden locks”. **Revoke** removes only that row's approval; **Revoke All** clears every temporary approval and cancels any pending delivery. Expired approvals disappear automatically. Once-only launches and merely saving a setup never add a trusted entry. The empty state explains how to grant temporary access; there is no permanent whitelist or manual trust-by-name setting.
 
@@ -32,7 +32,7 @@ The approval window uses the same forms and buttons as the rest of Triwarden. Re
 
 ## Existing or advanced bindings
 
-Existing profiles remain readable and keep their CLI names and protected revisions. **Settings → Secrets → Advanced Launch Settings…** retains the reference-only editor for a login password or another uniquely named hidden field, and for manual command configuration. It never accepts a raw credential value. Ordinary API-key setup starts in the vault and Tools & Projects.
+Existing single-tool files remain readable and keep their CLI names and protected revisions; saving migrates the file to a bounded catalog without dropping the old tool. The advanced editor lets you select an exact saved tool and preserves its additional bindings. **Settings → Secrets → Advanced Launch Settings…** remains a reference-only recovery editor for a login password or another uniquely named hidden field, and manual command configuration. It never accepts a raw credential value. Ordinary API-key setup starts in the vault and Tools & Projects.
 
 The CLI replaces itself with the saved program. Interactive input, Ctrl-C and the program's exit code behave as they do in an ordinary terminal launch. The Secrets profile has its own enable switch and authorization; the general “Answer the tw command” setting and its cached approvals do not grant `tw run` access.
 
@@ -52,7 +52,7 @@ The key is delivered through authenticated local IPC, briefly held by `tw`, then
 
 **The receiving program can read, save, print or send the key.** Its descendants inherit it, and other processes running as the same macOS user may be able to inspect process environments. This is not a sandbox. Triwarden does not capture or sanitize arbitrary program output.
 
-Locking Triwarden cancels pending approvals and stops new deliveries. Delivery commits when the approved response is written to the local socket; bytes already sent cannot be recalled. A process that already received a key keeps it until it exits or changes its environment. Revoke a key at its provider if you need to invalidate it.
+Locking Triwarden cancels pending approvals and stops new deliveries. Delivery commits when the approved response is written to the local socket; bytes already sent cannot be recalled. A program that already received a key can keep or transmit a copy, even beyond its own lifetime. Revoke a key at its provider if you need to invalidate it.
 
 ## Approval and troubleshooting
 
@@ -64,7 +64,8 @@ Locking Triwarden cancels pending approvals and stops new deliveries. Delivery c
 - If the vault cannot refresh online, nothing starts. There is no silent cache fallback in this version.
 - If the executable or working directory changes during approval, the CLI refuses to launch. Run the command again after checking the change.
 - Updating a key in the vault takes effect on the next successfully refreshed launch. Restart existing programs to give them the new value.
-- The App pins the profile revision in its Data Protection Keychain group. Editing the JSON file outside Triwarden invalidates that confirmation; review and save the complete profile in the native UI before launching. A missing/unavailable Keychain pin fails closed.
+- The App pins the entire reference-only tool catalog in its Data Protection Keychain group. Saving one tool cannot approve unreviewed external edits to another. Pins are computed from the exact in-memory snapshot being saved, never by rereading the writable file after saving. A missing/unavailable pin fails closed. If settings are corrupted or cannot be safely recovered, **Reset Tool Setups…** removes local setups after explicit confirmation and keeps vault keys.
+- Multiple credentials are delivered together or not at all. A missing/renamed/duplicate field, locked account, failed refresh, invalid variable, or combined value size over 32 KiB prevents exec. The CLI rejects missing or additional response variables and inherits no unrelated exported keys.
 - Changing a profile cancels an outstanding approval. Other Bitwarden clients can continue to manage the underlying standard vault item.
 
 Executable checks compare canonical path, file identity, permissions, timestamps and content digest immediately before execution. macOS public APIs still require path-based exec, so there is a final replacement race. Interpreters, scripts, dependencies, plugins and project code are not verified by the executable check. Approve only commands and projects you intend to trust.
@@ -81,7 +82,7 @@ There is no automatic `.zshrc` importer in this release. If a key previously rea
 
 The current feature covers local environment injection. Multiple profiles/fields, safe file import, richer repair flows, tested editor integrations, and bounded local activity history are later work. An already-running editor cannot acquire a new environment merely because another process ran `tw`.
 
-A future service-specific proxy can keep original provider keys out of supported tools. It requires endpoint compatibility testing and scoped local session credentials; it is not implemented by this launch feature. SSH private keys continue to use the existing SSH agent.
+A service-specific proxy could keep original provider keys out of supported tools, but network proxying is outside this feature's current product scope. Triwarden remains a credential manager and explicitly authorized launcher. SSH private keys continue to use the existing SSH agent.
 
 ### Why this is different from an SSH agent
 

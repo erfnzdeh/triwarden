@@ -13,7 +13,7 @@ import Security
 let usage = """
 usage: tw <command> [arguments]
 
-  run --profile NAME        launch a saved tool with one vault credential (Tools & Projects)
+  run --profile NAME        launch a saved tool with its selected vault keys (Tools & Projects)
   status                    whether the vault is unlocked
   list [query]              items (name, username/site); needs approval
   get <item> [--field F]    print a field: password (default), username, uri, notes, totp, or a custom field
@@ -141,7 +141,7 @@ if isRun {
     do {
         let name = try RunArguments.parse(runArguments)
         let store = runStore
-        let profile = try store.load()
+        let profile = try store.load(named: name)
         guard profile.enabled, profile.name == name else {
             throw SecretsFailure("The requested tool is missing or paused. Open Tools & Projects to review or resume it.")
         }
@@ -167,10 +167,9 @@ if isRun {
         let app = ownPath.deletingLastPathComponent().appendingPathComponent("Triwarden")
         // Deliberately ignore TW_SOCKET for credential delivery. Authenticate the App, too.
         let response = try SecretsClient.request(request, socket: store.socketURL, expectedApp: app)
-        let value = try response.validatedValue(for: request)
-        guard try store.load() == profile else { throw SecretsFailure("The profile changed during approval. Try again.") }
-        let environment = try LaunchPolicy.environment(parent: ProcessInfo.processInfo.environment,
-                                                        variable: profile.variable, value: value)
+        let values = try response.validatedValues(for: request)
+        guard try store.load(named: name) == profile else { throw SecretsFailure("The profile changed during approval. Try again.") }
+        let environment = try LaunchPolicy.environment(parent: ProcessInfo.processInfo.environment, values: values)
         try SecretsExec.replace(profile: profile, identity: identity, environment: environment)
     } catch { fail(error.localizedDescription) }
 }

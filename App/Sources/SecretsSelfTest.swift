@@ -62,7 +62,7 @@ enum SecretsSelfTest {
             try native.save(original)
             check(try store.load() == original, "native save writes only the isolated profile")
             check(confirmation.read() == (try original.revision()), "native save pins the exact revision in Data Protection Keychain")
-            check(native.profile == original && native.lastError == nil, "native configuration reload succeeds")
+            check(native.profiles == [original] && native.lastError == nil, "native configuration reload succeeds")
             let cli = Process()
             cli.executableURL = Bundle.main.bundleURL.appending(path: "Contents/MacOS/tw")
             cli.arguments = ["--selftest-secrets-keychain", confirmation.service]
@@ -86,7 +86,7 @@ enum SecretsSelfTest {
             }
 
             let reopened = SecretsController(model: model, store: store, confirmation: confirmation)
-            check(reopened.profile == original, "new controller retains the saved account, item and field")
+            check(reopened.profiles == [original], "new controller retains the saved account, item and field")
             var changed = original
             changed.arguments = ["changed"]
             try store.save(changed)
@@ -100,6 +100,20 @@ enum SecretsSelfTest {
             changed.enabled = false
             try native.save(changed)
             check(confirmation.read() == (try changed.revision()), "native resave updates the same Keychain record")
+
+            var other = original; other.name = "second-tool"
+            other.additionalBindings = [.init(accountID: "synthetic", itemID: "second-key", field: .hidden("api-key"), variable: "SECOND_KEY")]
+            try native.save(other)
+            check(try store.loadAll().count == 2 && store.load(named: changed.name) == changed,
+                  "saving another tool preserves the first and its exact binding")
+            check(confirmation.read() == (try store.revision()), "Keychain pin covers the complete tool catalog")
+            var editedOutside = other; editedOutside.arguments = ["unreviewed"]
+            try store.save(editedOutside)
+            do { try native.save(changed); check(false, "saving one tool must not approve external changes to another") }
+            catch { check(confirmation.read() != (try store.revision()), "unreviewed changes to another tool are never repinned") }
+            try store.save(other)
+            try native.remove(other.name)
+            check(try store.load() == changed && native.profiles.count == 1, "removing one setup preserves the other tool")
 
             let disabled = SecretsController(model: model, start: false, store: store, confirmation: confirmation)
             do { try disabled.save(original); check(false, "demo cannot save") }

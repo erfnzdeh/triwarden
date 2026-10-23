@@ -23,7 +23,7 @@ do {
         let server = SecretsServer(socketURL: socket, expectedCLI: executable) { request, peer in
             do {
                 try peer.validate()
-                guard try store.load() == request.profile else { throw SecretsFailure("stale profile") }
+                guard try store.load(named: request.profile.name) == request.profile else { throw SecretsFailure("stale profile") }
                 if mode == "caller" {
                     guard let caller = try peer.caller(), caller.pid == getppid() else {
                         throw SecretsFailure("authenticated caller did not match the real fixture parent")
@@ -31,6 +31,12 @@ do {
                 }
                 if mode == "deny" { throw SecretsFailure("denied by fixture") }
                 if mode == "disconnect" { return }
+                if mode == "multiple" || mode == "partial" {
+                    var values = ["API_KEY": "triwarden-canary", "SECOND_KEY": "second-canary"]
+                    if mode == "partial" { values.removeValue(forKey: "SECOND_KEY") }
+                    peer.reply(.init(nonce: request.nonce, revision: request.revision, values: values))
+                    return
+                }
                 peer.reply(.init(nonce: request.nonce, revision: request.revision, value: mode == "large" ? String(repeating: "\u{01}", count: 32_768) : "triwarden-canary"))
             } catch { peer.reply(.init(nonce: request.nonce, revision: request.revision, error: error.localizedDescription)) }
         }
@@ -39,13 +45,13 @@ do {
         Thread.sleep(forTimeInterval: 15)
         server.stop()
     } else if args[0] == "client" {
-        let p = try store.load()
+        let p = try args.count > 3 ? store.load(named: args[3]) : store.load()
         let identity = try LaunchIdentity.capture(p)
         let request = SecretsRunRequest(profile: p, revision: try p.revision(), launch: identity)
         let response = try SecretsClient.request(request, socket: socket, expectedApp: executable)
-        let value = try response.validatedValue(for: request)
-        guard try store.load() == p else { throw SecretsFailure("profile changed") }
-        let env = try LaunchPolicy.environment(parent: ProcessInfo.processInfo.environment, variable: p.variable, value: value)
+        let values = try response.validatedValues(for: request)
+        guard try store.load(named: p.name) == p else { throw SecretsFailure("profile changed") }
+        let env = try LaunchPolicy.environment(parent: ProcessInfo.processInfo.environment, values: values)
         try SecretsExec.replace(profile: p, identity: identity, environment: env)
     } else { exit(64) }
 } catch { fail(error) }
