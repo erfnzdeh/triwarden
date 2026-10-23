@@ -485,7 +485,7 @@ private struct DeveloperSettings: View {
     @AppStorage(Pref.cliApprovalSeconds) private var cliApprovalSeconds = 0
     @AppStorage(Pref.browser) private var browserEnabled = false
 
-    private var installCommand: String { "sudo ln -sf \"\(CLIBridge.toolPath)\" /usr/local/bin/tw" }
+    @State private var helperSetup = false
 
     private var configLine: String { "Host *\n  IdentityAgent \"\(model.sshAgent.socketPath)\"" }
 
@@ -534,10 +534,8 @@ private struct DeveloperSettings: View {
                     Text("Once per 10 minutes, per app").tag(600)
                 }
                 LabeledContent("Install tw") {
-                    Button("Copy Command") { model.copyPlain(installCommand) }
+                    Button("Terminal Helper Setup…") { helperSetup = true }
                 }
-                Text(verbatim: installCommand)
-                    .font(.system(size: 11, design: .monospaced)).textSelection(.enabled).foregroundStyle(.secondary)
                 if let error = model.cli.lastError {
                     Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange).font(.caption)
                 }
@@ -575,6 +573,7 @@ private struct DeveloperSettings: View {
                     .font(.caption).foregroundStyle(.secondary)
             } header: { Text("Access") }
         }
+        .sheet(isPresented: $helperSetup) { TerminalHelperSetup().environment(model) }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .thinScroller()

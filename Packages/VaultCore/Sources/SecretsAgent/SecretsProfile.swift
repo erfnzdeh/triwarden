@@ -32,7 +32,7 @@ public enum SecretSelector: Codable, Equatable, Sendable {
         case .hidden(let name):
             let matches = fields.filter { $0.name == name }
             guard matches.count == 1, matches[0].hidden else {
-                throw SecretsFailure("The hidden field is missing, renamed, or duplicated. Select the field again in Settings › Secrets.")
+                throw SecretsFailure("The hidden field is missing, renamed, or duplicated. Select the key again through Tools > Edit Setup.")
             }
             value = matches[0].value
         }
@@ -87,7 +87,7 @@ public struct SecretsProfile: Codable, Equatable, Sendable {
               executable.hasPrefix("/"), directory.hasPrefix("/"), arguments.count <= 128,
               ([accountID, itemID, executable, directory, field.label] + arguments).allSatisfy(Self.safeText),
               arguments.reduce(0, { $0 + $1.utf8.count }) <= 16_384 else {
-            throw SecretsFailure("Use a short profile name, an exact vault field, and absolute executable and working-directory paths. Arguments must be single lines.")
+            throw SecretsFailure("Use a short tool ID, an exact vault field, and absolute paths for the executable and working folder. Arguments must use single lines.")
         }
         if let displayName {
             guard !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -113,7 +113,7 @@ public struct SecretsProfile: Codable, Equatable, Sendable {
 
     public func requireApprovedRevision(_ approved: String?) throws {
         guard let approved, try revision() == approved else {
-            throw SecretsFailure("This profile has not been confirmed here or was modified outside Triwarden. Review every setting and save it in Settings › Secrets before launching.")
+            throw SecretsFailure("This tool needs confirmation on this Mac. Review and save its settings through Tools > Edit Setup.")
         }
     }
 
@@ -142,13 +142,13 @@ public struct SecretsProfileStore: Sendable {
         let fd = open(fileURL.path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
         guard fd >= 0 else {
             if errno == ENOENT { return [] }
-            throw SecretsFailure("Couldn't read the saved tools. Review Tools & Projects.")
+            throw SecretsFailure("Cannot read the saved tools. Open Tools in Triwarden to review the error.")
         }
         defer { close(fd) }
         var info = stat()
         guard fstat(fd, &info) == 0, info.st_uid == getuid(), info.st_mode & S_IFMT == S_IFREG,
               info.st_mode & 0o077 == 0, info.st_size > 0, info.st_size <= 4 * 1024 * 1024 else {
-            throw SecretsFailure("The profile file has unsafe permissions or an invalid size. Save it again in Settings › Secrets.")
+            throw SecretsFailure("The tool file has unsafe permissions or an invalid size. Save the tool again through Tools > Edit Setup.")
         }
         let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
         let data = try handle.read(upToCount: 4 * 1024 * 1024 + 1) ?? Data()
@@ -168,13 +168,13 @@ public struct SecretsProfileStore: Sendable {
 
     public func load() throws -> SecretsProfile {
         let profiles = try loadAll()
-        guard profiles.count == 1 else { throw SecretsFailure("Choose an exact saved tool name in Tools & Projects.") }
+        guard profiles.count == 1 else { throw SecretsFailure("Copy the required launch command from Tools in Triwarden.") }
         return profiles[0]
     }
 
     public func load(named name: String) throws -> SecretsProfile {
         guard let profile = try loadAll().first(where: { $0.name == name }) else {
-            throw SecretsFailure("The requested tool is missing. Choose its launch command in Tools & Projects.")
+            throw SecretsFailure("The requested tool is missing. Use tw tools list to find its launch command.")
         }
         return profile
     }
@@ -191,7 +191,7 @@ public struct SecretsProfileStore: Sendable {
 
     public func requireApprovedRevision(_ approved: String?, profiles: [SecretsProfile]? = nil) throws {
         guard let approved, try Self.revision(of: profiles ?? loadAll()) == approved else {
-            throw SecretsFailure("Saved tools were modified outside Triwarden or have not been confirmed. Review and save them in Triwarden before launching.")
+            throw SecretsFailure("These tools need confirmation on this Mac. Review and save their settings through Tools > Edit Setup.")
         }
     }
 
@@ -222,12 +222,12 @@ public struct SecretsProfileStore: Sendable {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let temporary = directory.appendingPathComponent(UUID().uuidString)
         let fd = open(temporary.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
-        guard fd >= 0 else { throw SecretsFailure("Couldn't create the private profile file.") }
+        guard fd >= 0 else { throw SecretsFailure("Cannot create the private tool file. Open Tools in Triwarden to review the error.") }
         defer { close(fd); unlink(temporary.path) }
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try FileHandle(fileDescriptor: fd, closeOnDealloc: false).write(contentsOf: encoder.encode(Catalog(profiles: profiles.sorted { $0.name < $1.name })))
         guard fsync(fd) == 0, rename(temporary.path, fileURL.path) == 0 else {
-            throw SecretsFailure("Couldn't save the profile.")
+            throw SecretsFailure("Cannot save the tool settings. Open Tools in Triwarden to review the error.")
         }
         return intendedRevision
     }
@@ -236,7 +236,7 @@ public struct SecretsProfileStore: Sendable {
 public enum RunArguments {
     public static func parse(_ args: [String]) throws -> String {
         guard args.count == 2, args[0] == "--profile", !args[1].isEmpty else {
-            throw SecretsFailure("usage: tw run --profile NAME\nThe saved command is configured in Settings › Secrets. Command overrides are disabled.")
+            throw SecretsFailure("usage: tw run --profile ID\nSave the command in Tools in Triwarden. Command overrides are disabled.")
         }
         return args[1]
     }

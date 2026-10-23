@@ -59,13 +59,13 @@ public enum SecretsPeerVerifier {
         var guest: SecCode?
         guard SecCodeCopyGuestWithAttributes(nil, [kSecGuestAttributeAudit: data] as CFDictionary, [], &guest) == errSecSuccess,
               let guest, SecCodeCheckValidity(guest, [], nil) == errSecSuccess else {
-            throw SecretsFailure("The peer's running code signature could not be verified.")
+            throw SecretsFailure(TerminalHelperInstallation.repairSignature)
         }
         var expected: SecStaticCode?
         let expectedURL = expectedExecutable.resolvingSymlinksInPath()
         guard SecStaticCodeCreateWithPath(expectedURL as CFURL, [], &expected) == errSecSuccess,
               let expected, SecStaticCodeCheckValidity(expected, [], nil) == errSecSuccess else {
-            throw SecretsFailure("The bundled counterpart is not signed correctly. Rebuild or reinstall Triwarden and use its bundled tw.")
+            throw SecretsFailure(TerminalHelperInstallation.repairSignature)
         }
         // Anchor both peers to our running identity. Matching a replacement helper against
         // itself on disk is insufficient: the app's sealed bundle and signer must also agree.
@@ -77,7 +77,7 @@ public enum SecretsPeerVerifier {
               SecCodeCopyStaticCode(own, [], &ownStatic) == errSecSuccess, let ownStatic,
               SecCodeCopySigningInformation(ownStatic, SecCSFlags(rawValue: kSecCSSigningInformation), &ownInfo) == errSecSuccess,
               let ownSigning = ownInfo as? [String: Any] else {
-            throw SecretsFailure("This copy of Triwarden could not verify its running signature.")
+            throw SecretsFailure(TerminalHelperInstallation.repairSignature)
         }
         let bundle = expectedURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         if bundle.pathExtension == "app" {
@@ -85,12 +85,12 @@ public enum SecretsPeerVerifier {
             let strict = SecCSFlags(rawValue: kSecCSStrictValidate | kSecCSCheckNestedCode)
             guard SecStaticCodeCreateWithPath(bundle as CFURL, [], &sealedBundle) == errSecSuccess,
                   let sealedBundle, SecStaticCodeCheckValidity(sealedBundle, strict, nil) == errSecSuccess else {
-                throw SecretsFailure("The Triwarden app bundle was modified or its nested code is invalid. Rebuild or reinstall it.")
+                throw SecretsFailure(TerminalHelperInstallation.repairSignature)
             }
         }
         var guestStatic: SecStaticCode?
         guard SecCodeCopyStaticCode(guest, [], &guestStatic) == errSecSuccess, let guestStatic else {
-            throw SecretsFailure("Could not inspect the peer signature.")
+            throw SecretsFailure(TerminalHelperInstallation.repairSignature)
         }
         var dynamicInfo: CFDictionary?
         var staticInfo: CFDictionary?
@@ -106,7 +106,7 @@ public enum SecretsPeerVerifier {
               actualPath.resolvingSymlinksInPath() == expectedURL,
               actual[kSecCodeInfoIdentifier as String] as? String == wanted[kSecCodeInfoIdentifier as String] as? String,
               actual[kSecCodeInfoTeamIdentifier as String] as? String == wanted[kSecCodeInfoTeamIdentifier as String] as? String else {
-            throw SecretsFailure("Use the tw bundled with this copy of Triwarden. The local peer did not match its signed counterpart.")
+            throw SecretsFailure(TerminalHelperInstallation.repairLink)
         }
         return data
     }
@@ -239,7 +239,7 @@ public final class SecretsServer: @unchecked Sendable {
 public enum SecretsClient {
     public static func request(_ request: SecretsRunRequest, socket: URL, expectedApp: URL) throws -> SecretsRunResponse {
         guard let fd = FramedSocketServer.connect(to: socket.path) else {
-            throw SecretsFailure("Open Triwarden, unlock the key's account, and resume the saved tool in Tools & Projects.")
+            throw SecretsFailure("Open Triwarden and unlock the required accounts. Resume the tool in Tools if it is paused.")
         }
         defer { close(fd) }
         SecretsServer.configure(fd, seconds: 90)
@@ -247,7 +247,7 @@ public enum SecretsClient {
         let data = try JSONEncoder().encode(request)
         guard data.count <= 65_536, FramedSocketServer.writeFrame(fd, data),
               let response = FramedSocketServer.readFrame(fd, max: 262_144) else {
-            throw SecretsFailure("The launch connection closed or timed out. No command was started.")
+            throw SecretsFailure("The connection closed or timed out; install the running app's tw through Tools > Terminal Helper Setup.")
         }
         return try JSONDecoder().decode(SecretsRunResponse.self, from: response)
     }

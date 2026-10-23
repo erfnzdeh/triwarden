@@ -53,10 +53,10 @@ public struct ExecutableIdentity: Codable, Equatable, Sendable {
 
     public static func capture(_ path: String) throws -> Self {
         guard let canonical = physicalLaunchPath(path) else {
-            throw SecretsFailure("The saved executable cannot be opened. Check its path in Settings › Secrets.")
+            throw SecretsFailure("Cannot open the saved executable. Correct its path through Tools > Edit Setup.")
         }
         let fd = open(canonical, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
-        guard fd >= 0 else { throw SecretsFailure("The saved executable cannot be opened. Check its path in Settings › Secrets.") }
+        guard fd >= 0 else { throw SecretsFailure("Cannot open the saved executable. Correct its path through Tools > Edit Setup.") }
         defer { close(fd) }
         var before = stat()
         guard fstat(fd, &before) == 0, before.st_mode & S_IFMT == S_IFREG,

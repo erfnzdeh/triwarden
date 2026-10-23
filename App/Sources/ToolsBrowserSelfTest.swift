@@ -110,8 +110,44 @@ enum ToolsBrowserSelfTest {
             check(!FileManager.default.fileExists(atPath: root.path), "isolated access diagnostics clean up without a real vault or socket")
         } catch { check(false, "isolated access persistence: \(error.localizedDescription)") }
         try? FileManager.default.removeItem(at: root)
+        checkSavedToolsCLI(check)
         print("Tools browser self-test: \(failed) failure(s)")
         exit(failed == 0 ? 0 : 1)
+    }
+
+    /// The real signed CLI reads only a disposable catalog, with no vault, socket or approval.
+    private static func checkSavedToolsCLI(_ check: (Bool, String) -> Void) {
+        let installation = TerminalHelperInstallation.inspect(appURL: Bundle.main.bundleURL)
+        check(installation.state != .invalidSignature && installation.state != .missingSource,
+              "helper setup accepts the signed app and its bundled helper")
+        let id = UUID().uuidString
+        let root = SecretsProfileStore.shared.directory.deletingLastPathComponent().appendingPathComponent("S" + id.prefix(8))
+        do {
+            // Never remove a pre-existing directory, even if its random prefix collides.
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+            defer { try? FileManager.default.removeItem(at: root) }
+            try id.write(to: root.appendingPathComponent("test-id"), atomically: true, encoding: .utf8)
+            let store = SecretsProfileStore(directory: root.appendingPathComponent("p"))
+            var profiles = ToolsPreviewFixture.profiles(2, keys: 1)
+            profiles[0].displayName = "文件助理"
+            profiles[0].arguments = ["must-not-appear"]
+            profiles[1].enabled = false
+            for profile in profiles { try store.save(profile) }
+            let process = Process(), output = Pipe(), errors = Pipe()
+            process.executableURL = URL(fileURLWithPath: CLIBridge.toolPath)
+            process.arguments = ["--selftest-secrets-tools", id]
+            process.environment = ProcessInfo.processInfo.environment.merging(["TW_SOCKET": "/not-used-by-tool-list"]) { _, new in new }
+            process.standardOutput = output; process.standardError = errors
+            try process.run()
+            let stdout = output.fileHandleForReading.readDataToEndOfFile()
+            let stderr = errors.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            let text = String(decoding: stdout, as: UTF8.self)
+            check(process.terminationStatus == 0 && stderr.isEmpty, "signed tw lists saved tools without a connection or approval")
+            check(text == (try SavedToolCommands.list(profiles)) + "\n", "signed tw prints display names, paused state and exact stable commands")
+            check(!text.contains("must-not-appear") && !text.contains("api-key") && !text.contains("dummy-fixture-only"),
+                  "signed tw omits bindings, arguments and dummy key values")
+        } catch { check(false, "isolated saved-tools CLI: \(error.localizedDescription)") }
     }
 }
 #endif

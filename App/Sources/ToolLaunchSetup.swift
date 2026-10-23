@@ -20,6 +20,7 @@ struct ToolLaunchSetup: View {
     @State private var initial: SecretsProfile?
     @State private var originalRevision: String?
     @State private var discard = false
+    @State private var helperSetup = false
     @State private var enabled = true
     @State private var additionalBindings: [SecretsBinding] = []
     @State private var nextKey = ""
@@ -79,6 +80,11 @@ struct ToolLaunchSetup: View {
                         }
                     }
                     if reviewing { review } else { setup }
+                    HStack {
+                        Text("Use tw to start this tool from Terminal.").font(.system(size: 12)).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Terminal Helper Setup…") { helperSetup = true }.buttonStyle(.appSecondarySmall)
+                    }
                     if let error { Text(verbatim: error).font(.system(size: 12)).foregroundStyle(.red) }
                 }
                 .padding(.horizontal, 24).padding(.bottom, 24)
@@ -96,6 +102,7 @@ struct ToolLaunchSetup: View {
         .background { WindowBackdrop() }
         .onAppear(perform: load)
         .interactiveDismissDisabled(hasChanges)
+        .sheet(isPresented: $helperSetup) { TerminalHelperSetup().environment(model) }
         .confirmationDialog("Discard tool setup?", isPresented: $discard) {
             Button("Discard", role: .destructive) { dismiss() }
             Button("Keep Editing", role: .cancel) {}
@@ -302,7 +309,7 @@ struct ToolLaunchSetup: View {
             if let error = model.secrets.lastError { throw SecretsFailure(error) }
             model.requestedToolSelection = draft.name
             model.requestedSection = .toolLaunches
-            model.flash(String(localized: "Tool saved — ready to launch from your terminal"))
+            model.flash(String(localized: "Tool saved. Copy its launch from Tools."))
             dismiss()
         } catch { self.error = error.localizedDescription }
     }

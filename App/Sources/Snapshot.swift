@@ -52,6 +52,8 @@ enum Snapshot {
         }
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let views: [(String, AnyView, CGSize)] = [
+                ("helper-setup", AnyView(TerminalHelperSetup()), CGSize(width: 580, height: 600)),
+                ("launch-advanced", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(1)), previewDetail: true, previewAdvanced: true)), CGSize(width: 740, height: 1000)),
                 ("empty", AnyView(ToolLaunchesPane(previewProfiles: [])), CGSize(width: 1040, height: 720)),
                 ("one", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(1)))), CGSize(width: 1040, height: 760)),
                 ("ten", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(10)))), CGSize(width: 1040, height: 760)),

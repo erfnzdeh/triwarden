@@ -5,12 +5,13 @@ import SwiftUI
 struct SecretsSettings: View {
     @Environment(AppModel.self) private var model
     @State private var advanced = false
+    @State private var helperSetup = false
     var body: some View {
         Form {
             Section {
                 Text("Save API keys in your vault. Use Tools to choose how a tool receives a saved key.")
                 Button("Open Tools") { model.showToolsAndProjects() }
-                Button("Terminal Helper Setup…") { model.showSettings(.developer) }
+                Button("Terminal Helper Setup…") { helperSetup = true }
             } header: { Text("Local Tool Access") }
             Section {
                 Text("For existing password bindings and manual command configuration.")
@@ -19,6 +20,7 @@ struct SecretsSettings: View {
             }
         }
         .formStyle(.grouped).thinScroller()
+        .sheet(isPresented: $helperSetup) { TerminalHelperSetup().environment(model) }
         .sheet(isPresented: $advanced) {
             VStack(spacing: 0) {
                 HStack {
@@ -160,7 +162,7 @@ private struct AdvancedSecretsSettings: View {
                             .font(.system(.body, design: .monospaced))
                     }
                 }
-                Text("Use the bundled tw command installed from Settings › Developer. Keep Triwarden running and the account unlocked. A successful online vault refresh is required for each launch. Command overrides are disabled.")
+                Text("Install tw through Tools > Terminal Helper Setup. Keep Triwarden open and the required accounts unlocked. Each launch requires an online refresh. Command overrides are disabled.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

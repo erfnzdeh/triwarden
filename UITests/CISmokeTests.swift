@@ -78,7 +78,7 @@ final class CISmokeTests: XCTestCase {
         let secrets = app.outlines.staticTexts["Secrets"].firstMatch
         XCTAssertTrue(secrets.waitForExistence(timeout: 5))
         secrets.click()
-        XCTAssertTrue(app.buttons["Open Tools & Projects"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Open Tools"].firstMatch.waitForExistence(timeout: 5))
         app.buttons["Advanced Launch Settings…"].firstMatch.click()
         XCTAssertTrue(app.textFields["secretsProfileName"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["saveSecretsProfile"].exists)

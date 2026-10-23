@@ -13,7 +13,8 @@ import Security
 let usage = """
 usage: tw <command> [arguments]
 
-  run --profile NAME        launch a saved tool with its selected vault keys (Tools & Projects)
+  run --profile ID          launch a saved tool from Tools in Triwarden
+  tools list               list saved tool names and exact launch commands
   status                    whether the vault is unlocked
   list [query]              items (name, username/site); needs approval
   get <item> [--field F]    print a field: password (default), username, uri, notes, totp, or a custom field
@@ -123,10 +124,11 @@ if first == "--selftest-secrets-keychain" {
 var runStore = SecretsProfileStore.shared
 var runArguments = Array(args.dropFirst())
 var isRun = first == "run"
+var isTools = first == "tools"
 #if DEBUG
 // Only a UUID-scoped disposable socket/profile can be selected by the native online diagnostic.
 // The regular run path still ignores caller-supplied sockets and always uses its saved profile.
-if first == "--selftest-secrets-run" {
+if first == "--selftest-secrets-run" || first == "--selftest-secrets-tools" {
     guard args.count == 2, UUID(uuidString: args[1]) != nil else { fail("Expected a self-test UUID.", code: 64) }
     let root = runStore.directory.deletingLastPathComponent().appendingPathComponent("S" + args[1].prefix(8))
     guard (try? String(contentsOf: root.appendingPathComponent("test-id"), encoding: .utf8)) == args[1] else {
@@ -134,16 +136,25 @@ if first == "--selftest-secrets-run" {
     }
     runStore = SecretsProfileStore(directory: root.appendingPathComponent("p"))
     runArguments = ["--profile", "canary"]
-    isRun = true
+    isRun = first == "--selftest-secrets-run"
+    isTools = !isRun
+    if isTools { runArguments = ["list"] }
 }
 #endif
+if isTools {
+    do {
+        try SavedToolCommands.validateListArguments(runArguments)
+        print(try SavedToolCommands.list(runStore.loadAll()))
+        exit(0)
+    } catch { fail(error.localizedDescription) }
+}
 if isRun {
     do {
         let name = try RunArguments.parse(runArguments)
         let store = runStore
         let profile = try store.load(named: name)
         guard profile.enabled, profile.name == name else {
-            throw SecretsFailure("The requested tool is missing or paused. Open Tools & Projects to review or resume it.")
+            throw SecretsFailure("Open Tools in Triwarden to review or resume the requested tool.")
         }
         // Resolve only the saved absolute executable. A caller-supplied PATH cannot choose the target.
         let identity = try LaunchIdentity.capture(profile)
@@ -158,17 +169,17 @@ if isRun {
         let request = SecretsRunRequest(profile: profile, revision: try profile.revision(), launch: identity)
         var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
         guard proc_pidpath(getpid(), &buffer, UInt32(buffer.count)) > 0 else {
-            throw SecretsFailure("Couldn't locate the running CLI. Use the tw bundled with Triwarden.")
+            throw SecretsFailure(TerminalHelperInstallation.repairLink)
         }
         let ownPath = URL(fileURLWithPath: String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)).resolvingSymlinksInPath()
         guard ownPath.lastPathComponent == "tw", ownPath.deletingLastPathComponent().lastPathComponent == "MacOS" else {
-            throw SecretsFailure("Run the tw bundled inside Triwarden.app, or a symlink to it.")
+            throw SecretsFailure(TerminalHelperInstallation.repairLink)
         }
         let app = ownPath.deletingLastPathComponent().appendingPathComponent("Triwarden")
         // Deliberately ignore TW_SOCKET for credential delivery. Authenticate the App, too.
         let response = try SecretsClient.request(request, socket: store.socketURL, expectedApp: app)
         let values = try response.validatedValues(for: request)
-        guard try store.load(named: name) == profile else { throw SecretsFailure("The profile changed during approval. Try again.") }
+        guard try store.load(named: name) == profile else { throw SecretsFailure("The tool settings changed during approval. Start the launch again.") }
         let environment = try LaunchPolicy.environment(parent: ProcessInfo.processInfo.environment, values: values)
         try SecretsExec.replace(profile: profile, identity: identity, environment: environment)
     } catch { fail(error.localizedDescription) }

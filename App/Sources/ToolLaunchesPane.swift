@@ -11,6 +11,8 @@ struct ToolLaunchesPane: View {
     @State private var removing: SecretsProfile?
     @State private var resetting = false
     @State private var choosingKey = false
+    @State private var helperSetup = false
+    @State private var advanced = false
     @State private var replacement: SecretsProfile?
     @State private var chosenKey: VaultItem?
     @FocusState private var searchFocused: Bool
@@ -22,6 +24,7 @@ struct ToolLaunchesPane: View {
     var previewQuery = ""
     var previewFilter = ToolBrowserIndex.Filter.all
     var previewDetail = false
+    var previewAdvanced = false
     #endif
 
     private var profiles: [SecretsProfile] {
@@ -88,6 +91,7 @@ struct ToolLaunchesPane: View {
         .onAppear {
             #if DEBUG
             query = previewQuery; filter = previewFilter
+            advanced = previewAdvanced
             if previewDetail { selected = profiles.first?.name; compactDetail = true }
             #endif
         }
@@ -98,6 +102,7 @@ struct ToolLaunchesPane: View {
         .sheet(isPresented: $choosingKey, onDismiss: openChosenKey) {
             ToolKeyPicker { key in chosenKey = key; choosingKey = false }.environment(model)
         }
+        .sheet(isPresented: $helperSetup) { TerminalHelperSetup().environment(model) }
         .confirmationDialog("Remove this tool setup?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
             Button("Remove Tool", role: .destructive) {
                 guard let removing else { return }
@@ -133,6 +138,12 @@ struct ToolLaunchesPane: View {
                 HStack(spacing: 8) { searchField; toolbarMenus }
                 VStack(spacing: 8) { searchField; HStack(spacing: 8) { toolbarMenus; Spacer() } }
             }
+            HStack(spacing: 8) {
+                Text("Install tw to start tools from Terminal.").font(.system(size: 11)).foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Button("Terminal Helper Setup…") { helperSetup = true }.buttonStyle(.appSecondarySmall)
+                    .accessibilityIdentifier("toolsHelperSetup").help("Open Terminal Helper Setup")
+            }
         }.padding(18)
     }
 
@@ -149,10 +160,10 @@ struct ToolLaunchesPane: View {
                 .accessibilityIdentifier("toolsStatusFilter")
             ActionMenu(entries: ToolBrowserIndex.Order.allCases.map { choice in
                 ActionMenuEntry(title: choice.title, checked: order == choice) { order = choice }
-            } + [ActionMenuEntry(title: String(localized: "Terminal Helper Setup…"), symbol: "terminal", separatorBefore: true) { model.showSettings(.developer) }]) {
+            }) {
                 Image(systemName: "arrow.up.arrow.down").font(.system(size: 13, weight: .semibold))
                     .frame(width: 32, height: 32).modifier(HeaderChrome(shape: .circle)).contentShape(.circle)
-            }.fixedSize().accessibilityLabel("Sort tools and helper setup")
+            }.fixedSize().accessibilityLabel("Sort tools")
         }
     }
 
@@ -184,7 +195,8 @@ struct ToolLaunchesPane: View {
                         .onTapGesture { selected = entry.id; listFocused = true; if !wide { compactDetail = true } }
                         .accessibilityAction { selected = entry.id; if !wide { compactDetail = true } }
                         .appContextMenu([
-                            ActionMenuEntry(title: String(localized: "Copy Launch Command")) { model.copyPlain("tw run --profile " + entry.id) },
+                            ActionMenuEntry(title: String(localized: "Copy Launch for \(entry.profile.title)")) { copyLaunch(entry.profile) },
+                            ActionMenuEntry(title: String(localized: "Copy Shell Alias")) { copyAlias(entry.profile) },
                             ActionMenuEntry(title: entry.profile.enabled ? String(localized: "Pause") : String(localized: "Resume")) { setEnabled(!entry.profile.enabled, entry.profile) },
                             ActionMenuEntry(title: String(localized: "Remove Tool…"), destructive: true, separatorBefore: true) { removing = entry.profile }
                         ])
@@ -240,13 +252,35 @@ struct ToolLaunchesPane: View {
                     }
                     Text(verbatim: entry.profile.directory).font(.system(size: 12)).foregroundStyle(.secondary)
                         .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-                    HStack {
-                        Button("Copy Launch Command") { model.copyPlain("tw run --profile " + entry.id) }
-                            .buttonStyle(.appPrimarySmall).accessibilityIdentifier("copyToolLaunchCommand")
-                        Button("Edit Setup…") { edit(entry, index: index) }.buttonStyle(.appSecondarySmall)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Button { copyLaunch(entry.profile) } label: {
+                            Text("Copy Launch for \(entry.profile.title)").lineLimit(1).truncationMode(.middle)
+                        }.buttonStyle(AppButtonStyle(kind: .primary, small: true, large: true))
+                            .frame(maxWidth: 380).accessibilityIdentifier("copyToolLaunchCommand")
+                            .help("Copy Launch for \(entry.profile.title)")
+                        HStack {
+                            Button("Copy Shell Alias") { copyAlias(entry.profile) }.buttonStyle(.appSecondarySmall)
+                            Button("Edit Setup…") { edit(entry, index: index) }.buttonStyle(.appSecondarySmall)
+                        }
                     }
-                    Text(verbatim: "tw run --profile " + entry.id).font(.system(size: 12, design: .monospaced))
-                        .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                    DisclosureGroup("Advanced", isExpanded: $advanced) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Shell command").font(.system(size: 12, weight: .semibold))
+                            Text(verbatim: (try? SavedToolCommands.launch(entry.profile)) ?? "")
+                            Button("Copy Shell Command") { copyLaunch(entry.profile) }.buttonStyle(.appSecondarySmall)
+                            Text("Suggested shell alias").font(.system(size: 12, weight: .semibold)).padding(.top, 6)
+                            Text(verbatim: (try? SavedToolCommands.alias(entry.profile)) ?? "")
+                            Text("Paste the alias into your terminal. Change its name if another tool uses it.")
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                            Text("Aliases use saved tool IDs. A tool name change does not change an existing alias.")
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                            Divider().opacity(0.4)
+                            Text("Saved executable").font(.system(size: 12, weight: .semibold))
+                            Text(verbatim: entry.profile.executable)
+                            ForEach(Array(entry.profile.arguments.enumerated()), id: \.offset) { i, value in Text(verbatim: "\(i + 1): \(value.isEmpty ? "(empty)" : value)") }
+                        }.font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+                    }.font(.system(size: 12))
                     Divider().opacity(0.5)
                     Text("Keys provided to this tool").font(.system(size: 13, weight: .semibold))
                     ForEach(entry.keys) { key in
@@ -276,13 +310,6 @@ struct ToolLaunchesPane: View {
                         }
                         Divider().opacity(0.4)
                     }
-                    DisclosureGroup("Saved command details") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(verbatim: entry.profile.executable)
-                            ForEach(Array(entry.profile.arguments.enumerated()), id: \.offset) { i, value in Text(verbatim: "\(i + 1): \(value.isEmpty ? "(empty)" : value)") }
-                        }.font(.system(size: 12, design: .monospaced)).textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
-                    }.font(.system(size: 12))
                     Text("Keys are supplied only when you start this saved command and approve access. The receiving program can read and retain them.")
                         .font(.system(size: 12)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }.padding(22).frame(maxWidth: 740, alignment: .leading).frame(maxWidth: .infinity, alignment: .topLeading)
@@ -308,6 +335,18 @@ struct ToolLaunchesPane: View {
             Spacer(minLength: 0)
             Button("Reset Setups…") { resetting = true }.buttonStyle(.appSecondarySmall)
         }.padding(.horizontal, 18).padding(.bottom, 14)
+    }
+    private func copyLaunch(_ profile: SecretsProfile) {
+        do {
+            model.copyPlain(try SavedToolCommands.launch(profile))
+            model.flash(String(localized: "Copied launch for \(profile.title)."))
+        } catch { model.flash(error.localizedDescription) }
+    }
+    private func copyAlias(_ profile: SecretsProfile) {
+        do {
+            model.copyPlain(try SavedToolCommands.alias(profile))
+            model.flash(String(localized: "Alias copied. Paste it into your terminal to use it."))
+        } catch { model.flash(error.localizedDescription) }
     }
     private func setEnabled(_ enabled: Bool, _ profile: SecretsProfile) {
         var updated = profile; updated.enabled = enabled
