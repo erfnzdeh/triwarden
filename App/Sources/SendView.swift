@@ -5,11 +5,32 @@ import VaultwardenAPI
 /// Sidebar › Send: share text or a file through an end-to-end encrypted link that expires.
 struct SendsPane: View {
     @Environment(AppModel.self) private var model
+    /// The list's own search, like the vault's item list.
+    @State private var query = ""
+    @AppStorage("sendSort") private var sortRaw = SendSort.deletion.rawValue
+    @AppStorage("sendSortAscending") private var ascending = true
+    @AppStorage("sendFilter") private var filterRaw = SendFilter.all.rawValue
 
+    private var sort: SendSort { SendSort(rawValue: sortRaw) ?? .deletion }
+    private var filter: SendFilter { SendFilter(rawValue: filterRaw) ?? .all }
+
+    /// The account's Sends, narrowed by the search text, the filter and "expired only", then sorted.
     private var scopedSends: [SendItem] {
-        model.sends.filter { send in
-            (model.focusedAccountID == nil || send.accountId == model.focusedAccountID) && (!model.expiredSendsOnly || send.isExpired)
+        let matching = model.sends.filter { send in
+            (model.focusedAccountID == nil || send.accountId == model.focusedAccountID)
+                && (!model.expiredSendsOnly || send.isExpired)
+                && filter.matches(send)
+                && Self.matches(send, query)
         }
+        return sort.sorted(matching, ascending: ascending)
+    }
+
+    /// The name, the private notes and — for a text Send — its text, so a password typed there can be found.
+    static func matches(_ send: SendItem, _ query: String) -> Bool {
+        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !words.isEmpty else { return true }
+        let haystack = [send.name, send.notes ?? "", send.text ?? "", send.fileName ?? ""].joined(separator: "\n").lowercased()
+        return words.allSatisfy { haystack.contains($0.lowercased()) }
     }
 
     private func sendActions(_ send: SendItem) -> [ActionMenuEntry] {
@@ -26,17 +47,44 @@ struct SendsPane: View {
     var body: some View {
         HStack(spacing: 8) {
             VStack(spacing: 10) {
-                // Like the item list: a count (new Sends come from the header's + menu).
+                // The same search and filter row the item list has, so the two lists work alike.
+                HStack(spacing: 6) {
+                    SendSearchField(query: $query)
+                    ActionMenu(entries: filterEntries) {
+                        Image(systemName: "line.3.horizontal.decrease")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 32, height: 32)
+                            .modifier(HeaderChrome(shape: .circle))
+                            .contentShape(.circle)
+                    }
+                    .fixedSize()
+                    .help(Text("Filter"))
+                    .accessibilityLabel(Text("Filter"))
+                    ActionMenu(entries: sortEntries) {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 32, height: 32)
+                            .modifier(HeaderChrome(shape: .circle))
+                            .contentShape(.circle)
+                    }
+                    .fixedSize()
+                    .help(Text("Sort"))
+                    .accessibilityLabel(Text("Sort"))
+                }
+                .zIndex(1)
+
                 HStack {
-                    Text("\(scopedSends.count) sends").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
+                    Text(countText).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
                     Spacer()
                 }
                 .padding(.leading, 6)
-                .frame(height: 32)
+                .frame(height: 20)
+
                 ScrollView {
                     LazyVStack(spacing: 2) {
                         ForEach(scopedSends) { send in
-                            SendRow(send: send, selected: send.id == model.selectedSendID && !model.composingSend && model.editingSend == nil)
+                            SendRow(send: send, selected: send.id == model.selectedSendID && !model.composingSend && model.editingSend == nil,
+                                    highlight: query)
                                 .onTapGesture { model.closeSendComposer(); model.selectedSendID = send.id }
                                 .accessibilityElement(children: .combine)
                                 .accessibilityAddTraits(send.id == model.selectedSendID ? [.isButton, .isSelected] : .isButton)
@@ -51,7 +99,8 @@ struct SendsPane: View {
                 .background(Color.panel, in: .rect(cornerRadius: 18, style: .continuous))
                 .overlay {
                     if scopedSends.isEmpty {
-                        Text("Your Sends appear here.").font(.system(size: 12)).foregroundStyle(.tertiary)
+                        Text(query.isEmpty && filter == .all ? "Your Sends appear here." : "No Sends match.")
+                            .font(.system(size: 12)).foregroundStyle(.tertiary)
                     }
                 }
             }
@@ -88,6 +137,192 @@ struct SendsPane: View {
     }
 
     private func compose() { withAnimation(.snappy(duration: 0.25)) { model.composeNewSend() } }
+
+    /// "4 sends", or "2 of 4 sends" while a search or filter is on.
+    private var countText: String {
+        let shown = scopedSends.count
+        let total = model.sends.filter { model.focusedAccountID == nil || $0.accountId == model.focusedAccountID }.count
+        let narrowed = shown != total || !query.isEmpty || filter != .all
+        if narrowed {
+            return String(localized: "\(shown) of \(total) sends")
+        }
+        return shown == 1 ? String(localized: "1 send") : String(localized: "\(shown) sends")
+    }
+
+    private var filterEntries: [ActionMenuEntry] {
+        [.heading(String(localized: "Show only"))] + SendFilter.allCases.map { choice in
+            ActionMenuEntry(title: choice.menuTitle, symbol: choice.symbol, checked: filter == choice) { filterRaw = choice.rawValue }
+        } + [
+            ActionMenuEntry(title: String(localized: "Clear Filter"), symbol: "xmark.circle",
+                            enabled: filter != .all || !query.isEmpty, separatorBefore: true) {
+                filterRaw = SendFilter.all.rawValue
+                query = ""
+            }
+        ]
+    }
+
+    private var sortEntries: [ActionMenuEntry] {
+        [.heading(String(localized: "Sort By"))] + SendSort.allCases.map { choice in
+            ActionMenuEntry(title: choice.menuTitle, symbol: choice.symbol, checked: sort == choice) { sortRaw = choice.rawValue }
+        } + [
+            .heading(String(localized: "Order")),
+            ActionMenuEntry(title: sort.menuOrderTitle(ascending: true), symbol: "arrow.up", checked: ascending) { self.ascending = true },
+            ActionMenuEntry(title: sort.menuOrderTitle(ascending: false), symbol: "arrow.down", checked: !ascending) { self.ascending = false }
+        ]
+    }
+}
+
+/// How the Sends list is ordered. There is no edited/created date on a Send, so the dates it does carry lead.
+enum SendSort: String, CaseIterable, Identifiable {
+    case deletion, name, views
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .deletion: "Deletes On"
+        case .name: "Name"
+        case .views: "Views"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .deletion: "trash"
+        case .name: "textformat"
+        case .views: "eye"
+        }
+    }
+
+    func orderTitle(ascending: Bool) -> LocalizedStringKey {
+        switch self {
+        case .name: ascending ? "A to Z" : "Z to A"
+        case .deletion, .views: ascending ? "Soonest First" : "Latest First"
+        }
+    }
+
+    var menuTitle: String {
+        switch self {
+        case .deletion: String(localized: "Deletes On")
+        case .name: String(localized: "Name")
+        case .views: String(localized: "Views")
+        }
+    }
+
+    func menuOrderTitle(ascending: Bool) -> String {
+        switch self {
+        case .name: ascending ? String(localized: "A to Z") : String(localized: "Z to A")
+        case .deletion, .views: ascending ? String(localized: "Soonest First") : String(localized: "Latest First")
+        }
+    }
+
+    func sorted(_ sends: [SendItem], ascending: Bool) -> [SendItem] {
+        let ordered: [SendItem]
+        switch self {
+        case .name:
+            ordered = sends.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        case .deletion:
+            // A Send with no deletion date is last either way: it never goes on its own.
+            ordered = sends.sorted { ($0.deletionDate ?? .distantFuture) < ($1.deletionDate ?? .distantFuture) }
+        case .views:
+            ordered = sends.sorted { $0.accessCount < $1.accessCount }
+        }
+        return ascending ? ordered : ordered.reversed()
+    }
+}
+
+/// What the Sends list shows, beyond the account it already narrows to.
+enum SendFilter: String, CaseIterable, Identifiable {
+    case all, text, file, password, expiring, expired
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .all: "All Sends"
+        case .text: "Text"
+        case .file: "Files"
+        case .password: "With a password"
+        case .expiring: "Not expired"
+        case .expired: "Expired"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .all: "square.grid.2x2"
+        case .text: "text.alignleft"
+        case .file: "doc"
+        case .password: "lock"
+        case .expiring: "clock"
+        case .expired: "clock.badge.xmark"
+        }
+    }
+
+    var menuTitle: String {
+        switch self {
+        case .all: String(localized: "All Sends")
+        case .text: String(localized: "Text")
+        case .file: String(localized: "Files")
+        case .password: String(localized: "With a password")
+        case .expiring: String(localized: "Not expired")
+        case .expired: String(localized: "Expired")
+        }
+    }
+
+    func matches(_ send: SendItem) -> Bool {
+        switch self {
+        case .all: true
+        case .text: send.kind != .file
+        case .file: send.kind == .file
+        case .password: send.hasPassword
+        case .expiring: !send.isExpired && !send.isUsedUp
+        case .expired: send.isExpired || send.isUsedUp
+        }
+    }
+}
+
+/// The Sends list's search field: the same soft pill the item list uses, without vault-wide suggestions.
+struct SendSearchField: View {
+    @Binding var query: String
+    @State private var hovering = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+            TextField("Search", text: $query, prompt: Text("Search sends"))
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused($focused)
+                .onSubmit { focused = false }
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                    focused = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(Text("Clear"))
+                .accessibilityLabel(Text("Clear search"))
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 32)
+        .background(Color.primary.opacity(hovering || focused ? 0.07 : 0.04), in: .rect(cornerRadius: 9, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
+            .strokeBorder(Color.primary.opacity(focused ? 0.18 : 0.08)))
+        .contentShape(.rect)
+        .onTapGesture { focused = true }
+        .onHover { hovering = $0 }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("Search sends"))
+    }
 }
 
 /// Shown once, right after a Send is made: its link and — for a password-protected Send — the passphrase, which the
@@ -199,6 +434,8 @@ private struct CreatedCopyButton: View {
 private struct SendRow: View {
     let send: SendItem
     let selected: Bool
+    /// Search text to mark in the name.
+    var highlight = ""
 
     var body: some View {
         HStack(spacing: 10) {
@@ -207,7 +444,7 @@ private struct SendRow: View {
                 .frame(width: 30, height: 30)
                 .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                Text(send.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                Text(Highlight.marked(send.name, highlight)).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 Text(status(send)).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
