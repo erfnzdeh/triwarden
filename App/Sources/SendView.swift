@@ -126,6 +126,10 @@ struct SendsPane: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.snappy(duration: 0.25), value: model.composingSend)
         }
+        // The Sends page is a tool, so VaultView lets it scroll to the window's bottom edge (a negative bottom inset
+        // cancels the column's 8 pt margin). Its two panels are cards, though, and they must keep that margin: the
+        // right column's detail keeps it too, and a card touching the window's edge looks cut off.
+        .padding(.bottom, 8)
         .sheet(item: Bindable(model).createdSend) { created in SendCreatedSheet(created: created) }
     }
 
