@@ -83,6 +83,16 @@ The current feature covers local environment injection. Multiple profiles/fields
 
 A future service-specific proxy can keep original provider keys out of supported tools. It requires endpoint compatibility testing and scoped local session credentials; it is not implemented by this launch feature. SSH private keys continue to use the existing SSH agent.
 
+### Why this is different from an SSH agent
+
+An agent can either deliver a credential or perform an operation for a client. The current `tw run` feature does the former: after approval, the authenticated CLI briefly receives the raw key and injects it into the target environment. A program, dependency or plugin running there can copy or transmit that key. Temporary approval limits future deliveries, not the lifetime of an already delivered provider credential. Same-user inspection and the final path-based exec race remain outside this feature's isolation guarantees.
+
+SSH agents perform signing operations without giving the private key to the requesting client. Removing access prevents future signing through the agent; it does not undo an established connection. An authorized malicious client may still misuse the operations permitted during its authorization. See the [OpenSSH agent manual](https://man.openbsd.org/ssh-agent.1).
+
+For HTTP bearer API keys, an analogous operation broker is a provider-specific local proxy: the tool receives a scoped local token and endpoint, while Triwarden authenticates requests to a fixed provider upstream. This keeps the provider key out of that tool's environment, but the local token still permits API consumption and must be revocable, bounded and protected. It does not sandbox the tool or protect a fully compromised Mac. Provider requests already accepted cannot be undone, and revocation cannot guarantee refunds or reverse side effects.
+
+Endpoint customization makes this practical for some clients. Claude Code documents [gateway support](https://code.claude.com/docs/en/llm-gateway), including keeping provider keys at the gateway. The [official OpenAI Python SDK](https://github.com/openai/openai-python#configuring-the-http-client) documents `base_url` / `OPENAI_BASE_URL`. These configuration capabilities do not establish Triwarden compatibility: no proxy adapter is implemented or validated yet. Unsupported clients must never silently fall back from promised proxy isolation to raw-key delivery.
+
 ## Developer validation
 
 Run `swift test --package-path Packages/VaultCore` for the launch policy and synthetic signed-process transport/exec tests. Run `make selftest-secrets` for actual Keychain and native profile checks in a signed Debug build. The diagnostic uses an empty, disposable account namespace and a UUID-scoped Keychain record, checks that the bundled CLI cannot read or overwrite the App's record, and removes its test data before exit. It does not open a real vault or request device-owner authentication.
