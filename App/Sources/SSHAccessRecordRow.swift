@@ -17,19 +17,19 @@ struct SSHAccessRecordRow: View {
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Image(systemName: symbol)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 9, weight: .medium))
                         .accessibilityHidden(true)
                     Text(label)
-                        .font(.system(size: 11))
+                        .font(.system(size: 10, weight: .semibold))
                         .multilineTextAlignment(.trailing)
                         .lineLimit(2)
                 }
                 .foregroundStyle(event.outcome == .denied ? Color.red : Color.secondary)
-                .padding(.horizontal, 7).padding(.vertical, 3)
+                .padding(.horizontal, 6).padding(.vertical, 2)
                 .overlay {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
                         .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
                 }
                 Text(verbatim: SSHAccessClock.label(since: event.date))
