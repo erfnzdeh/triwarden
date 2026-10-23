@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import Darwin
 import SecretsAgent
 import SSHAgent
 import VaultwardenAPI
@@ -52,6 +53,18 @@ enum ToolsBrowserSelfTest {
         check(index.results(query: "", filter: .paused, order: .ascending).allSatisfy { $0.availability == .paused }, "paused filter stays separate from enabled tools")
         check(index.entries.first { $0.id == "tool-03" }?.availability == .needsRepair, "missing key cannot look ready")
         check(index.entries.first { $0.id == "tool-05" }?.availability == .locked, "locked account has a distinct repair state")
+        check(index.entries.first { $0.id == "tool-03" }?.keys.first?.repair == .selectKey,
+              "missing key offers selection rather than an unlock action")
+        check(index.entries.first { $0.id == "tool-05" }?.keys.first?.repair == .unlockAccount,
+              "locked key offers account repair before key replacement")
+        check(index.entries.first { $0.id == "tool-00" }?.keys.first?.repair == nil,
+              "valid key has no repair action")
+        let knownAccounts = ToolBrowserIndex(profiles: ToolsPreviewFixture.profiles(6), items: keys,
+                                            unlocked: ["demo"], configuredAccounts: ["demo"])
+        check(knownAccounts.entries.first { $0.id == "tool-05" }?.keys.first?.repair == .addAccount,
+              "absent account offers sign-in rather than an unlock action")
+        check(knownAccounts.entries.first { $0.id == "tool-05" }?.availability == .needsRepair,
+              "absent account does not claim to be merely locked")
         check(index.results(query: "", filter: .attention, order: .ascending).allSatisfy { [.locked, .needsRepair].contains($0.availability) }, "attention includes locked and broken bindings")
         let duplicateNames = index.results(query: "Shared assistant", filter: .all, order: .ascending)
         check(Set(duplicateNames.map(\.id)).count == duplicateNames.count && duplicateNames.count == 7, "duplicate titles retain separate stable identities")
@@ -147,7 +160,57 @@ enum ToolsBrowserSelfTest {
             check(text == (try SavedToolCommands.list(profiles)) + "\n", "signed tw prints display names, paused state and exact stable commands")
             check(!text.contains("must-not-appear") && !text.contains("api-key") && !text.contains("dummy-fixture-only"),
                   "signed tw omits bindings, arguments and dummy key values")
+            let nonInteractive = Process(), input = Pipe(), nonInteractiveError = Pipe()
+            nonInteractive.executableURL = process.executableURL
+            nonInteractive.arguments = ["--selftest-secrets-select", id]
+            nonInteractive.standardInput = input; nonInteractive.standardOutput = FileHandle.nullDevice
+            nonInteractive.standardError = nonInteractiveError
+            try nonInteractive.run(); nonInteractive.waitUntilExit()
+            let reason = String(decoding: nonInteractiveError.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+            check(nonInteractive.terminationStatus == 1 && reason.contains("requires a terminal"),
+                  "signed tw refuses selection from a pipe without requesting approval")
+
+            profiles[1].enabled = true
+            try store.save(profiles[1])
+            let menu = try SavedToolSelection(profiles: profiles)
+            let selected = try selectionProbe(id: id, input: "2\nq\n")
+            check(selected.code == 0 && selected.output == "Selected saved tool: " + menu.profiles[1].name + "\n",
+                  "signed tw selects an exact saved ID from a real terminal")
+            check(!selected.terminal.contains("must-not-appear") && !selected.terminal.contains("api-key") && !selected.terminal.contains("dummy-fixture-only"),
+                  "terminal menu omits arguments, binding fields and values")
+            let cancelled = try selectionProbe(id: id, input: "\n")
+            check(cancelled.code == 130 && cancelled.output.isEmpty, "signed tw cancels blank selection without a launch")
+            var paused = menu.profiles[1]; paused.enabled = false; try store.save(paused)
+            let refused = try selectionProbe(id: id, input: "2\nq\n")
+            check(refused.code == 130 && refused.output.isEmpty && refused.terminal.contains("This tool is paused"),
+                  "signed tw refuses a paused tool without requesting approval")
         } catch { check(false, "isolated saved-tools CLI: \(error.localizedDescription)") }
+    }
+
+    private static func selectionProbe(id: String, input: String) throws -> (code: Int32, output: String, terminal: String) {
+        var master: Int32 = -1, slave: Int32 = -1
+        guard openpty(&master, &slave, nil, nil, nil) == 0 else { throw SecretsFailure("Cannot create the test terminal.") }
+        defer { close(master); close(slave) }
+        let data = Data(input.utf8)
+        guard data.withUnsafeBytes({ Darwin.write(master, $0.baseAddress!, $0.count) }) == data.count else {
+            throw SecretsFailure("Cannot write the test selection.")
+        }
+        let child = Process(), output = Pipe()
+        child.executableURL = URL(fileURLWithPath: CLIBridge.toolPath)
+        child.arguments = ["--selftest-secrets-select", id]
+        let tty = FileHandle(fileDescriptor: slave, closeOnDealloc: false)
+        child.standardInput = tty; child.standardError = tty; child.standardOutput = output
+        try child.run()
+        let stdout = output.fileHandleForReading.readDataToEndOfFile()
+        child.waitUntilExit()
+        _ = fcntl(master, F_SETFL, O_NONBLOCK)
+        var terminal = Data(), buffer = [UInt8](repeating: 0, count: 4096)
+        while true {
+            let count = Darwin.read(master, &buffer, buffer.count)
+            guard count > 0 else { break }
+            terminal.append(contentsOf: buffer.prefix(count))
+        }
+        return (child.terminationStatus, String(decoding: stdout, as: UTF8.self), String(decoding: terminal, as: UTF8.self))
     }
 }
 #endif

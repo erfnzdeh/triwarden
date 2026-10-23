@@ -38,10 +38,12 @@ struct ToolBrowserIndex {
         let isAPIKey: Bool
     }
     struct Key: Identifiable {
+        enum Repair { case unlockAccount, addAccount, selectKey }
         let binding: SecretsBinding
         let name: String
         let problem: String?
         let canView: Bool
+        let repair: Repair?
         var id: String { binding.variable }
     }
     struct Entry: Identifiable {
@@ -54,7 +56,8 @@ struct ToolBrowserIndex {
     let entries: [Entry]
     private let items: [Reference: Item]
 
-    init(profiles: [SecretsProfile], items: [VaultItem], unlocked: Set<String>, configurationError: Bool = false) {
+    init(profiles: [SecretsProfile], items: [VaultItem], unlocked: Set<String>, configurationError: Bool = false,
+         configuredAccounts: Set<String>? = nil) {
         let grouped = Dictionary(grouping: items.filter { !$0.isDeleted && !$0.isArchived }, by: { Reference(account: $0.accountId, item: $0.id) })
         let lookup = grouped.compactMapValues { $0.count == 1 ? $0[0] : nil }
         self.items = lookup.mapValues { Item(id: $0.id, accountId: $0.accountId, name: $0.name, isAPIKey: $0.isAPIKey) }
@@ -62,8 +65,10 @@ struct ToolBrowserIndex {
             var lengths = 0
             let keys = profile.bindings.map { binding -> Key in
                 let item = lookup[Reference(account: binding.accountID, item: binding.itemID)]
+                let missingAccount = configuredAccounts.map { !$0.contains(binding.accountID) } ?? false
                 let problem: String?
-                if !unlocked.contains(binding.accountID) { problem = String(localized: "Unlock this key's account to view or use it.") }
+                if missingAccount { problem = String(localized: "Add the required account to this Mac, then review this key binding.") }
+                else if !unlocked.contains(binding.accountID) { problem = String(localized: "Unlock this key's account to view or use it.") }
                 else if let item {
                     if item.reprompt { problem = String(localized: "This key needs a master-password prompt that tool launches do not support.") }
                     else if !item.isSupported { problem = String(localized: "This item type cannot be supplied to a tool.") }
@@ -82,11 +87,12 @@ struct ToolBrowserIndex {
                     }
                 } else { problem = String(localized: "This saved key is missing or unavailable. Edit the setup and select another key.") }
                 return Key(binding: binding, name: item?.name ?? String(localized: "Unavailable key"), problem: problem,
-                           canView: item != nil && unlocked.contains(binding.accountID))
+                           canView: item != nil && !missingAccount && unlocked.contains(binding.accountID),
+                           repair: missingAccount ? .addAccount : (problem == nil ? nil : (unlocked.contains(binding.accountID) ? .selectKey : .unlockAccount)))
             }
             let state: Availability
             if !profile.enabled { state = .paused }
-            else if configurationError || (try? profile.validate()) == nil || lengths > 32_768 { state = .needsRepair }
+            else if configurationError || (try? profile.validate()) == nil || lengths > 32_768 || keys.contains(where: { $0.repair == .addAccount }) { state = .needsRepair }
             else if profile.bindings.contains(where: { !unlocked.contains($0.accountID) }) { state = .locked }
             else if keys.contains(where: { $0.problem != nil }) { state = .needsRepair }
             else { state = .ready }

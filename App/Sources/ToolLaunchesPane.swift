@@ -12,6 +12,7 @@ struct ToolLaunchesPane: View {
     @State private var resetting = false
     @State private var choosingKey = false
     @State private var helperSetup = false
+    @State private var helperCheck = 0
     @State private var advanced = false
     @State private var replacement: SecretsProfile?
     @State private var chosenKey: VaultItem?
@@ -25,6 +26,7 @@ struct ToolLaunchesPane: View {
     var previewFilter = ToolBrowserIndex.Filter.all
     var previewDetail = false
     var previewAdvanced = false
+    var previewHelperState = TerminalHelperInstallation.State.installed
     #endif
 
     private var profiles: [SecretsProfile] {
@@ -43,7 +45,7 @@ struct ToolLaunchesPane: View {
     }
     private var index: ToolBrowserIndex {
         ToolBrowserIndex(profiles: profiles, items: model.items, unlocked: unlockedAccounts,
-                                configurationError: model.secrets.lastError != nil)
+                         configurationError: model.secrets.lastError != nil, configuredAccounts: Set(model.accounts.map(\.id)))
     }
 
     var body: some View {
@@ -102,7 +104,7 @@ struct ToolLaunchesPane: View {
         .sheet(isPresented: $choosingKey, onDismiss: openChosenKey) {
             ToolKeyPicker { key in chosenKey = key; choosingKey = false }.environment(model)
         }
-        .sheet(isPresented: $helperSetup) { TerminalHelperSetup().environment(model) }
+        .sheet(isPresented: $helperSetup, onDismiss: { helperCheck += 1 }) { TerminalHelperSetup().environment(model) }
         .confirmationDialog("Remove this tool setup?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
             Button("Remove Tool", role: .destructive) {
                 guard let removing else { return }
@@ -138,13 +140,18 @@ struct ToolLaunchesPane: View {
                 HStack(spacing: 8) { searchField; toolbarMenus }
                 VStack(spacing: 8) { searchField; HStack(spacing: 8) { toolbarMenus; Spacer() } }
             }
-            HStack(spacing: 8) {
-                Text("Install tw to start tools from Terminal.").font(.system(size: 11)).foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-                Button("Terminal Helper Setup…") { helperSetup = true }.buttonStyle(.appSecondarySmall)
-                    .accessibilityIdentifier("toolsHelperSetup").help("Open Terminal Helper Setup")
-            }
+            helperStatus.id(helperCheck)
         }.padding(18)
+    }
+
+    @ViewBuilder private var helperStatus: some View {
+        #if DEBUG
+        if previewProfiles != nil || previewProfile != nil || model.previewUnlocked {
+            TerminalHelperStatusRow(openSetup: { helperSetup = true }, previewState: previewHelperState)
+        } else { TerminalHelperStatusRow(openSetup: { helperSetup = true }) }
+        #else
+        TerminalHelperStatusRow(openSetup: { helperSetup = true })
+        #endif
     }
 
     private var searchField: some View {
@@ -252,6 +259,15 @@ struct ToolLaunchesPane: View {
                     }
                     Text(verbatim: entry.profile.directory).font(.system(size: 12)).foregroundStyle(.secondary)
                         .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                    if entry.availability == .paused {
+                        HStack {
+                            Text("Resume this tool before you start it.").font(.system(size: 12)).foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Resume Tool") { setEnabled(true, entry.profile) }.buttonStyle(.appSecondarySmall)
+                        }
+                    } else if entry.availability == .needsRepair {
+                        Text("Review this tool's key settings before you start it.").font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
                     VStack(alignment: .leading, spacing: 10) {
                         Button { copyLaunch(entry.profile) } label: {
                             Text("Copy Launch for \(entry.profile.title)").lineLimit(1).truncationMode(.middle)
@@ -288,10 +304,17 @@ struct ToolLaunchesPane: View {
                             HStack(alignment: .top) {
                                 Text(verbatim: key.name).font(.system(size: 13, weight: .medium))
                                 Spacer(minLength: 8)
-                                if !key.canView, !unlockedAccounts.contains(key.binding.accountID), model.accounts.contains(where: { $0.id == key.binding.accountID }) {
-                                    Button("Unlock Account") { model.accountFocus = key.binding.accountID }
-                                        .buttonStyle(.appSecondarySmall)
-                                } else {
+                                switch key.repair {
+                                case .unlockAccount:
+                                    Button("Unlock Account") { model.accountFocus = key.binding.accountID }.buttonStyle(.appSecondarySmall)
+                                case .addAccount:
+                                    Button("Add Account…") { model.beginAddAccount() }.buttonStyle(.appSecondarySmall)
+                                case .selectKey:
+                                    Button(entry.profile.bindings.first == key.binding ? "Select Key Again…" : "Edit Key Setup…") {
+                                        if entry.profile.bindings.first == key.binding { replacement = entry.profile; choosingKey = true }
+                                        else { edit(entry, index: index) }
+                                    }.buttonStyle(.appSecondarySmall)
+                                case nil:
                                     Button("View") {
                                         if let item = index.item(for: key.binding) {
                                             model.requestedVaultItem = .init(accountID: item.accountId, itemID: item.id)

@@ -236,7 +236,7 @@ public struct SecretsProfileStore: Sendable {
 public enum RunArguments {
     public static func parse(_ args: [String]) throws -> String {
         guard args.count == 2, args[0] == "--profile", !args[1].isEmpty else {
-            throw SecretsFailure("usage: tw run --profile ID\nSave the command in Tools in Triwarden. Command overrides are disabled.")
+            throw SecretsFailure("usage: tw run [--profile ID]\nUse tw run in a terminal to choose a saved tool. Command overrides are disabled.")
         }
         return args[1]
     }

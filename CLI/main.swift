@@ -13,7 +13,8 @@ import Security
 let usage = """
 usage: tw <command> [arguments]
 
-  run --profile ID          launch a saved tool from Tools in Triwarden
+  run                      choose a saved tool in this terminal
+  run --profile ID         launch an exact saved tool from Tools in Triwarden
   tools list               list saved tool names and exact launch commands
   status                    whether the vault is unlocked
   list [query]              items (name, username/site); needs approval
@@ -126,9 +127,10 @@ var runArguments = Array(args.dropFirst())
 var isRun = first == "run"
 var isTools = first == "tools"
 #if DEBUG
+var selectionProbe = false
 // Only a UUID-scoped disposable socket/profile can be selected by the native online diagnostic.
 // The regular run path still ignores caller-supplied sockets and always uses its saved profile.
-if first == "--selftest-secrets-run" || first == "--selftest-secrets-tools" {
+if ["--selftest-secrets-run", "--selftest-secrets-tools", "--selftest-secrets-select"].contains(first) {
     guard args.count == 2, UUID(uuidString: args[1]) != nil else { fail("Expected a self-test UUID.", code: 64) }
     let root = runStore.directory.deletingLastPathComponent().appendingPathComponent("S" + args[1].prefix(8))
     guard (try? String(contentsOf: root.appendingPathComponent("test-id"), encoding: .utf8)) == args[1] else {
@@ -136,9 +138,11 @@ if first == "--selftest-secrets-run" || first == "--selftest-secrets-tools" {
     }
     runStore = SecretsProfileStore(directory: root.appendingPathComponent("p"))
     runArguments = ["--profile", "canary"]
-    isRun = first == "--selftest-secrets-run"
+    selectionProbe = first == "--selftest-secrets-select"
+    isRun = first == "--selftest-secrets-run" || selectionProbe
     isTools = !isRun
     if isTools { runArguments = ["list"] }
+    if selectionProbe { runArguments = [] }
 }
 #endif
 if isTools {
@@ -150,12 +154,29 @@ if isTools {
 }
 if isRun {
     do {
-        let name = try RunArguments.parse(runArguments)
         let store = runStore
+        let selected: SecretsProfile?
+        let name: String
+        if runArguments.isEmpty {
+            guard let choice = try TerminalToolSelection.choose(profiles: store.loadAll()) else {
+                FileHandle.standardError.write(Data("Launch cancelled.\n".utf8))
+                exit(130)
+            }
+            selected = choice; name = choice.name
+        } else {
+            selected = nil; name = try RunArguments.parse(runArguments)
+        }
         let profile = try store.load(named: name)
+        guard selected == nil || selected == profile else {
+            throw SecretsFailure("The tool settings changed during selection. Use tw run to select the tool again.")
+        }
         guard profile.enabled, profile.name == name else {
             throw SecretsFailure("Open Tools in Triwarden to review or resume the requested tool.")
         }
+        #if DEBUG
+        // The isolated selection diagnostic stops before identity checks, IPC, or credential access.
+        if selectionProbe { print("Selected saved tool: " + profile.name); exit(0) }
+        #endif
         // Resolve only the saved absolute executable. A caller-supplied PATH cannot choose the target.
         let identity = try LaunchIdentity.capture(profile)
         #if DEBUG

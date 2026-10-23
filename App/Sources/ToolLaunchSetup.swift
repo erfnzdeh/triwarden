@@ -9,7 +9,7 @@ struct ToolLaunchSetup: View {
     @Environment(\.dismiss) private var dismiss
     @State private var shortcut = "tool-" + UUID().uuidString.prefix(8).lowercased()
     @State private var title = ""
-    @State private var recipe = Recipe.npm
+    @State private var recipe: ToolLaunchRecipe?
     @State private var executable = ""
     @State private var directory = ""
     @State private var script = ""
@@ -21,39 +21,20 @@ struct ToolLaunchSetup: View {
     @State private var originalRevision: String?
     @State private var discard = false
     @State private var helperSetup = false
+    @State private var helperCheck = 0
     @State private var enabled = true
     @State private var additionalBindings: [SecretsBinding] = []
     @State private var nextKey = ""
     #if DEBUG
     var previewReview = false
     var previewProfile: SecretsProfile?
+    var previewRecipe: ToolLaunchRecipe?
     #endif
-
-    enum Recipe: String, CaseIterable {
-        case npm, node, python, custom
-        var title: String {
-            switch self {
-            case .npm: String(localized: "npm development project")
-            case .node: String(localized: "Node.js script")
-            case .python: String(localized: "Python script")
-            case .custom: String(localized: "Other program")
-            }
-        }
-        var binary: String? {
-            switch self { case .npm: "npm"; case .node: "node"; case .python: "python3"; case .custom: nil }
-        }
-    }
 
     private var item: VaultItem? {
         model.items.first { $0.accountId == reference.accountID && $0.id == reference.itemID && !$0.isDeleted && !$0.isArchived }
     }
-    private var launchArguments: [String] {
-        switch recipe {
-        case .npm: ["run", "dev"] + arguments
-        case .node, .python: [script] + arguments
-        case .custom: arguments
-        }
-    }
+    private var launchArguments: [String] { recipe?.arguments(script: script, extra: arguments) ?? [] }
     private var draft: SecretsProfile {
         SecretsProfile(name: shortcut, accountID: reference.accountID, itemID: reference.itemID,
             field: .hidden(APIKeyTemplate.keyField), variable: variable, executable: executable,
@@ -80,11 +61,7 @@ struct ToolLaunchSetup: View {
                         }
                     }
                     if reviewing { review } else { setup }
-                    HStack {
-                        Text("Use tw to start this tool from Terminal.").font(.system(size: 12)).foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Terminal Helper Setup…") { helperSetup = true }.buttonStyle(.appSecondarySmall)
-                    }
+                    helperStatus.id(helperCheck)
                     if let error { Text(verbatim: error).font(.system(size: 12)).foregroundStyle(.red) }
                 }
                 .padding(.horizontal, 24).padding(.bottom, 24)
@@ -102,25 +79,35 @@ struct ToolLaunchSetup: View {
         .background { WindowBackdrop() }
         .onAppear(perform: load)
         .interactiveDismissDisabled(hasChanges)
-        .sheet(isPresented: $helperSetup) { TerminalHelperSetup().environment(model) }
+        .sheet(isPresented: $helperSetup, onDismiss: { helperCheck += 1 }) { TerminalHelperSetup().environment(model) }
         .confirmationDialog("Discard tool setup?", isPresented: $discard) {
             Button("Discard", role: .destructive) { dismiss() }
             Button("Keep Editing", role: .cancel) {}
         }
     }
 
+    @ViewBuilder private var helperStatus: some View {
+        #if DEBUG
+        if model.previewUnlocked { TerminalHelperStatusRow(openSetup: { helperSetup = true }, previewState: .installed) }
+        else { TerminalHelperStatusRow(openSetup: { helperSetup = true }) }
+        #else
+        TerminalHelperStatusRow(openSetup: { helperSetup = true })
+        #endif
+    }
+
     private var setup: some View {
         Group {
             FormCard(title: "Tool & Project") {
-                FormField(label: "Tool name", note: "A name you'll recognize when this tool asks for your key.") {
-                    TextField("e.g. Documentation assistant", text: $title).textFieldStyle(SoftFieldStyle())
-                        .accessibilityIdentifier("toolLaunchName")
-                }
                 FormField(label: "What do you want to run?") {
-                    SoftMenu(options: Recipe.allCases.map { ($0, $0.title) }, selection: Binding(get: { recipe }, set: {
-                        recipe = $0; findExecutable(); arguments = []
-                    }),
-                             accessibilityLabel: "Tool type")
+                    SoftMenu(options: [(Optional<ToolLaunchRecipe>.none, String(localized: "Choose a tool…"))] +
+                             ToolLaunchRecipe.allCases.map { (Optional($0), $0.localizedTitle) },
+                             selection: Binding(get: { recipe }, set: selectRecipe), accessibilityLabel: "Tool type")
+                }
+                if recipe != nil {
+                    FormField(label: "Tool name", note: "Use a name you can recognize when this tool requests access.") {
+                        TextField("e.g. Documentation assistant", text: $title).textFieldStyle(SoftFieldStyle())
+                            .accessibilityIdentifier("toolLaunchName")
+                    }
                 }
                 if recipe == .node || recipe == .python {
                     path("Script", value: $script, directory: false)
@@ -130,67 +117,92 @@ struct ToolLaunchSetup: View {
                             }
                         }
                 }
-                path("Project folder", value: $directory, directory: true)
+                if recipe != nil { path("Project folder", value: $directory, directory: true) }
                 if recipe == .npm {
                     Text("Runs npm run dev in this folder.").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
-                if executable.isEmpty || recipe == .custom { path("Program", value: $executable, directory: false) }
-            }
-            FormCard(title: "How the tool reads this key") {
-                FormField(label: "Environment variable for this tool", note: "Starts with the key's default. Match the name this tool expects; changing it here keeps the vault default unchanged.") {
-                    TextField("API_KEY", text: $variable).textFieldStyle(SoftFieldStyle())
-                        .accessibilityIdentifier("toolLaunchVariable")
-                }
-                Text("\(item?.name ?? String(localized: "Selected API key")) → \(variable.isEmpty ? String(localized: "Choose a variable name") : variable) → \(title.isEmpty ? String(localized: "Your tool") : title)")
-                    .font(.system(size: 12, design: .monospaced)).fixedSize(horizontal: false, vertical: true)
-                Text("Use the saved launch command to start this tool. Triwarden supplies the selected key after you approve the launch.")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-            }
-            FormCard(title: "Additional keys for this tool") {
-                Text("Add only the keys this tool needs. Each key must use a different environment variable.")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-                ForEach(additionalBindings.indices, id: \.self) { index in
-                    let binding = additionalBindings[index]
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text(verbatim: keyName(binding)).font(.system(size: 13, weight: .medium))
-                            Spacer()
-                            Button("Remove") { additionalBindings.remove(at: index) }.buttonStyle(.appSecondarySmall)
-                                .accessibilityLabel("Remove key \(keyName(binding)) from this tool")
-                        }
-                        TextField("Environment variable", text: $additionalBindings[index].variable)
-                            .textFieldStyle(SoftFieldStyle())
-                            .accessibilityLabel("Environment variable for \(keyName(binding))")
-                    }
-                }
-                if additionalBindings.count < 15 {
-                    Picker("Saved API key", selection: $nextKey) {
-                        Text("Choose another key…").tag("")
-                        ForEach(availableKeys) { key in
-                            Text(verbatim: key.name + " · " + accountLabel(key.accountId)).tag(key.accountId + "|" + key.id)
-                        }
-                    }.pickerStyle(.menu)
-                    Button("Add Key") { addKey() }.buttonStyle(.appSecondarySmall).disabled(nextKey.isEmpty)
-                    if availableKeys.isEmpty {
-                        Text("Save another API key in your vault or unlock its account to add it here.")
+                if recipe != nil {
+                    path("Program", value: $executable, directory: false)
+                    if executable.isEmpty {
+                        Text("Choose the installed program. Triwarden does not run programs during setup.")
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                        Button("Find Installed Program") { findExecutable() }.buttonStyle(.appSecondarySmall)
+                    } else {
+                        Text("Confirm this program path before you save the tool.")
                             .font(.system(size: 12)).foregroundStyle(.secondary)
                     }
                 }
+                if recipe == .claudeCode {
+                    Text("Use an Anthropic API key. Claude Code can charge this API account instead of your subscription.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
             }
-            DisclosureGroup("Advanced command options") {
-                FormCard {
-                    if recipe != .custom { path("Program", value: $executable, directory: false) }
-                    ForEach(arguments.indices, id: \.self) { index in
+            if recipe != nil {
+                FormCard(title: "How the tool reads this key") {
+                    FormField(label: "Environment variable for this tool", note: "Use the name this tool expects. This setting does not change the key in your vault.") {
+                        TextField("API_KEY", text: $variable).textFieldStyle(SoftFieldStyle())
+                            .accessibilityIdentifier("toolLaunchVariable")
+                    }
+                    if let problem = APIKeyTemplate.variableProblem(variable) {
+                        Text(verbatim: problem).font(.system(size: 12)).foregroundStyle(.orange)
+                    }
+                    if let suggestion = recipe?.variable, variable != suggestion {
                         HStack {
-                            TextField("Argument \(index + 1)", text: $arguments[index]).textFieldStyle(SoftFieldStyle())
-                            Button { arguments.remove(at: index) } label: { Image(systemName: "minus.circle") }
-                                .accessibilityLabel(Text("Remove argument \(index + 1)"))
+                            Text("This tool expects \(suggestion).").font(.system(size: 12)).foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Use Suggested Name") { variable = suggestion }.buttonStyle(.appSecondarySmall)
                         }
                     }
-                    Button("Add Argument") { arguments.append("") }.buttonStyle(.appSecondarySmall)
-                        .disabled(arguments.count >= 120)
-                    Text("Enter each argument separately, without shell quotes. Shell command text is never evaluated.")
+                    Text("\(item?.name ?? String(localized: "Selected API key")) → \(variable.isEmpty ? String(localized: "Choose a variable name") : variable) → \(title.isEmpty ? String(localized: "Your tool") : title)")
+                        .font(.system(size: 12, design: .monospaced)).fixedSize(horizontal: false, vertical: true)
+                    Text("Use the saved launch command to start this tool. Triwarden supplies the selected key after you approve the launch.")
                         .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                FormCard(title: "Additional keys for this tool") {
+                    Text("Add only the keys this tool needs. Each key must use a different environment variable.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                    ForEach(additionalBindings.indices, id: \.self) { index in
+                        let binding = additionalBindings[index]
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(verbatim: keyName(binding)).font(.system(size: 13, weight: .medium))
+                                Spacer()
+                                Button("Remove") { additionalBindings.remove(at: index) }.buttonStyle(.appSecondarySmall)
+                                    .accessibilityLabel("Remove key \(keyName(binding)) from this tool")
+                            }
+                            TextField("Environment variable", text: $additionalBindings[index].variable)
+                                .textFieldStyle(SoftFieldStyle())
+                                .accessibilityLabel("Environment variable for \(keyName(binding))")
+                        }
+                    }
+                    if additionalBindings.count < 15 {
+                        Picker("Saved API key", selection: $nextKey) {
+                            Text("Choose another key…").tag("")
+                            ForEach(availableKeys) { key in
+                                Text(verbatim: key.name + " · " + accountLabel(key.accountId)).tag(key.accountId + "|" + key.id)
+                            }
+                        }.pickerStyle(.menu)
+                        Button("Add Key") { addKey() }.buttonStyle(.appSecondarySmall).disabled(nextKey.isEmpty)
+                        if availableKeys.isEmpty {
+                            Text("Save another API key in your vault or unlock its account to add it here.")
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                DisclosureGroup("Advanced command options") {
+                    FormCard {
+                        ForEach(arguments.indices, id: \.self) { index in
+                            HStack {
+                                TextField("Argument \(index + 1)", text: $arguments[index]).textFieldStyle(SoftFieldStyle())
+                                Button { arguments.remove(at: index) } label: { Image(systemName: "minus.circle") }
+                                    .accessibilityLabel(Text("Remove argument \(index + 1)"))
+                            }
+                        }
+                        Button("Add Argument") { arguments.append("") }.buttonStyle(.appSecondarySmall)
+                            .disabled(arguments.count >= 120)
+                        Text("Enter each argument separately, without shell quotes. Shell command text is never evaluated.")
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
                 }
             }
         }
@@ -212,6 +224,10 @@ struct ToolLaunchSetup: View {
                     Divider()
                     reviewRow("Additional key", keyName(binding) + " · " + accountLabel(binding.accountID))
                     reviewRow("Environment variable", binding.variable)
+                }
+                if recipe == .claudeCode {
+                    Text("This launch supplies an Anthropic API key. Claude Code can charge that API account instead of your subscription.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Text(enabled ? "Saving enables local launches for this tool." : "This tool remains paused after saving.")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
@@ -242,10 +258,19 @@ struct ToolLaunchSetup: View {
         }
     }
 
+    private func selectRecipe(_ selected: ToolLaunchRecipe?) {
+        let previous = recipe
+        if let selected {
+            let suggested = selected.suggestedName(current: title, previous: previous)
+            title = suggested == selected.title || title == previous?.localizedTitle ? selected.localizedTitle : suggested
+            variable = selected.suggestedVariable(current: variable, previous: previous, keyDefault: item?.apiKeyVariable ?? "API_KEY")
+        }
+        recipe = selected; arguments = []; script = ""
+        findExecutable()
+    }
+
     private func findExecutable() {
-        guard let name = recipe.binary else { executable = ""; return }
-        executable = LaunchPolicy.searchPath.split(separator: ":").map { "\($0)/\(name)" }
-            .first { FileManager.default.isExecutableFile(atPath: $0) } ?? ""
+        executable = recipe?.findExecutable(home: FileManager.default.homeDirectory(forUser: NSUserName()) ?? FileManager.default.homeDirectoryForCurrentUser) ?? ""
     }
 
     private func load() {
@@ -261,17 +286,22 @@ struct ToolLaunchSetup: View {
             additionalBindings = p.additionalBindings ?? []
             recipe = .custom; executable = p.executable; directory = p.directory; arguments = p.arguments
         } else {
-            title = String(localized: "My development tool")
             variable = item?.apiKeyVariable ?? "API_KEY"
             findExecutable()
         }
         initial = draft
         #if DEBUG
+        if let previewRecipe { selectRecipe(previewRecipe) }
         reviewing = previewReview
         #endif
     }
 
     private func validate() throws {
+        guard recipe != nil else { throw SecretsFailure("Choose the tool you want to run.") }
+        guard !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw SecretsFailure("Enter a name for this tool.") }
+        guard executable.hasPrefix("/") else { throw SecretsFailure("Use Choose… to select the installed program.") }
+        guard directory.hasPrefix("/") else { throw SecretsFailure("Use Choose… to select the project folder.") }
+        if let problem = APIKeyTemplate.variableProblem(variable) { throw SecretsFailure(problem) }
         guard let item, item.isAPIKey, !item.reprompt, model.session(for: reference.accountID) != nil else {
             throw SecretsFailure("Unlock the key's account and select an available API key without an additional master-password prompt.")
         }

@@ -52,6 +52,10 @@ enum Snapshot {
         }
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let views: [(String, AnyView, CGSize)] = [
+                ("repair-key", AnyView(ToolLaunchesPane(previewProfiles: [ToolsPreviewFixture.profiles(4, keys: 1)[3]], previewDetail: true)), CGSize(width: 440, height: 900)),
+                ("repair-paused", AnyView(ToolLaunchesPane(previewProfiles: [ToolsPreviewFixture.profiles(3, keys: 1)[2]], previewDetail: true)), CGSize(width: 440, height: 900)),
+                ("repair-account", AnyView(ToolLaunchesPane(previewProfiles: [ToolsPreviewFixture.profiles(6, keys: 1)[5]], previewDetail: true)), CGSize(width: 440, height: 900)),
+                ("repair-helper", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(1)), previewHelperState: .wrongLink)), CGSize(width: 440, height: 780)),
                 ("helper-setup", AnyView(TerminalHelperSetup()), CGSize(width: 580, height: 600)),
                 ("launch-advanced", AnyView(ToolLaunchesPane(previewProfiles: Array(profiles.prefix(1)), previewDetail: true, previewAdvanced: true)), CGSize(width: 740, height: 1000)),
                 ("empty", AnyView(ToolLaunchesPane(previewProfiles: [])), CGSize(width: 1040, height: 720)),
@@ -137,6 +141,7 @@ enum Snapshot {
                 ("key-detail-long-variable", AnyView(ItemDetail(item: longVariableItem)), CGSize(width: 480, height: 880)),
                 ("tools-empty", AnyView(ToolLaunchesPane()), CGSize(width: 760, height: 680)),
                 ("setup", AnyView(ToolLaunchSetup(reference: reference)), CGSize(width: 640, height: 720)),
+                ("claude-setup", AnyView(ToolLaunchSetup(reference: reference, previewRecipe: .claudeCode)), CGSize(width: 640, height: 1000)),
                 ("review", AnyView(ToolLaunchSetup(reference: reference, previewReview: true, previewProfile: profile)), CGSize(width: 640, height: 720)),
                 ("saved-tool", AnyView(ToolLaunchesPane(previewProfile: profile)), CGSize(width: 760, height: 900)),
                 ("trusted-tools", AnyView(ToolLaunchesPane(previewProfile: profile, previewGrants: trusted.activeGrants().filter { $0.tool == profile.name })), CGSize(width: 760, height: 1120)),
