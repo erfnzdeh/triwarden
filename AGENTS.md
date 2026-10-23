@@ -8,5 +8,6 @@ The user's explicit priority is **user experience first**. Design from the user'
 - Provide sensible defaults and guided setup. Reveal technical details progressively while keeping permission scope and security consequences clear.
 - Connect each step to the next: after saving a key, show how to provide it to a tool; after configuring a tool, show how to use it again.
 - Treat discoverability, clarity, effort, feedback, and recovery as part of feature correctness. A working backend or attractive panel alone does not make a workflow complete. Distinguish a design walkthrough from actual user testing when reporting validation.
+- Use the app's existing `.thinScroller()` for scrollable views, including native Lists, Forms and picker lists. Keep the slim hover/scroll thumb consistent with the rest of the app; do not leave the system scrollbar or introduce a separate scrollbar design.
 
 For local API keys, use the journey **save a key → provide it to a tool/project → review authorization → use it again** as the product model. Keep Bitwarden/Vaultwarden compatibility and existing security protections underneath that experience.

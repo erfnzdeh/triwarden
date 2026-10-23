@@ -197,6 +197,7 @@ struct ToolLaunchesPane: View {
                     }
                 }
                 .listStyle(.inset).scrollContentBackground(.hidden).focused($listFocused)
+                .thinScroller()
                 .accessibilityIdentifier("toolsList").accessibilityLabel("Saved tools")
                 .onKeyPress(.return) {
                     guard !wide, selected != nil else { return .ignored }
@@ -354,7 +355,8 @@ private struct ToolKeyPicker: View {
                         Text(verbatim: model.accounts.first(where: { $0.id == key.accountId })?.email ?? "").font(.system(size: 11)).foregroundStyle(.secondary)
                     }.tag(choice.id)
                 }
-            }.listStyle(.inset).overlay { if keys.isEmpty { ContentUnavailableView("No available API keys", systemImage: "key.horizontal", description: Text("Save a key in your vault or unlock its account.")) } }
+            }.listStyle(.inset).thinScroller()
+                .overlay { if keys.isEmpty { ContentUnavailableView("No available API keys", systemImage: "key.horizontal", description: Text("Save a key in your vault or unlock its account.")) } }
             HStack {
                 Button("Cancel") { dismiss() }.buttonStyle(.appSecondary).keyboardShortcut(.cancelAction)
                 Spacer()

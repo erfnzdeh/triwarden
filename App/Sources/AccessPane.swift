@@ -226,7 +226,7 @@ struct AccessPane: View {
             } else {
                 TimelineView(.periodic(from: .now, by: 60)) { _ in
                     List(filtered) { event in SSHAccessRecordRow(event: event).padding(.vertical, 5) }
-                        .listStyle(.inset).scrollContentBackground(.hidden).accessibilityIdentifier("sshAccessHistory")
+                        .listStyle(.inset).scrollContentBackground(.hidden).thinScroller().accessibilityIdentifier("sshAccessHistory")
                 }
             }
         }
