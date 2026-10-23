@@ -73057,6 +73057,64 @@
           }
         }
       }
+    },
+    "Search sends by name, private notes, text or file name.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search sends by name, private notes, text or file name."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "名前・メモ・テキスト・ファイル名で Send を検索します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按名称、私人备注、文本或文件名搜索 Send。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "依名稱、私人備註、文字或檔名搜尋 Send。"
+          }
+        },
+        "zh-HK": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "用名稱、私人備註、文字或者檔名搵 Send。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이름, 개인 메모, 텍스트 또는 파일 이름으로 Send를 검색합니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rechercher des Sends par nom, notes privées, texte ou nom de fichier."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Busca Sends por nombre, notas privadas, texto o nombre de archivo."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ค้นหา Send ตามชื่อ บันทึกส่วนตัว ข้อความ หรือชื่อไฟล์"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

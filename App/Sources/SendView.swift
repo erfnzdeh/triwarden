@@ -73,13 +73,6 @@ struct SendsPane: View {
                 }
                 .zIndex(1)
 
-                HStack {
-                    Text(countText).font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
-                    Spacer()
-                }
-                .padding(.leading, 6)
-                .frame(height: 20)
-
                 ScrollView {
                     LazyVStack(spacing: 2) {
                         ForEach(scopedSends) { send in
@@ -137,17 +130,6 @@ struct SendsPane: View {
     }
 
     private func compose() { withAnimation(.snappy(duration: 0.25)) { model.composeNewSend() } }
-
-    /// "4 sends", or "2 of 4 sends" while a search or filter is on.
-    private var countText: String {
-        let shown = scopedSends.count
-        let total = model.sends.filter { model.focusedAccountID == nil || $0.accountId == model.focusedAccountID }.count
-        let narrowed = shown != total || !query.isEmpty || filter != .all
-        if narrowed {
-            return String(localized: "\(shown) of \(total) sends")
-        }
-        return shown == 1 ? String(localized: "1 send") : String(localized: "\(shown) sends")
-    }
 
     private var filterEntries: [ActionMenuEntry] {
         [.heading(String(localized: "Show only"))] + SendFilter.allCases.map { choice in
@@ -282,14 +264,16 @@ enum SendFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// The Sends list's search field: the same soft pill the item list uses, without vault-wide suggestions.
+/// The Sends list's search field. The vault's `VaultSearchField` can't be reused: it is wired to the vault's own
+/// suggestions, chips and `SearchFilters`. This keeps its exact look — the same 32 pt capsule and `HeaderChrome`
+/// glass — so the two lists' rows read as one control, without carrying the vault's machinery.
 struct SendSearchField: View {
     @Binding var query: String
     @State private var hovering = false
     @FocusState private var focused: Bool
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 7) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
@@ -297,31 +281,31 @@ struct SendSearchField: View {
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .focused($focused)
+                // Esc clears the text first, then gives up focus — the vault field's first two steps.
+                .onKeyPress(.escape) {
+                    if !query.isEmpty { query = ""; return .handled }
+                    focused = false
+                    return .handled
+                }
                 .onSubmit { focused = false }
             if !query.isEmpty {
-                Button {
-                    query = ""
-                    focused = true
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                Button { query = ""; focused = true } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 12)).foregroundStyle(.tertiary)
                 }
                 .buttonStyle(.plain)
-                .help(Text("Clear"))
-                .accessibilityLabel(Text("Clear search"))
+                .help(Text("Clear Search"))
+                .accessibilityLabel(Text("Clear Search"))
+                .transition(.opacity.combined(with: .scale(scale: 0.6)))
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .frame(height: 32)
-        .background(Color.primary.opacity(hovering || focused ? 0.07 : 0.04), in: .rect(cornerRadius: 9, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
-            .strokeBorder(Color.primary.opacity(focused ? 0.18 : 0.08)))
-        .contentShape(.rect)
+        .modifier(HeaderChrome(shape: .capsule, hovering: hovering || focused))
+        .contentShape(.capsule)
         .onTapGesture { focused = true }
         .onHover { hovering = $0 }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text("Search sends"))
+        .animation(.easeOut(duration: 0.15), value: query.isEmpty)
+        .help(Text("Search sends by name, private notes, text or file name."))
     }
 }
 
