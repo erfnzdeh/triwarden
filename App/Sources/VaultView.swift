@@ -1486,6 +1486,12 @@ private struct SSHRequestsPopover: View {
                         }
                     }
                     .frame(maxHeight: 220)
+                    // A scroll view asks for the whole height it is offered, and the popover sizes itself from
+                    // what its content asks for. Given a maxHeight and no ideal height, the notes list took
+                    // whatever the popover left over: a lone card was drawn in a 150 pt box, so the history
+                    // below sat under a band of empty space. `fixedSize` asks for the rows' own height instead,
+                    // and the maxHeight still caps it so a long list scrolls.
+                    .fixedSize(horizontal: false, vertical: true)
                     .scrollBounceBehavior(.basedOnSize)
                     .thinScroller()
                 }
@@ -1509,6 +1515,8 @@ private struct SSHRequestsPopover: View {
                     }
                 }
                 .frame(maxHeight: 280)
+                // Same as the notes list above: the log takes its rows' height, up to 280 pt.
+                .fixedSize(horizontal: false, vertical: true)
                 .scrollBounceBehavior(.basedOnSize)
                 .thinScroller()
             }
