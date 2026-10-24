@@ -304,8 +304,10 @@ struct AutoFillView: View {
 private enum Palette {
     static let window = adaptive(light: NSColor(red: 0.945, green: 0.947, blue: 0.965, alpha: 1),
                                  dark: NSColor(red: 0.105, green: 0.108, blue: 0.125, alpha: 1))
-    static let card = adaptive(light: NSColor.white.withAlphaComponent(0.40), dark: NSColor.white.withAlphaComponent(0.07))
-    static let edge = adaptive(light: NSColor.white, dark: NSColor.white.withAlphaComponent(0.08))
+    /// The app's panel and its hairline (`Color.panel` / `Color.panelEdge`): the same lightness, so a selected
+    /// row raised on it reads as a soft step rather than a white tile on grey.
+    static let card = adaptive(light: NSColor.white.withAlphaComponent(0.62), dark: NSColor.white.withAlphaComponent(0.05))
+    static let edge = adaptive(light: NSColor.white.withAlphaComponent(0.90), dark: NSColor.white.withAlphaComponent(0.08))
     /// A chosen row: the app's own selected row (`Color.rowSelected` in the vault list), a raised neutral tile
     /// rather than a brand wash.
     static let selected = adaptive(light: NSColor.white, dark: NSColor.white.withAlphaComponent(0.12))
