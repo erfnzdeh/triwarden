@@ -156,6 +156,9 @@ struct TriwardenApp: App {
                 Button("Copy One-Time Code") { if let item, let t = item.totp { model.guarded(item) { model.copy(t.code(), label: String(localized: "Code")) } } }
                     .keyboardShortcut("c", modifiers: [.command, .control])
                     .disabled(item?.totp == nil)
+                Button("Copy Notes") { if let item, let notes = item.notes, !notes.isEmpty { model.guarded(item) { model.copy(notes, label: String(localized: "Notes")) } } }
+                    .keyboardShortcut("n", modifiers: [.command, .control])
+                    .disabled(item?.notes?.isEmpty != false)
                 Button("Show Password in Large Type") { if let item { model.showLargeType(item) } }
                     .keyboardShortcut("t", modifiers: [.command, .option])
                     .disabled(item?.password == nil)

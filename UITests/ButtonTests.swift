@@ -62,6 +62,108 @@ final class ButtonTests: XCTestCase {
         cancel.click()
     }
 
+    // MARK: Palette copy shortcuts (#88)
+
+    /// The palette's field, looked up fresh: the panel is torn down and rebuilt between copies, so a held
+    /// element handle goes stale and Xcode 27 throws instead of reporting a miss.
+    private var paletteField: XCUIElement {
+        app.textFields.matching(NSPredicate(format: "placeholderValue == %@", "Search or run a command")).firstMatch
+    }
+
+    /// Opens the palette with `query` typed into its field. The text is pasted rather than typed: a Chinese input
+    /// method (this Mac runs Cangjie/Quick) would treat the letters as composition and open a candidate window over
+    /// the palette, which no assertion here can get past. The paste lands asynchronously, so wait for the field to
+    /// show the query before emptying the pasteboard — otherwise the query itself can be what a copy assertion reads.
+    private func openPalette(_ query: String) {
+        button("Search or run a command").click()
+        XCTAssertTrue(paletteField.waitForExistence(timeout: 5), "palette did not open")
+        paletteField.click()
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(query, forType: .string)
+        paletteField.typeKey("v", modifierFlags: .command)
+        let landed = Date.now.addingTimeInterval(5)
+        while Date.now < landed, (paletteField.value as? String) != query { usleep(50_000) }
+        XCTAssertEqual(paletteField.value as? String, query, "the query did not reach the palette's field")
+        NSPasteboard.general.clearContents()
+        let emptied = Date.now.addingTimeInterval(2)
+        while Date.now < emptied, !(clipboard() ?? "").isEmpty { usleep(20_000) }
+    }
+
+    /// Issue #88: with an item highlighted in the palette, ⇧⌘C / ⌥⌘C / ⌃⌘C copy that item's username, password
+    /// and one-time code — the same keys as the main window. The vault's selection is GitHub while the palette's
+    /// is Cloudflare, so a copy that falls through to the Item menu picks the wrong item and fails here.
+    func testPaletteCopyShortcutsCopyTheHighlightedItem() {
+        let cases: [(XCUIElement.KeyModifierFlags, String?, String)] = [
+            (.shift, "ops@northwind.example", "username"),
+            (.option, "cf-9xQ!m2Lp#Vt7", "password"),
+            (.control, nil, "one-time code"),
+        ]
+        for (modifier, expected, what) in cases {
+            NSPasteboard.general.clearContents()
+            openPalette("cloudflare")
+            paletteField.typeKey("c", modifierFlags: [.command, modifier])
+            // The palette says what it copied for a moment, then closes.
+            let deadline = Date.now.addingTimeInterval(4)
+            while Date.now < deadline, (clipboard() ?? "").isEmpty { usleep(50_000) }
+            let value = clipboard()
+            if let expected {
+                XCTAssertEqual(value, expected, "the palette's \(what) shortcut did not copy the highlighted item")
+            } else {
+                XCTAssertEqual(value?.count, 6, "the palette's \(what) shortcut did not copy a one-time code")
+                XCTAssertTrue(value?.allSatisfy(\.isNumber) == true, "the palette's \(what) shortcut copied no digits")
+            }
+            // Back to the vault, ready for the next key.
+            let closed = paletteField.waitForNonExistence(timeout: 5)
+            XCTAssertTrue(closed, "the palette stayed open after copying the \(what)")
+        }
+    }
+
+    /// The shortcuts are discoverable: an item's actions list shows them, like ⌘↵ / ⌥↵ today. GitHub carries every one
+    /// of them — username, password, code and notes — while Cloudflare has no notes at all.
+    func testPaletteActionsListTheCopyShortcuts() {
+        openPalette("github")
+        paletteField.typeKey(.tab, modifierFlags: [])
+        for keycap in ["⇧⌘C", "⌥⌘C", "⌃⌘C", "⌃⌘N"] {
+            XCTAssertTrue(app.staticTexts[keycap].firstMatch.waitForExistence(timeout: 5),
+                          "the actions list does not show \(keycap)")
+        }
+    }
+
+    /// The palette's footer shows the copy keys for the highlighted row, without opening anything: the review on #88
+    /// asked for them next to ↵ / More, since the actions list is only reached once you already know they exist.
+    func testPaletteFooterShowsTheCopyShortcuts() {
+        openPalette("github")
+        for keycap in ["⇧⌘C", "⌥⌘C", "⌃⌘C"] {
+            XCTAssertTrue(app.staticTexts[keycap].firstMatch.waitForExistence(timeout: 5),
+                          "the palette's footer does not show \(keycap)")
+        }
+        // Each one names what it copies, so the keycap is not left to be guessed.
+        for label in ["Username", "Password", "Code"] {
+            XCTAssertTrue(app.staticTexts[label].firstMatch.exists, "the footer's \(label) hint lost its name")
+        }
+        // A card has neither a username nor a password, so its footer shows no copy keys. (Escape first: the
+        // window's palette button toggles, so clicking it again would close the palette instead of reopening it.)
+        paletteField.typeKey(.escape, modifierFlags: [])
+        XCTAssertTrue(paletteField.waitForNonExistence(timeout: 5), "the palette did not close for the second search")
+        openPalette("visa")
+        XCTAssertTrue(app.staticTexts["Open"].firstMatch.waitForExistence(timeout: 5), "the palette did not show the card")
+        XCTAssertFalse(app.staticTexts["⇧⌘C"].firstMatch.exists, "a card's footer offered Copy Username")
+        XCTAssertFalse(app.staticTexts["⌥⌘C"].firstMatch.exists, "a card's footer offered Copy Password")
+    }
+
+    /// ⌃⌘N copies the notes — a row that used to carry no keycap at all, because the action had no shortcut. It now
+    /// exists on the Item menu too, so the key does the same thing in the vault window.
+    func testPaletteCopiesNotes() {
+        NSPasteboard.general.clearContents()
+        openPalette("github")
+        paletteField.typeKey("n", modifierFlags: [.command, .control])
+        let notesDeadline = Date.now.addingTimeInterval(4)
+        while Date.now < notesDeadline, (clipboard() ?? "").isEmpty { usleep(50_000) }
+        XCTAssertTrue(clipboard()?.contains("Recovery codes are in") == true,
+                      "⌃⌘N did not copy the highlighted item's notes, got \(clipboard() ?? "nothing")")
+        XCTAssertTrue(paletteField.waitForNonExistence(timeout: 5), "the palette stayed open after copying the notes")
+    }
+
     // MARK: Header
 
     func testCommandPaletteOpensAndCloses() {

@@ -1336,6 +1336,7 @@ private struct ShortcutsSettings: View {
         ("Triwarden Help", "⌘?"), ("Keyboard Shortcuts", "⌃⇧/"),
         ("New Login", "⌘N"), ("New Secure Note", "⇧⌘N"), ("New Folder", "⌥⌘N"),
         ("Edit", "⌘E"), ("Copy Username", "⇧⌘C"), ("Copy Password", "⌥⌘C"), ("Copy One-Time Code", "⌃⌘C"),
+        ("Copy Notes", "⌃⌘N"),
         ("Toggle Favorite", "⌘D"), ("Archive", "⌥⌘A"), ("Move to Trash", "⌘⌫"), ("Generator", "⌘G"),
         ("Import", "⇧⌘I"), ("Export Vault", "⇧⌘E"), ("Lock Vault", "⇧⌘L"), ("Settings", "⌘,"),
     ]
