@@ -1357,7 +1357,8 @@ private struct SSHRequestsButton: View {
     @State private var emergency: [EmergencyNotice] = []
 
     var body: some View {
-        let count = Inbox.badgeCount(model: model, emergency: emergency)
+        let count = Inbox.badgeCount(model: model, emergency: emergency,
+                                     visible: Inbox.notes(model: model, emergency: emergency, dismiss: {}, reload: {}))
         Button { open.toggle() } label: {
             Image(systemName: "bell")
                 .font(.system(size: 14, weight: .medium))
@@ -1383,6 +1384,7 @@ private struct SSHRequestsButton: View {
         .onHover { hovering = $0 }
         .help(Text("Notifications"))
         .accessibilityLabel(Text("Notifications"))
+        .accessibilityIdentifier("notifications-bell")
         .accessibilityValue(Text("^[\(count) waiting](inflect: true)"))
         .onAppear { revealIfAsked() }
         .onChange(of: model.presentInbox) { _, _ in revealIfAsked() }
@@ -1428,14 +1430,36 @@ private struct SSHRequestsButton: View {
 /// The request list for the header bell: the waiting signature, other notices, trusts, and the recent log.
 private struct SSHRequestsPopover: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var emergency: [EmergencyNotice]
     var close: () -> Void
     var reloadEmergency: () async -> Void
+    /// The list's content height, so the popover wraps the rows instead of taking a fixed slab.
+    @State private var listHeight: CGFloat = 0
+
+    /// Right-click on a notice: its own action (the word the row shows), then putting it away.
+    private func noteActions(_ note: InboxNote) -> [ActionMenuEntry] {
+        var rows: [ActionMenuEntry] = []
+        if let title = note.primaryTitle {
+            rows.append(ActionMenuEntry(title: title, symbol: note.symbol) { note.primary() })
+        }
+        if let title = note.secondaryTitle {
+            rows.append(ActionMenuEntry(title: title, symbol: "xmark.circle") { note.secondary() })
+        }
+        rows.append(ActionMenuEntry(title: String(localized: "Dismiss"), symbol: "xmark",
+                                    separatorBefore: !rows.isEmpty) { model.hideInbox(note.id) })
+        return rows
+    }
 
     var body: some View {
         let agent = model.sshAgent!
         let notes = Inbox.notes(model: model, emergency: emergency, dismiss: close, reload: reloadEmergency)
-        VStack(alignment: .leading, spacing: 12) {
+        // The recent log, minus the rows swiped away. Consecutive repeats read as one activity instead of noise.
+        let recentEvents = agent.accessLog.events
+            .filter { !model.hiddenInbox.contains("ssh-" + $0.id.uuidString) }
+            .prefix(12)
+        let eventGroups = SSHAccessGroup.consecutive(Array(recentEvents)).prefix(8)
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Notifications")
                     .font(.system(size: 13, weight: .semibold))
@@ -1473,64 +1497,97 @@ private struct SSHRequestsPopover: View {
                     }
                 }
             }
-            if !notes.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Needs attention")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                    ScrollView {
-                        VStack(spacing: 6) {
-                            ForEach(notes) { note in
-                                InboxRow(note: note)
-                            }
-                        }
-                    }
-                    .frame(maxHeight: 220)
-                    // A scroll view asks for the whole height it is offered, and the popover sizes itself from
-                    // what its content asks for. Given a maxHeight and no ideal height, the notes list took
-                    // whatever the popover left over: a lone card was drawn in a 150 pt box, so the history
-                    // below sat under a band of empty space. `fixedSize` asks for the rows' own height instead,
-                    // and the maxHeight still caps it so a long list scrolls.
-                    .fixedSize(horizontal: false, vertical: true)
-                    .scrollBounceBehavior(.basedOnSize)
-                    .thinScroller()
-                }
-            }
-            if agent.accessLog.events.isEmpty, agent.pending == nil, notes.isEmpty {
+            if notes.isEmpty, eventGroups.isEmpty, agent.pending == nil {
                 Text("Nothing waiting.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-            } else if !agent.accessLog.events.isEmpty {
+                    .padding(.vertical, 8)
+            } else if !notes.isEmpty || !eventGroups.isEmpty {
                 ScrollView {
-                    VStack(spacing: 6) {
-                        ForEach(agent.accessLog.events.prefix(8)) { event in
-                            SSHAccessRow(event: event) {
-                                guard let item = model.items.first(where: {
-                                    $0.kind == .sshKey && !$0.isDeleted && $0.name == event.keyName
-                                }) else { return }
-                                close()
-                                model.showItem(item.id)
+                  VStack(spacing: 6) {
+                    if !notes.isEmpty {
+                        BellSectionHeader(title: String(localized: "Needs attention"), count: notes.count)
+                        ForEach(notes) { note in
+                            SwipeDismissRow { model.hideInbox(note.id) } content: {
+                                InboxRow(note: note)
                             }
+                                .appContextMenu(noteActions(note))
                         }
                     }
+                    if !eventGroups.isEmpty {
+                        BellSectionHeader(title: String(localized: "Recent activity"))
+                        ForEach(eventGroups) { group in
+                            SwipeDismissRow {
+                                for event in group.events { model.hideInbox("ssh-" + event.id.uuidString) }
+                            } content: {
+                                SSHAccessRow(event: group.latest, count: group.events.count) {
+                                    guard let item = model.items.first(where: {
+                                        $0.kind == .sshKey && !$0.isDeleted && $0.name == group.latest.keyName
+                                    }) else { return }
+                                    close()
+                                    model.showItem(item.id)
+                                }
+                            }
+                            .appContextMenu([
+                                ActionMenuEntry(title: String(localized: "Show Key"), symbol: "key") {
+                                    guard let item = model.items.first(where: {
+                                        $0.kind == .sshKey && !$0.isDeleted && $0.name == group.latest.keyName
+                                    }) else { return }
+                                    close()
+                                    model.showItem(item.id)
+                                },
+                                ActionMenuEntry(title: String(localized: "Dismiss"), symbol: "xmark", separatorBefore: true) {
+                                    for event in group.events { model.hideInbox("ssh-" + event.id.uuidString) }
+                                },
+                            ])
+                        }
+                    }
+                  }
+                  .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
                 }
-                .frame(maxHeight: 280)
-                // Same as the notes list above: the log takes its rows' height, up to 280 pt.
-                .fixedSize(horizontal: false, vertical: true)
-                .scrollBounceBehavior(.basedOnSize)
-                .thinScroller()
+                .contentMargins(.horizontal, 0, for: .scrollContent)
+                .scrollIndicators(.never)
+                .frame(height: listHeight > 0 ? min(listHeight, 340) : 240)
+                .padding(.horizontal, -6)
             }
         }
         .padding(14)
         .frame(width: 380)
+        .animation(reduceMotion ? .easeOut(duration: 0.1) : .smooth(duration: 0.24), value: model.hiddenInbox)
+        .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: listHeight)
         .task { await reloadEmergency() }
     }
 
 }
 
+/// Adjacent copies of the same SSH decision are one recent activity; the full audit trail remains in Settings.
+private struct SSHAccessGroup: Identifiable {
+    var events: [SSHAccessEvent]
+    var id: UUID { latest.id }
+    var latest: SSHAccessEvent { events[0] }
+
+    static func consecutive(_ events: [SSHAccessEvent]) -> [SSHAccessGroup] {
+        var groups: [SSHAccessGroup] = []
+        for event in events {
+            if let last = groups.indices.last, groups[last].matches(event) {
+                groups[last].events.append(event)
+            } else {
+                groups.append(SSHAccessGroup(events: [event]))
+            }
+        }
+        return groups
+    }
+
+    private func matches(_ event: SSHAccessEvent) -> Bool {
+        latest.appName == event.appName && latest.via == event.via && latest.keyName == event.keyName
+            && latest.outcome == event.outcome && latest.trustKey == event.trustKey
+    }
+}
+
 /// One SSH access record: app, what it signed with, and how the request ended.
 private struct SSHAccessRow: View {
     let event: SSHAccessEvent
+    let count: Int
     var open: () -> Void
 
     var body: some View {
@@ -1541,23 +1598,19 @@ private struct SSHAccessRow: View {
     }
 
     private var row: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(tint)
-                .frame(width: 26, height: 26)
-                .background(tint.opacity(0.16), in: .rect(cornerRadius: 7, style: .continuous))
+                .frame(width: 16)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(verbatim: event.appName)
                         .font(.system(size: 13, weight: .medium))
                         .lineLimit(1)
                     Text("SSH access")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 1)
-                        .background(Color.primary.opacity(0.08), in: .capsule)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.tertiary)
                         .layoutPriority(1)
                 }
                 Text("via \(event.via) · \(event.keyName)")
@@ -1566,22 +1619,24 @@ private struct SSHAccessRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(tint.opacity(0.16), in: .capsule)
-                Text(verbatim: SSHAccessClock.label(since: event.date))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(labelTint)
+                Text(verbatim: detail)
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
                     .lineLimit(1)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .contentShape(.rect(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 9)
+        .contentShape(.rect)
+    }
+
+    private var detail: String {
+        let age = SSHAccessClock.label(since: event.date)
+        return count > 1 ? String(localized: "\(count) accesses · \(age)") : age
     }
 
     private var symbol: String {
@@ -1604,6 +1659,13 @@ private struct SSHAccessRow: View {
         }
     }
 
+    private var labelTint: Color {
+        switch event.outcome {
+        case .denied, .timedOut: tint
+        default: .secondary
+        }
+    }
+
     private var label: LocalizedStringKey {
         switch event.outcome {
         case .allowedOnce: "Allowed once"
@@ -1613,7 +1675,7 @@ private struct SSHAccessRow: View {
         case .denied: "Denied"
         case .timedOut: "Timed out"
         case .locked: "Vault locked"
-        case .reusedTrust: "Used an existing grant"
+        case .reusedTrust: "Existing grant"
         }
     }
 }
@@ -1635,10 +1697,14 @@ private struct InboxNote: Identifiable {
     let tint: Color
     let title: String
     let subtitle: String
-    var primaryTitle: LocalizedStringKey?
+    var primaryTitle: String?
     var primary: () -> Void = {}
-    var secondaryTitle: LocalizedStringKey?
+    var secondaryTitle: String?
     var secondary: () -> Void = {}
+    /// What the bell counts. Rows of one kind count once, and a kind whose rows were all swiped away stops counting.
+    var kind: Kind = .watchtower
+
+    enum Kind: Hashable { case sync, update, emergency, watchtower, sends }
 }
 
 /// Press and hover for a row in the bell. The fill lives here so a click is visible.
@@ -1648,12 +1714,248 @@ private struct PressableRowStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(
-                Color.primary.opacity(configuration.isPressed ? 0.16 : (hovering ? 0.10 : 0.05)),
-                in: .rect(cornerRadius: 12, style: .continuous)
+                Color.primary.opacity(configuration.isPressed ? 0.10 : (hovering ? 0.06 : 0)),
+                in: .rect(cornerRadius: 6, style: .continuous)
             )
             .onHover { hovering = $0 }
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
             .animation(.easeOut(duration: 0.12), value: hovering)
+    }
+}
+
+private struct BellSectionHeader: View {
+    let title: String
+    var count: Int? = nil
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(verbatim: title)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.tertiary)
+                .textCase(.uppercase)
+            if let count, count > 1 {
+                Text(verbatim: String(count))
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.quaternary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 3)
+        .listRowInsets(EdgeInsets())
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .accessibilityAddTraits(.isHeader)
+    }
+}
+
+/// One interaction for both pointer drags and trackpad scrolls inside the notification popover.
+private struct SwipeDismissRow<Content: View>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var dismiss: () -> Void
+    @ViewBuilder var content: () -> Content
+    @State private var restingOffset: CGFloat = 0
+    @State private var pointerDragging = false
+    @State private var isDismissing = false
+    @State private var exitOffset: CGFloat = 0
+
+    private let actionWidth: CGFloat = 44
+    private let actionGap: CGFloat = 6
+
+    private var offset: CGFloat {
+        guard !reduceMotion else { return max(-380, min(0, restingOffset)) }
+        if restingOffset > 0 { return resistance(restingOffset) }
+        let reveal = actionWidth + actionGap
+        if restingOffset < -reveal { return -reveal - resistance(-restingOffset - reveal) }
+        return restingOffset
+    }
+
+    private func resistance(_ distance: CGFloat) -> CGFloat {
+        (distance * 0.55 * 120) / (120 + distance * 0.55)
+    }
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            Button(action: dismissRow) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .medium))
+                    .frame(width: actionWidth)
+                    .frame(maxHeight: .infinity)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .help("Dismiss")
+            .accessibilityLabel(Text("Dismiss"))
+            .accessibilityIdentifier("notification-dismiss")
+            .foregroundStyle(.white)
+            .background(Color.red, in: .rect(cornerRadius: 8))
+            .padding(.leading, actionGap)
+            .mask(alignment: .trailing) {
+                Rectangle().frame(width: max(0, -offset))
+            }
+            .allowsHitTesting(offset < -24)
+            .accessibilityHidden(offset >= 0)
+            .zIndex(1)
+
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .offset(x: offset)
+                .allowsHitTesting(!pointerDragging)
+        }
+        .background {
+            SwipeScrollSurface(
+                onDelta: { delta in
+                    guard !isDismissing else { return }
+                    restingOffset = max(-500, min(160, restingOffset + delta))
+                },
+                onEnded: { settle(restingOffset) },
+                onPointerDragging: { pointerDragging = $0 }
+            )
+        }
+        .clipped()
+        .contentShape(.rect)
+        .offset(x: exitOffset)
+        .opacity(isDismissing ? 0 : 1)
+        .allowsHitTesting(!isDismissing)
+        .transition(.opacity)
+        .accessibilityAction(named: Text("Dismiss"), dismissRow)
+    }
+
+    private func settle(_ projectedOffset: CGFloat) {
+        guard !isDismissing else { return }
+        if projectedOffset < -120 {
+            dismissRow()
+        } else {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.1) : .spring(response: 0.28, dampingFraction: 0.9)) {
+                restingOffset = projectedOffset < -32 ? -(actionWidth + actionGap) : 0
+            }
+        }
+    }
+
+    private func dismissRow() {
+        guard !isDismissing else { return }
+        withAnimation(.easeOut(duration: reduceMotion ? 0.1 : 0.18), completionCriteria: .removed) {
+            isDismissing = true
+            exitOffset = reduceMotion ? 0 : -380
+        } completion: {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.1) : .smooth(duration: 0.24)) {
+                dismiss()
+            }
+        }
+    }
+}
+
+/// Feed trackpad and horizontal wheel events into the same interaction as pointer drags.
+private struct SwipeScrollSurface: NSViewRepresentable {
+    var onDelta: (CGFloat) -> Void
+    var onEnded: () -> Void
+    var onPointerDragging: (Bool) -> Void
+
+    func makeNSView(context: Context) -> Surface { Surface() }
+
+    func updateNSView(_ view: Surface, context: Context) {
+        view.onDelta = onDelta
+        view.onEnded = onEnded
+        view.onPointerDragging = onPointerDragging
+    }
+
+    static func dismantleNSView(_ view: Surface, coordinator: ()) { view.stop() }
+
+    final class Surface: NSView {
+        var onDelta: (CGFloat) -> Void = { _ in }
+        var onEnded: () -> Void = {}
+        var onPointerDragging: (Bool) -> Void = { _ in }
+        private var monitor: Any?
+        private var tracking = false
+        private var settleWorkItem: DispatchWorkItem?
+        private var pointerStart: NSPoint?
+        private var lastPointer: NSPoint?
+        private var pointerDragging = false
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stop()
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel, .leftMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
+                guard let self else { return event }
+                return self.handle(event)
+            }
+        }
+
+        func handle(_ event: NSEvent) -> NSEvent? {
+            guard !self.isHiddenOrHasHiddenAncestor else { return event }
+            // The last trackpad event can have no window, no delta, or a pointer outside the row.
+            // Finish the gesture we already own before applying the hit-test for new gestures.
+            if event.type == .scrollWheel, self.tracking,
+               event.window == nil || event.window === self.window,
+               event.phase.contains(.ended) || event.phase.contains(.cancelled) {
+                self.finishScroll()
+                return nil
+            }
+            guard event.window === self.window else { return event }
+            if event.type == .leftMouseDown {
+                let point = self.convert(event.locationInWindow, from: nil)
+                self.pointerStart = self.visibleRect.contains(point) ? event.locationInWindow : nil
+                self.lastPointer = self.pointerStart
+                return event
+            }
+            if event.type == .leftMouseDragged, let start = self.pointerStart {
+                let point = event.locationInWindow
+                let dx = point.x - start.x
+                let dy = point.y - start.y
+                guard self.pointerDragging || (abs(dx) > 8 && abs(dx) > abs(dy)) else { return event }
+                if !self.pointerDragging {
+                    self.pointerDragging = true
+                    self.onPointerDragging(true)
+                }
+                self.onDelta(point.x - (self.lastPointer?.x ?? start.x))
+                self.lastPointer = point
+                return nil
+            }
+            if event.type == .leftMouseUp {
+                self.pointerStart = nil
+                self.lastPointer = nil
+                guard self.pointerDragging else { return event }
+                self.pointerDragging = false
+                self.onEnded()
+                self.onPointerDragging(false)
+                return nil
+            }
+            guard event.type == .scrollWheel else { return event }
+            let point = self.convert(event.locationInWindow, from: nil)
+            guard self.tracking || self.visibleRect.contains(point),
+                  abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) else { return event }
+
+            self.tracking = true
+            self.settleWorkItem?.cancel()
+            self.onDelta(event.scrollingDeltaX)
+            // Some mice and popover event routes omit .ended. An idle stream must settle too.
+            let workItem = DispatchWorkItem { [weak self] in self?.finishScroll() }
+            self.settleWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
+            return nil
+        }
+
+        private func finishScroll() {
+            guard tracking else { return }
+            settleWorkItem?.cancel()
+            settleWorkItem = nil
+            tracking = false
+            onEnded()
+        }
+
+        func stop() {
+            if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
+            settleWorkItem?.cancel()
+            settleWorkItem = nil
+            tracking = false
+            pointerStart = nil
+            lastPointer = nil
+            pointerDragging = false
+        }
     }
 }
 
@@ -1663,12 +1965,11 @@ private struct InboxRow: View {
     var body: some View {
         HStack(spacing: 0) {
             Button(action: note.primary) {
-                HStack(spacing: 10) {
+                HStack(spacing: 8) {
                     Image(systemName: note.symbol)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(note.tint)
-                        .frame(width: 26, height: 26)
-                        .background(note.tint.opacity(0.16), in: .rect(cornerRadius: 7, style: .continuous))
+                        .frame(width: 16)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(verbatim: note.title)
                             .font(.system(size: 13, weight: .medium))
@@ -1680,16 +1981,17 @@ private struct InboxRow: View {
                     }
                     Spacer(minLength: 8)
                     if note.secondaryTitle == nil, let primaryTitle = note.primaryTitle {
-                        Text(primaryTitle)
+                        Text(verbatim: primaryTitle)
                             .font(.system(size: 12, weight: .semibold))
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .contentShape(.rect(cornerRadius: 12, style: .continuous))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 9)
+                .contentShape(.rect)
             }
             .buttonStyle(PressableRowStyle())
             .disabled(note.primaryTitle == nil)
+            .accessibilityIdentifier("inbox-note-" + note.id)
             if let secondaryTitle = note.secondaryTitle {
                 Button(secondaryTitle, action: note.secondary)
                     .buttonStyle(.borderless)
@@ -1708,13 +2010,16 @@ private struct InboxRow: View {
 /// What the bell counts and lists, besides the SSH card and its log.
 @MainActor
 private enum Inbox {
-    static func badgeCount(model: AppModel, emergency: [EmergencyNotice]) -> Int {
+    /// What the bell counts: the waiting signature, then one per kind of notice that still has a row on show.
+    /// A kind whose rows were all swiped away no longer counts, so the badge and the list agree.
+    static func badgeCount(model: AppModel, emergency: [EmergencyNotice], visible notes: [InboxNote]) -> Int {
+        let kinds = Set(notes.map(\.kind))
         var count = model.sshAgent?.pending == nil ? 0 : 1
-        if model.sessions.contains(where: { $0.lastSyncError != nil }) { count += 1 }
-        if model.updates.availableVersion != nil { count += 1 }
-        if !expiringOrOpened(model.sends).isEmpty { count += 1 }
-        if hasUrgentWatchtower(model) { count += 1 }
-        if !emergency.isEmpty { count += 1 }
+        if kinds.contains(.sync) { count += 1 }
+        if kinds.contains(.update) { count += 1 }
+        if kinds.contains(.sends) { count += 1 }
+        if kinds.contains(.watchtower) { count += 1 }
+        if kinds.contains(.emergency) { count += 1 }
         return count
     }
 
@@ -1727,8 +2032,9 @@ private enum Inbox {
                 tint: Color(red: 0.95, green: 0.72, blue: 0.38),
                 title: String(localized: "Couldn't sync"),
                 subtitle: model.sessions.filter { $0.lastSyncError != nil }.map { $0.account.email + ": " + ($0.lastSyncError ?? "") }.joined(separator: "\n"),
-                primaryTitle: "Retry",
-                primary: { model.scheduleSync() }
+                primaryTitle: String(localized: "Retry"),
+                primary: { model.scheduleSync() },
+                kind: .sync
             ))
         }
         if let version = model.updates.availableVersion {
@@ -1738,11 +2044,12 @@ private enum Inbox {
                 tint: Color(red: 0.35, green: 0.78, blue: 0.55),
                 title: String(localized: "Update \(version) is ready"),
                 subtitle: String(localized: "Install when you're ready."),
-                primaryTitle: "Install",
+                primaryTitle: String(localized: "Install"),
                 primary: {
                     model.updates.checkForUpdates()
                     dismiss()
-                }
+                },
+                kind: .update
             ))
         }
         for notice in emergency {
@@ -1754,11 +2061,12 @@ private enum Inbox {
                     tint: Color(red: 0.95, green: 0.45, blue: 0.42),
                     title: notice.person,
                     subtitle: String(localized: "Emergency access granted"),
-                    primaryTitle: "Review",
+                    primaryTitle: String(localized: "Review"),
                     primary: {
                         model.showSettings(.accounts)
                         dismiss()
-                    }
+                    },
+                    kind: .emergency
                 ))
             } else if notice.contact.status == .recoveryInitiated {
                 notes.append(InboxNote(
@@ -1767,20 +2075,21 @@ private enum Inbox {
                     tint: Color(red: 0.95, green: 0.72, blue: 0.38),
                     title: notice.person,
                     subtitle: String(localized: "Asked for emergency access"),
-                    primaryTitle: "Approve",
+                    primaryTitle: String(localized: "Approve"),
                     primary: {
                         Task {
                             try? await session.emergencyAccess("approve", notice.contact)
                             await reload()
                         }
                     },
-                    secondaryTitle: "Reject",
+                    secondaryTitle: String(localized: "Reject"),
                     secondary: {
                         Task {
                             try? await session.emergencyAccess("reject", notice.contact)
                             await reload()
                         }
-                    }
+                    },
+                    kind: .emergency
                 ))
             } else {
                 notes.append(InboxNote(
@@ -1789,11 +2098,12 @@ private enum Inbox {
                     tint: .secondary,
                     title: notice.person,
                     subtitle: String(localized: "Needs confirming"),
-                    primaryTitle: "Review",
+                    primaryTitle: String(localized: "Review"),
                     primary: {
                         model.showSettings(.accounts)
                         dismiss()
-                    }
+                    },
+                    kind: .emergency
                 ))
             }
         }
@@ -1805,7 +2115,7 @@ private enum Inbox {
                 tint: Color(red: 0.95, green: 0.45, blue: 0.42),
                 title: item.name,
                 subtitle: String(localized: "Password found in a data breach"),
-                primaryTitle: "Open",
+                primaryTitle: String(localized: "Open"),
                 primary: {
                     model.showInWatchtower(item)
                     dismiss()
@@ -1819,7 +2129,7 @@ private enum Inbox {
                 tint: Color(red: 0.95, green: 0.72, blue: 0.38),
                 title: item.name,
                 subtitle: String(localized: "Card expiring soon"),
-                primaryTitle: "Open",
+                primaryTitle: String(localized: "Open"),
                 primary: {
                     model.showInWatchtower(item)
                     dismiss()
@@ -1836,19 +2146,15 @@ private enum Inbox {
                 subtitle: expiring
                     ? String(localized: "Send expires soon")
                     : String(localized: "Opened \(send.accessCount) times"),
-                primaryTitle: "Open",
+                primaryTitle: String(localized: "Open"),
                 primary: {
                     model.requestedSection = .sends
                     dismiss()
-                }
+                },
+                kind: .sends
             ))
         }
-        return notes
-    }
-
-    private static func hasUrgentWatchtower(_ model: AppModel) -> Bool {
-        let report = WatchtowerReport(items: model.items, breaches: model.breachCounts)
-        return !(report.issues[.breached] ?? []).isEmpty || !(report.issues[.cardExpiring] ?? []).isEmpty
+        return notes.filter { !model.hiddenInbox.contains($0.id) }
     }
 
     private static func isExpiringSoon(_ send: SendItem) -> Bool {

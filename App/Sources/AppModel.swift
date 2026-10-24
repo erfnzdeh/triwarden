@@ -868,6 +868,14 @@ final class AppModel {
     /// The bell should open. A system notification tap sets this; the header button consumes it.
     var presentInbox = false
 
+    /// Bell rows swiped away this session. Only the bell hides them: the SSH access log keeps every record, and a
+    /// Watchtower card or a Send still shows wherever it lives. Cleared on lock, so a dismissal lasts one unlock.
+    var hiddenInbox: Set<String> = []
+
+    func hideInbox(_ id: String) {
+        hiddenInbox.insert(id)
+    }
+
     /// Brings the vault forward and opens the bell.
     func revealInbox() {
         bringToFront()
@@ -2278,6 +2286,7 @@ final class AppModel {
         AttachmentFiles.wipe()
         sshAgent?.reset()
         cli?.reset()
+        hiddenInbox = []
         breachCounts = nil
         breachesCheckedAt = nil
         sessions.forEach { $0.close() }
