@@ -84,6 +84,7 @@ The practice script must print **Key available**, without the key value.
 Select **I ran the launch and the tool started as expected.** only after this check succeeds.
 Copying a command or saving a setup does not confirm a successful launch.
 The guide uses your confirmation for navigation. It does not verify the program or grant access.
+Each launch refreshes the required vault accounts online. If sync fails, restore the connection before you try again.
 
 If no card appears, check helper setup and keep Triwarden open.
 If an account locks, unlock it.

@@ -203,7 +203,7 @@ struct ToolSetupGuide: View {
                 Text("Select a ready tool and complete helper setup before you test the launch.").foregroundStyle(.secondary)
             }
             DisclosureGroup("If the launch fails") {
-                Text("If no card appears, check helper setup and keep Triwarden open. Unlock any locked account. Select missing keys again through Edit Setup in Tools. Check the key and provider account if the provider reports an error. Never share key values in a report.")
+                Text("If no card appears, check helper setup and keep Triwarden open. Unlock any locked account. If vault sync fails, restore the connection first. Select missing keys again through Edit Setup in Tools. Check the key and provider account if the provider reports an error. Never share key values in a report.")
                     .font(.system(size: 12)).padding(.top, 8)
             }
         }
