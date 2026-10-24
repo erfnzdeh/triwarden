@@ -1,7 +1,48 @@
 import AppKit
 import SwiftUI
 
+/// A text Send opened prefilled from one item, for "Share by Link…" (issue #85).
+struct SendPrefill: Equatable {
+    var name: String
+    var text: String
+    var accountId: String?
+}
+
+extension VaultItem {
+    /// The item's fields as the body of a text Send. The one-time code is left out on purpose: a TOTP secret in a
+    /// link is a standing second-factor bypass for whoever keeps it. Empty values are skipped.
+    func shareText() -> String {
+        var rows: [(String, String)] = []
+        if let username, !username.isEmpty { rows.append((String(localized: "Username"), username)) }
+        if let password, !password.isEmpty { rows.append((String(localized: "Password"), password)) }
+        let sites = websites.filter { !$0.isEmpty }
+        if !sites.isEmpty { rows.append((String(localized: "Website"), sites.joined(separator: "\n"))) }
+        // Cards, identities and keys have no username: share their labelled fields instead.
+        if kind != .login {
+            rows += fields.filter { !$0.value.isEmpty }.map { ($0.label, $0.value) }
+        }
+        if let notes, !notes.isEmpty { rows.append((String(localized: "Notes"), notes)) }
+        return rows.map { "\($0.0): \($0.1)" }.joined(separator: "\n")
+    }
+}
+
 extension AppModel {
+    /// Opens the Send composer prefilled with this item's fields; the usual Send options stay editable.
+    func shareItemByLink(_ item: VaultItem) {
+        let text = item.shareText()
+        guard !text.isEmpty else {
+            flash(String(localized: "This item has nothing to share."))
+            return
+        }
+        // The text carries real secrets, so a reprompt-protected item asks for the password again first.
+        guarded(item) {
+            self.leaveNewItemForm {
+                // The item's own account wins over whatever the sidebar had selected, so no context IDs.
+                self.composeNewSend(prefill: SendPrefill(name: item.name, text: text, accountId: item.accountId))
+            }
+        }
+    }
+
     /// Shared actions for vault, code and menu-bar rows; existing guards and confirmations stay at execution.
     func itemContextActions(_ item: VaultItem) -> [ActionMenuEntry] {
         guard item.isSupported else {
@@ -30,6 +71,7 @@ extension AppModel {
             rows.append(ActionMenuEntry(title: String(localized: "Restore"), symbol: "arrow.uturn.backward", separatorBefore: true) { Task { await self.restore(item) } })
             rows.append(ActionMenuEntry(title: String(localized: "Delete Forever…"), symbol: "trash.slash", destructive: true) { self.confirmDeleteForever(item) })
         } else {
+            rows.append(ActionMenuEntry(title: String(localized: "Share by Link…"), symbol: "paperplane", separatorBefore: true) { self.shareItemByLink(item) })
             rows.append(ActionMenuEntry(title: String(localized: "Edit"), symbol: "pencil", separatorBefore: true) { self.guarded(item) { self.beginEditing(EditRequest(mode: .edit(item))) } })
             rows.append(ActionMenuEntry(title: String(localized: "Clone"), symbol: "plus.square.on.square") { self.guarded(item) { self.beginEditing(EditRequest(mode: .clone(item))) } })
             rows.append(ActionMenuEntry(title: item.favorite ? String(localized: "Remove from Favorites") : String(localized: "Add to Favorites"), symbol: item.favorite ? "star.slash" : "star") { Task { await self.toggleFavorite(item) } })

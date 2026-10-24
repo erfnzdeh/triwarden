@@ -65,6 +65,12 @@ struct VaultItem: Identifiable, Hashable {
         return []
     }
 
+    /// The item's website as a URL to open or copy, adding https:// to a bare host. Nil when it has none.
+    var websiteURL: URL? {
+        guard let address = uri ?? host, !address.isEmpty else { return nil }
+        return URL(string: address.contains("://") ? address : "https://" + address)
+    }
+
     /// Host of each website, for matching a page to this login.
     var hosts: [String] {
         var seen = Set<String>()

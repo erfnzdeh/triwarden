@@ -68,6 +68,7 @@ struct KeyboardShortcutsView: View {
         Entry(keys: "⇧⌘C", title: "Copy Username"),
         Entry(keys: "⌥⌘C", title: "Copy Password"),
         Entry(keys: "⌃⌘C", title: "Copy One-Time Code"),
+        Entry(keys: "⌃⌘N", title: "Copy Notes"),
         Entry(keys: "⌥⌘T", title: "Show Password in Large Type"),
         Entry(keys: "⌘D", title: "Toggle Favorite"),
         Entry(keys: "⌥⌘A", title: "Archive"),

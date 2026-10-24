@@ -1275,7 +1275,7 @@ private struct NewItemButton: View {
             ActionMenuEntry(title: String(localized: "New Card"), symbol: "creditcard") { model.beginEditing(EditRequest(mode: .create(.card))) },
             ActionMenuEntry(title: String(localized: "New Identity"), symbol: "person.crop.rectangle") { model.beginEditing(EditRequest(mode: .create(.identity))) },
             ActionMenuEntry(title: String(localized: "New SSH Key"), symbol: "terminal") { model.beginEditing(EditRequest(mode: .create(.sshKey))) },
-            ActionMenuEntry(title: String(localized: "New Send"), symbol: "paperplane") { model.requestedSection = .sends; model.composingSend = true },
+            ActionMenuEntry(title: String(localized: "New Send"), symbol: "paperplane") { model.composeNewSend() },
             ActionMenuEntry(title: String(localized: "New Folder…"), symbol: "folder.badge.plus", shortcut: "⌥⌘N") { model.promptNewFolder() },
             ActionMenuEntry(title: String(localized: "Import…"), symbol: "square.and.arrow.down", shortcut: "⇧⌘I", enabled: !model.sessions.isEmpty) { model.beginImport() }
         ]) {
@@ -2568,6 +2568,7 @@ struct ItemDetail: View {
                 }
                     .foregroundStyle(item.favorite ? .yellow : .primary)
                     .overlay { Burst(trigger: starBurst) }
+                toolbarButton("paperplane", help: "Share by Link…", spoken: "Share by Link") { model.shareItemByLink(item) }
                 toolbarButton("pencil", help: "Edit (⌘E)", spoken: "Edit", effect: .wiggle) { model.guarded(item) { model.beginEditing(EditRequest(mode: .edit(item))) } }
                 toolbarButton("trash", help: "Move to Trash… (⌘⌫)", spoken: "Move to Trash", effect: .bounce) { model.confirmTrash(item) }
             }

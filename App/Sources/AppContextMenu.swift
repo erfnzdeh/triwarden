@@ -222,11 +222,21 @@ private final class ActionMenuRow: NSView {
         let reserved = trailing.isEmpty ? 12.0 : Double((trailing as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 12)]).width) + 24
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineBreakMode = .byTruncatingTail
+        // A line is drawn from the top of the rect it is given, so an 18 pt rect under a 15.3 pt line left every
+        // title sitting about 2 pt high and the symbol, centred on the row, looked low by that much. Give the title
+        // exactly one line's height, then drop it a point below the row's middle: a cap-height-centred baseline puts
+        // the glyphs' bounding box on the middle, but their ink sits high in that box (no descenders in most menu
+        // words, and the crossbars and bowls of lower-case letters carry more weight than the caps), so measured by
+        // where the eye sees the mass, a point lower is what reads as level with the symbol.
+        let titleFont = NSFont.systemFont(ofSize: 13)
+        let line = titleFont.ascender - titleFont.descender + titleFont.leading
+        let baseline = bounds.midY - titleFont.capHeight / 2 + 1
         NSAttributedString(string: entry.title, attributes: [
-            .font: NSFont.systemFont(ofSize: 13),
+            .font: titleFont,
             .foregroundColor: titleColor.withAlphaComponent(entry.enabled ? 1 : 0.4),
             .paragraphStyle: paragraph,
-        ]).draw(in: NSRect(x: 34, y: 6, width: max(0, bounds.width - 34 - reserved), height: 18))
+        ]).draw(in: NSRect(x: 34, y: baseline + titleFont.descender - titleFont.leading,
+                           width: max(0, bounds.width - 34 - reserved), height: line))
         guard !trailing.isEmpty else { return }
         let text = NSAttributedString(string: trailing, attributes: [
             .font: NSFont.systemFont(ofSize: entry.children.isEmpty && !entry.checked ? 12 : 13, weight: entry.children.isEmpty ? .regular : .semibold),

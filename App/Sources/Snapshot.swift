@@ -467,6 +467,26 @@ enum Snapshot {
                    to: dir.appending(path: "send-compose-\(name).png"))
             vault.composingSend = false
         }
+        // "Share by Link…" (issue #85): the composer as it opens from an item, name and fields filled in.
+        vault.composeNewSend(prefill: SendPrefill(
+            name: "GitHub",
+            text: "Username: octocat\nPassword: correct-horse-battery\nWebsite: https://github.com\nNotes: work account",
+            accountId: nil))
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            render(desktop(SendsPane().environment(vault).tint(.brand).padding(14), dark: name == "dark"),
+                   size: CGSize(width: 1100, height: 1180), appearance: appearance,
+                   to: dir.appending(path: "send-share-by-link-\(name).png"))
+        }
+        vault.closeSendComposer()
+        // The one-time sheet a Send opens after it's made: its link and the passphrase that opens it.
+        let created = AppModel.CreatedSend(
+            link: "https://vault.home.arpa/#/send/aBcD3fGh1JkL9mNoP2qR7sT/XrPVubZezJMect7W6bhvjA",
+            passphrase: "mule-frost-jumbo-quiet-vex-razor", name: "GitHub")
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            render(desktop(SendCreatedSheet(created: created).environment(vault).tint(.brand), dark: name == "dark"),
+                   size: CGSize(width: 520, height: 380), appearance: appearance,
+                   to: dir.appending(path: "send-created-\(name).png"))
+        }
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let locked = AutoFillState()
             locked.domains = ["github.com"]
