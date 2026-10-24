@@ -43,6 +43,34 @@ extension AppModel {
         }
     }
 
+    /// A Send's right-click menu, shared by its row in the list and by its detail panel — the vault gives an item the
+    /// same menu in both places, so the two never drift apart.
+    func sendContextActions(_ send: SendItem) -> [ActionMenuEntry] {
+        var rows: [ActionMenuEntry] = []
+        if let link = sendLink(send) {
+            rows.append(ActionMenuEntry(title: String(localized: "Copy Link"), symbol: "link") { self.copyPlain(link.absoluteString) })
+            rows.append(ActionMenuEntry(title: String(localized: "Open Link"), symbol: "safari") { NSWorkspace.shared.open(link) })
+        }
+        if let text = send.text, !text.isEmpty {
+            // The text holds the password this Send exists to carry: conceal it from clipboard managers, like the
+            // app's other secrets, rather than leaving it in plain view of them.
+            rows.append(ActionMenuEntry(title: String(localized: "Copy Text"), symbol: "doc.on.doc") {
+                self.copy(text, label: String(localized: "Text"))
+            })
+        }
+        if let notes = send.notes, !notes.isEmpty {
+            rows.append(ActionMenuEntry(title: String(localized: "Copy Private Notes"), symbol: "note.text") {
+                self.copyPlain(notes)
+            })
+        }
+        if let fileName = send.fileName, !fileName.isEmpty {
+            rows.append(ActionMenuEntry(title: String(localized: "Copy File Name"), symbol: "doc") { self.copyPlain(fileName) })
+        }
+        rows.append(ActionMenuEntry(title: String(localized: "Edit…"), symbol: "pencil", separatorBefore: !rows.isEmpty) { self.editSend(send) })
+        rows.append(ActionMenuEntry(title: String(localized: "Delete…"), symbol: "trash", destructive: true) { self.confirmDeleteSend(send) })
+        return rows
+    }
+
     /// Shared actions for vault, code and menu-bar rows; existing guards and confirmations stay at execution.
     func itemContextActions(_ item: VaultItem) -> [ActionMenuEntry] {
         guard item.isSupported else {
