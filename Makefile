@@ -68,6 +68,13 @@ selftest-secrets-online: build ## Native cancellation checks against the dev Vau
 selftest-secrets-interactive: build ## Dummy-key native CLI launch; requires your Touch ID or Mac password
 	@"$(BIN)" --selftest-secrets-interactive
 
+.PHONY: selftest-env-reference-interactive selftest-env-import-online
+selftest-env-reference-interactive: build ## Save and launch dummy-key references; requires desktop user authentication
+	@"$(BIN)" --selftest-secrets-env-interactive
+
+selftest-env-import-online: build ## Import two dummy keys into the disposable dev vault; keep the source unchanged
+	@"$(BIN)" --selftest-env-import-online
+
 selftest-secrets-presentation: build ## Check approval-card visibility while Triwarden is in the background (GUI desktop required)
 	@"$(BIN)" --selftest-secrets-presentation
 

@@ -131,7 +131,7 @@ var isTools = first == "tools"
 var selectionProbe = false
 // Only a UUID-scoped disposable socket/profile can be selected by the native online diagnostic.
 // The regular run path still ignores caller-supplied sockets and always uses its saved profile.
-if ["--selftest-secrets-run", "--selftest-secrets-tools", "--selftest-secrets-select", "--selftest-secrets-env"].contains(first) {
+if ["--selftest-secrets-run", "--selftest-secrets-run-env", "--selftest-secrets-tools", "--selftest-secrets-select", "--selftest-secrets-env"].contains(first) {
     guard args.count == 2, UUID(uuidString: args[1]) != nil else { fail("Expected a self-test UUID.", code: 64) }
     let root = runStore.directory.deletingLastPathComponent().appendingPathComponent("S" + args[1].prefix(8))
     guard (try? String(contentsOf: root.appendingPathComponent("test-id"), encoding: .utf8)) == args[1] else {
@@ -140,11 +140,13 @@ if ["--selftest-secrets-run", "--selftest-secrets-tools", "--selftest-secrets-se
     runStore = SecretsProfileStore(directory: root.appendingPathComponent("p"))
     runArguments = ["--profile", "canary"]
     selectionProbe = first == "--selftest-secrets-select" || first == "--selftest-secrets-env"
-    isRun = first == "--selftest-secrets-run" || selectionProbe
+    isRun = first == "--selftest-secrets-run" || first == "--selftest-secrets-run-env" || selectionProbe
     isTools = !isRun
     if isTools { runArguments = ["list"] }
     if selectionProbe { runArguments = [] }
-    if first == "--selftest-secrets-env" { runArguments = ["--env-file", root.appendingPathComponent(".env.triwarden").path] }
+    if first == "--selftest-secrets-env" || first == "--selftest-secrets-run-env" {
+        runArguments = ["--env-file", root.appendingPathComponent(".env.triwarden").path]
+    }
 }
 #endif
 if isTools {
@@ -190,7 +192,7 @@ if isRun {
         // Resolve only the saved absolute executable. A caller-supplied PATH cannot choose the target.
         let identity = try LaunchIdentity.capture(profile)
         #if DEBUG
-        if first == "--selftest-secrets-run" {
+        if first == "--selftest-secrets-run" || first == "--selftest-secrets-run-env" {
             // Catch an unusable fixture working directory before asking for authentication.
             let directoryFD = open(identity.directory, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
             guard directoryFD >= 0 else { throw SecretsFailure("The self-test helper cannot open its working directory (OS error \(errno)).") }

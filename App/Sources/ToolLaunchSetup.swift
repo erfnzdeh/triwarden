@@ -5,6 +5,7 @@ import SwiftUI
 /// Starts from a saved vault item. This form stores references and command metadata only.
 struct ToolLaunchSetup: View {
     let reference: ToolLaunchReference
+    var onSaved: ((SecretsProfile) -> Void)? = nil
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var shortcut = "tool-" + UUID().uuidString.prefix(8).lowercased()
@@ -287,6 +288,13 @@ struct ToolLaunchSetup: View {
             recipe = .custom; executable = p.executable; directory = p.directory; arguments = p.arguments
         } else {
             variable = item?.apiKeyVariable ?? "API_KEY"
+            if let first = reference.initialBindings.first,
+               first.accountID == reference.accountID, first.itemID == reference.itemID {
+                variable = first.variable
+                additionalBindings = Array(reference.initialBindings.dropFirst())
+            }
+            title = reference.suggestedName ?? ""
+            directory = reference.suggestedDirectory ?? ""
             findExecutable()
         }
         initial = draft
@@ -340,6 +348,7 @@ struct ToolLaunchSetup: View {
             model.requestedToolSelection = draft.name
             model.requestedSection = .toolLaunches
             model.flash(String(localized: "Tool saved. Copy its launch from Tools."))
+            onSaved?(draft)
             dismiss()
         } catch { self.error = error.localizedDescription }
     }

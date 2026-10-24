@@ -96,7 +96,8 @@ enum SecretsSelfTest {
             changed.enabled = true
             try store.save(changed)
             let tampered = SecretsController(model: model, store: store, confirmation: confirmation)
-            check(tampered.lastError?.contains("modified outside") == true, "unconfirmed enabled profile cannot start the native server")
+            check(tampered.lastError != nil && !FileManager.default.fileExists(atPath: store.socketURL.path),
+                  "unconfirmed enabled profile cannot start the native server")
             changed.enabled = false
             try native.save(changed)
             check(confirmation.read() == (try changed.revision()), "native resave updates the same Keychain record")

@@ -210,7 +210,8 @@ The target program receives the raw key values through its environment.
 
 Use this file with `tw`. Ordinary dotenv loaders cannot resolve Triwarden references.
 Do not rename it to `.env` or load it with `source`.
-This feature does not import, scan, or change existing plaintext `.env` files.
+Reference export does not scan or change existing plaintext `.env` files.
+To save existing values in your vault, use the separate import workflow below.
 It creates no plaintext key file, temporary key file, virtual mount, or shell startup entry.
 
 ### Check the file workflow with a dummy key
@@ -228,4 +229,59 @@ Try these failure cases:
 
 The automated tests use dummy values and isolated storage.
 Signed IPC and exec tests use a test server. They do not verify real macOS authentication.
-The file picker and a real Touch ID or Mac password launch still need a human acceptance test.
+A human acceptance run completed the file picker, real device authentication, CLI execution, grant reuse, and revocation.
+See the [acceptance record](plans/2026-10-24-env-reference-acceptance.md).
+
+## Import keys from an existing .env file
+
+1. Unlock the destination account.
+2. Open **Tools**. Open **Tools options** (…) and select **Import .env File…**.
+3. Select **Choose .env File…**. Select one local file.
+4. Check the destination account and project name.
+5. Review the variable names. Select only the keys you want to save.
+6. Select **Save Selected Keys**.
+7. Wait for Triwarden to confirm the saved values through online sync.
+8. Select **Set Up Tool…**. Choose the installed program and review all selected keys.
+9. Save the tool. Copy its launch and test it in Terminal.
+
+The empty Tools view also has an **Import .env File…** action.
+The preview masks every value. It shows variable names, not key values or value lengths.
+Suggestions use names and URL structure. They do not prove that a value is public or secret.
+Public prefixes and ordinary settings start unselected. You can select supported settings if the tool needs them.
+Program-control variables cannot supply keys.
+
+Each selected value becomes an API-key Secure Note in the selected personal vault.
+The item name uses the project name and variable name.
+The hidden `api-key` field contains the value. The `environment-variable` field contains the exact variable name.
+A `triwarden-import-id` custom field identifies this batch for confirmation.
+Other Bitwarden clients show ordinary Secure Notes and custom fields.
+
+The app encrypts the batch before delivery. It compares the returned values with the selected values after online sync.
+If the result is unknown, select **Check Saved Keys**. This action only syncs and checks; it does not send another import.
+Do not import the file again until you check the destination vault. A lost response can leave saved items on the server.
+If the account locks, Triwarden clears the pending file values from the import workflow.
+This releases references to these values. It does not guarantee that memory copies are overwritten.
+
+### Supported input
+
+- Select a regular UTF-8 file, at most 256 KiB, with 1 to 256 assignments.
+- Select 1 to 16 values, at most 32 KiB in total.
+- Use one literal `NAME=value` assignment per line. An `export` prefix is accepted.
+- Blank lines, comments, CRLF, and single or double quotes are accepted.
+- Double quotes accept `\n`, `\r`, `\t`, `\\`, and `\"` escapes.
+- Duplicate names and malformed quotes fail the whole file. Correct the file before you open it again.
+- Expansion, command substitution, and other shell syntax are not evaluated. Unsupported values cannot be selected.
+- Empty values and existing Triwarden references cannot be selected.
+- Links, pipes, devices, and files that change during the read are rejected.
+
+### Remove old plaintext after testing
+
+The importer keeps the source file unchanged. It creates no plaintext backup or temporary plaintext file.
+After the saved launch works, remove the imported assignments with your editor. Keep the settings your project still needs.
+Remove the whole assignment. Do not leave `API_KEY=`: some dotenv loaders can replace the supplied key with this empty value.
+Test the saved launch again after the edit.
+Check old shell settings and other copies separately. This import does not remove values from those locations or from Git history.
+
+Automatic source cleanup is not part of this slice.
+The source parser is for migration. It does not turn `tw run --env-file` into a literal dotenv loader.
+Export a separate `.env.triwarden` file from the saved tool if you want reference-based launches.

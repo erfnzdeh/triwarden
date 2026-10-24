@@ -11,6 +11,8 @@ struct EnvReferenceExport: View {
     @State private var error: String?
     #if DEBUG
     var previewSavedURL: URL?
+    var testDestinationURL: URL?
+    var onTestCopy: ((URL) -> Void)?
     #endif
 
     var body: some View {
@@ -63,6 +65,9 @@ struct EnvReferenceExport: View {
                         do {
                             model.copyPlain(try EnvReferenceFile.launchCommand(for: savedURL))
                             model.flash(String(localized: "Copied launch for \(profile.title)."))
+                            #if DEBUG
+                            onTestCopy?(savedURL)
+                            #endif
                             dismiss()
                         } catch { self.error = error.localizedDescription }
                     }.buttonStyle(.appPrimary).keyboardShortcut(.defaultAction)
@@ -97,6 +102,11 @@ struct EnvReferenceExport: View {
             guard url.lastPathComponent.hasSuffix(EnvReferenceFile.defaultName) else {
                 throw SecretsFailure("Use a file name that ends with .env.triwarden.")
             }
+            #if DEBUG
+            if let testDestinationURL, url.standardizedFileURL != testDestinationURL.standardizedFileURL {
+                throw SecretsFailure("Keep the proposed file name and folder for this test.")
+            }
+            #endif
             _ = try EnvReferenceFile.launchCommand(for: url)
             let access = url.startAccessingSecurityScopedResource()
             defer { if access { url.stopAccessingSecurityScopedResource() } }

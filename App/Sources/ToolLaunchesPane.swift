@@ -11,6 +11,7 @@ struct ToolLaunchesPane: View {
     @State private var removing: SecretsProfile?
     @State private var resetting = false
     @State private var choosingKey = false
+    @State private var importingEnv = false
     @State private var helperSetup = false
     @State private var helperCheck = 0
     @State private var helperState: TerminalHelperInstallation.State?
@@ -119,6 +120,7 @@ struct ToolLaunchesPane: View {
             ToolKeyPicker { key in chosenKey = key; choosingKey = false }.environment(model)
         }
         .sheet(isPresented: $helperSetup, onDismiss: { helperCheck += 1 }) { TerminalHelperSetup().environment(model) }
+        .sheet(isPresented: $importingEnv) { EnvKeyImportSheet().environment(model) }
         .sheet(isPresented: Binding(get: { exportingReferences != nil }, set: { if !$0 { exportingReferences = nil } })) {
             if let profile = exportingReferences { EnvReferenceExport(profile: profile).environment(model) }
         }
@@ -169,7 +171,8 @@ struct ToolLaunchesPane: View {
     private var helperNeedsSetup: Bool { helperState.map { $0 != .installed } ?? false }
 
     private var workspaceActions: [ActionMenuEntry] {
-        [ActionMenuEntry(title: String(localized: "Terminal Helper Setup…"), symbol: "terminal") { helperSetup = true },
+        [ActionMenuEntry(title: String(localized: "Import .env File…"), symbol: "square.and.arrow.down") { importingEnv = true },
+         ActionMenuEntry(title: String(localized: "Terminal Helper Setup…"), symbol: "terminal") { helperSetup = true },
          ActionMenuEntry(title: String(localized: "View Access"), symbol: "checkmark.shield") { model.requestedSection = .access }]
     }
 
@@ -448,6 +451,7 @@ struct ToolLaunchesPane: View {
         } description: { Text("Choose a saved API key and set up the tool that needs it. Keys stay in your vault.") } actions: {
             Button("Add Tool…") { replacement = nil; choosingKey = true }.buttonStyle(.appPrimary)
             Button("Save an API Key") { model.beginAPIKey() }.buttonStyle(.appSecondary)
+            Button("Import .env File…") { importingEnv = true }.buttonStyle(.appSecondary)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     private func errorBanner(_ error: String) -> some View {

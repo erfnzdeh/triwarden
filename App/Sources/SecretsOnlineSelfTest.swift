@@ -3,15 +3,18 @@ import AppKit
 import Darwin
 import Foundation
 import SecretsAgent
+import SwiftUI
 import VaultwardenAPI
 
 /// Uses only the documented disposable dev account and a loopback tunnel. Never bypasses native authentication.
 @MainActor
 enum SecretsOnlineSelfTest {
     static var requested: Bool {
-        CommandLine.arguments.contains("--selftest-secrets-online") || interactive || presentation
+        CommandLine.arguments.contains("--selftest-secrets-online") || interactive || presentation || envImportOnline
     }
-    private static var interactive: Bool { CommandLine.arguments.contains("--selftest-secrets-interactive") }
+    private static var interactive: Bool { CommandLine.arguments.contains("--selftest-secrets-interactive") || envInteractive }
+    private static var envInteractive: Bool { CommandLine.arguments.contains("--selftest-secrets-env-interactive") }
+    private static var envImportOnline: Bool { CommandLine.arguments.contains("--selftest-env-import-online") }
     private static var presentation: Bool { CommandLine.arguments.contains("--selftest-secrets-presentation") }
 
     static func runIfRequested() {
@@ -60,7 +63,7 @@ enum SecretsOnlineSelfTest {
             let controller = model.secrets!
             // Seed a nondefault UI selection to exercise duration reuse. The real
             // approval button and device-owner authentication are still required.
-            if interactive { controller.selfTestInitialDuration = .untilLock }
+            if interactive && !envInteractive { controller.selfTestInitialDuration = .untilLock }
             let port = ProcessInfo.processInfo.environment["TRIWARDEN_SECRETS_TEST_PORT"] ?? "28880"
             guard let number = UInt16(port), number > 0 else { throw SecretsFailure("Invalid loopback test port.") }
             model.serverKind = .selfHosted
@@ -71,6 +74,13 @@ enum SecretsOnlineSelfTest {
                 throw SecretsFailure("Disposable dev-account login failed. Check the loopback tunnel and seeded dev account.")
             }
             check(true, "real dev-account login, decryption and online sync")
+            if let interrupted = ProcessInfo.processInfo.environment["TRIWARDEN_SECRETS_CLEANUP_TEST"] {
+                try await cleanupInterrupted(interrupted, group: group, model: model, account: account)
+                check(true, "owned interrupted canary and its local confirmation removed")
+            }
+            if envImportOnline {
+                failures += await EnvKeyImportSelfTest.run(model: model, root: root, account: account)
+            } else {
             let tag = "triwarden-secrets-canary-" + identifier
             var edit = CipherEdit(name: tag)
             edit.customFields = [CustomField(name: "api-key", value: "triwarden-test-only", kind: .hidden)]
@@ -89,6 +99,30 @@ enum SecretsOnlineSelfTest {
             try controller.save(profile)
             guard controller.lastError == nil else { throw SecretsFailure(controller.lastError!) }
             check(true, "enabled native profile starts its isolated socket")
+            if envInteractive {
+                var copied: URL?, closed = false
+                let destination = root.appendingPathComponent(EnvReferenceFile.defaultName)
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 520),
+                                      styleMask: [.titled, .closable], backing: .buffered, defer: false)
+                window.isReleasedWhenClosed = false
+                window.title = "Triwarden reference file test"
+                window.contentView = NSHostingView(rootView: ReferenceExportAcceptanceHost(profile: profile, destination: destination,
+                    onCopy: { copied = $0 }, onClose: { closed = true }).environment(model))
+                window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate()
+                defer { window.close() }
+                print("ACTION: Select Save File in the test window. Keep the proposed name and folder. Select Copy Launch. This test uses one dummy key."); fflush(stdout)
+                let deadline = ContinuousClock.now.advanced(by: .seconds(300))
+                while copied == nil, !closed, window.isVisible, .now < deadline {
+                    try await Task.sleep(for: .milliseconds(100))
+                }
+                guard let copied, copied.standardizedFileURL == destination.standardizedFileURL else {
+                    throw SecretsFailure("Reference export acceptance did not finish. No launch was requested.")
+                }
+                try EnvReferenceFile.read(copied).validate(against: profile)
+                let file = try String(contentsOf: copied, encoding: .utf8)
+                check(!file.contains("triwarden-test-only"), "real save panel exports matching references without the dummy key value")
+                window.close()
+            }
 
             func diagnostic(_ process: Process) -> String {
                 guard let url = errorFiles[process.processIdentifier], let handle = try? FileHandle(forReadingFrom: url) else { return "no CLI error" }
@@ -98,7 +132,7 @@ enum SecretsOnlineSelfTest {
             func launch() throws -> Process {
                 let process = Process()
                 process.executableURL = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/tw")
-                process.arguments = ["--selftest-secrets-run", identifier]
+                process.arguments = [envInteractive ? "--selftest-secrets-run-env" : "--selftest-secrets-run", identifier]
                 process.standardOutput = FileHandle.nullDevice
                 let errorURL = root.appendingPathComponent("error-" + UUID().uuidString)
                 guard fm.createFile(atPath: errorURL.path, contents: nil, attributes: [.posixPermissions: 0o600]) else {
@@ -166,7 +200,9 @@ enum SecretsOnlineSelfTest {
                 controller.deny()
                 noLaunch(try await finished(child), "presentation probe cancels without exec")
             } else if interactive {
-                print("ACTION: The isolated UI fixture preselects Trust Until Lock. Review the canary card, confirm its matching action, then use Touch ID or your Mac password. You may change the duration. No real API key is involved."); fflush(stdout)
+                print(envInteractive
+                    ? "ACTION: The reference file now selects the saved canary. Keep Allow Once, allow this launch, then complete Touch ID or your Mac password."
+                    : "ACTION: The isolated UI fixture preselects Trust Until Lock. Review the canary card, confirm its matching action, then use Touch ID or your Mac password. You may change the duration. No real API key is involved."); fflush(stdout)
                 let child = try launch()
                 try await pending(child)
                 let status = try await finished(child)
@@ -228,6 +264,7 @@ enum SecretsOnlineSelfTest {
                 noLaunch(try await finished(locked), "real account lock cancels native approval without exec")
                 await model.unlock(password: "chiikawa-dev-password", accountId: account)
             }
+            }
         } catch {
             check(false, error.localizedDescription)
         }
@@ -267,6 +304,51 @@ enum SecretsOnlineSelfTest {
         } catch { check(false, "Couldn't clean up isolated local test records.") }
         print("Secrets online self-test: \(failures) failure(s)"); fflush(stdout)
         return failures == 0 ? 0 : 1
+    }
+
+    /// Recover only a UUID-marked canary from this diagnostic's disposable account.
+    private static func cleanupInterrupted(_ identifier: String, group: URL, model: AppModel, account: String) async throws {
+        guard UUID(uuidString: identifier) != nil, let session = model.session(for: account) else {
+            throw SecretsFailure("Invalid interrupted test identifier.")
+        }
+        let root = group.appendingPathComponent("S" + identifier.prefix(8))
+        guard (try? String(contentsOf: root.appendingPathComponent("test-id"), encoding: .utf8)) == identifier else {
+            throw SecretsFailure("The interrupted test marker does not match.")
+        }
+        let profiles = try SecretsProfileStore(directory: root.appendingPathComponent("p")).loadAll()
+        guard profiles.count == 1, let profile = profiles.first, profile.name == "canary", profile.accountID == account else {
+            throw SecretsFailure("The interrupted test profile does not match.")
+        }
+        try await session.refresh()
+        if let item = session.items.first(where: { $0.id == profile.itemID }) {
+            guard item.name == "triwarden-secrets-canary-" + identifier,
+                  item.customFields.filter({ $0.name == "api-key" }).count == 1,
+                  item.customFields.contains(where: { $0.name == "api-key" && $0.kind == .hidden && $0.value == "triwarden-test-only" }) else {
+                throw SecretsFailure("The interrupted canary does not match. No item was removed.")
+            }
+            try await session.deleteForever(item.id)
+        }
+        try await session.refresh()
+        guard !session.items.contains(where: { $0.id == profile.itemID }) else { throw SecretsFailure("Cannot confirm canary removal.") }
+        try SecretsProfileConfirmation(service: "io.github.sinhong2011.triwarden.secrets.selftest." + identifier).delete()
+        try FileManager.default.removeItem(at: root)
+    }
+}
+
+private struct ReferenceExportAcceptanceHost: View {
+    let profile: SecretsProfile
+    let destination: URL
+    let onCopy: (URL) -> Void
+    let onClose: () -> Void
+    @State private var presented = false
+
+    var body: some View {
+        Text("Reference file test").frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { WindowBackdrop() }
+            .onAppear { presented = true }
+            .sheet(isPresented: $presented, onDismiss: onClose) {
+                EnvReferenceExport(profile: profile, testDestinationURL: destination, onTestCopy: onCopy)
+            }
     }
 }
 #endif

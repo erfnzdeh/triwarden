@@ -90,5 +90,8 @@ struct ToolLaunchReference: Identifiable {
     let accountID: String
     let itemID: String
     var toolName: String? = nil
+    var initialBindings: [SecretsBinding] = []
+    var suggestedName: String? = nil
+    var suggestedDirectory: String? = nil
     var id: String { accountID + "|" + itemID + "|" + (toolName ?? "new") }
 }
