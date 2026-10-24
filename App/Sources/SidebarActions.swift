@@ -144,7 +144,14 @@ extension AppModel {
                 }
             }
             return [send(.text, String(localized: "New Text Send")), send(.file, String(localized: "New File Send")),
-                action(expiredSendsOnly ? String(localized: "Show All Sends") : String(localized: "Show Expired Sends"), "clock") { self.expiredSendsOnly.toggle(); self.requestedSection = .sends }]
+                action(expiredSendsOnly ? String(localized: "Show All Sends") : String(localized: "Show Expired Sends"), "clock") { self.expiredSendsOnly.toggle(); self.requestedSection = .sends },
+                // The same closing pair every other section has: narrow the list, then refresh the accounts behind it.
+                SidebarContextAction(title: String(localized: "Search Sends"), symbol: "magnifyingglass",
+                                     separatorBefore: true) {
+                    self.requestedSection = .sends
+                    self.sendSearchRequest = UUID()
+                },
+                sync()]
         case .codes: return [create(.login, title: String(localized: "New Login with TOTP"), totp: true), search()]
         case .generator:
             func generate(_ mode: GeneratorView.Mode, _ title: String) -> SidebarContextAction {

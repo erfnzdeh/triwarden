@@ -5,53 +5,88 @@ import VaultwardenAPI
 /// Sidebar › Send: share text or a file through an end-to-end encrypted link that expires.
 struct SendsPane: View {
     @Environment(AppModel.self) private var model
+    /// The list's own search, like the vault's item list.
+    @State private var query = ""
+    @FocusState private var searchFocused: Bool
+    @AppStorage("sendSort") private var sortRaw = SendSort.deletion.rawValue
+    @AppStorage("sendSortAscending") private var ascending = true
+    @AppStorage("sendFilter") private var filterRaw = SendFilter.all.rawValue
 
+    private var sort: SendSort { SendSort(rawValue: sortRaw) ?? .deletion }
+    private var filter: SendFilter { SendFilter(rawValue: filterRaw) ?? .all }
+
+    /// The account's Sends, narrowed by the search text, the filter and "expired only", then sorted.
     private var scopedSends: [SendItem] {
-        model.sends.filter { send in
-            (model.focusedAccountID == nil || send.accountId == model.focusedAccountID) && (!model.expiredSendsOnly || send.isExpired)
+        let matching = model.sends.filter { send in
+            (model.focusedAccountID == nil || send.accountId == model.focusedAccountID)
+                && (!model.expiredSendsOnly || send.isExpired)
+                && filter.matches(send)
+                && Self.matches(send, query)
         }
+        return sort.sorted(matching, ascending: ascending)
     }
 
-    private func sendActions(_ send: SendItem) -> [ActionMenuEntry] {
-        var rows: [ActionMenuEntry] = []
-        if let link = model.sendLink(send) {
-            rows.append(ActionMenuEntry(title: String(localized: "Copy Link"), symbol: "link") { model.copyPlain(link.absoluteString) })
-            rows.append(ActionMenuEntry(title: String(localized: "Open Link"), symbol: "safari") { NSWorkspace.shared.open(link) })
-        }
-        rows.append(ActionMenuEntry(title: String(localized: "Edit…"), symbol: "pencil", separatorBefore: !rows.isEmpty) { model.editSend(send) })
-        rows.append(ActionMenuEntry(title: String(localized: "Delete…"), symbol: "trash", destructive: true) { model.confirmDeleteSend(send) })
-        return rows
+    /// The name, the private notes and — for a text Send — its text, so a password typed there can be found.
+    static func matches(_ send: SendItem, _ query: String) -> Bool {
+        let words = query.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !words.isEmpty else { return true }
+        let haystack = [send.name, send.notes ?? "", send.text ?? "", send.fileName ?? ""].joined(separator: "\n").lowercased()
+        return words.allSatisfy { haystack.contains($0.lowercased()) }
     }
 
     var body: some View {
         HStack(spacing: 8) {
             VStack(spacing: 10) {
-                // Like the item list: a count (new Sends come from the header's + menu).
-                HStack {
-                    Text("\(scopedSends.count) sends").font(.system(size: 12, weight: .medium)).foregroundStyle(.secondary)
-                    Spacer()
+                // The same search and filter row the item list has, so the two lists work alike.
+                HStack(spacing: 6) {
+                    SendSearchField(query: $query, focused: $searchFocused)
+                    ActionMenu(entries: filterEntries) {
+                        Image(systemName: "line.3.horizontal.decrease")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 32, height: 32)
+                            .modifier(HeaderChrome(shape: .circle))
+                            .contentShape(.circle)
+                    }
+                    .fixedSize()
+                    .help(Text("Filter"))
+                    .accessibilityLabel(Text("Filter"))
+                    ActionMenu(entries: sortEntries) {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 32, height: 32)
+                            .modifier(HeaderChrome(shape: .circle))
+                            .contentShape(.circle)
+                    }
+                    .fixedSize()
+                    .help(Text("Sort"))
+                    .accessibilityLabel(Text("Sort"))
                 }
-                .padding(.leading, 6)
-                .frame(height: 32)
+                .zIndex(1)
+
                 ScrollView {
                     LazyVStack(spacing: 2) {
                         ForEach(scopedSends) { send in
-                            SendRow(send: send, selected: send.id == model.selectedSendID && !model.composingSend && model.editingSend == nil)
+                            SendRow(send: send, selected: send.id == model.selectedSendID && !model.composingSend && model.editingSend == nil,
+                                    highlight: query)
                                 .onTapGesture { model.closeSendComposer(); model.selectedSendID = send.id }
                                 .accessibilityElement(children: .combine)
                                 .accessibilityAddTraits(send.id == model.selectedSendID ? [.isButton, .isSelected] : .isButton)
                                 .accessibilityAction { model.closeSendComposer(); model.selectedSendID = send.id }
                                 .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                                .appContextMenu(sendActions(send))
+                                .appContextMenu(model.sendContextActions(send))
                         }
                     }
                     .padding(6)
                 }
                 .thinScroller()
                 .background(Color.panel, in: .rect(cornerRadius: 18, style: .continuous))
+                // The empty part of the list takes a right-click too: it offers the ways to make a Send, where a row's
+                // own menu (above, which wins over this one) offers what to do with that Send.
+                .appContextMenu(emptyAreaActions)
                 .overlay {
                     if scopedSends.isEmpty {
-                        Text("Your Sends appear here.").font(.system(size: 12)).foregroundStyle(.tertiary)
+                        Text(query.isEmpty && filter == .all ? "Your Sends appear here." : "No Sends match.")
+                            .font(.system(size: 12)).foregroundStyle(.tertiary)
                     }
                 }
             }
@@ -84,10 +119,217 @@ struct SendsPane: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.snappy(duration: 0.25), value: model.composingSend)
         }
+        // The Sends page is a tool, so VaultView lets it scroll to the window's bottom edge (a negative bottom inset
+        // cancels the column's 8 pt margin). Its two panels are cards, though, and they must keep that margin: the
+        // right column's detail keeps it too, and a card touching the window's edge looks cut off.
+        .padding(.bottom, 8)
         .sheet(item: Bindable(model).createdSend) { created in SendCreatedSheet(created: created) }
+        // The sidebar's "Search Sends" puts the caret in the field, as the item list's "Search Here" does.
+        .onChange(of: model.sendSearchRequest) { searchFocused = true }
     }
 
     private func compose() { withAnimation(.snappy(duration: 0.25)) { model.composeNewSend() } }
+
+    /// A right-click on the list's empty space: the ways to make a Send, and the two things that change what the list
+    /// shows. The same entries the sidebar's Sends section offers, so the two places agree.
+    private var emptyAreaActions: [ActionMenuEntry] {
+        func newSend(_ kind: SendComposer.Kind, _ title: String) -> ActionMenuEntry {
+            ActionMenuEntry(title: title, symbol: "paperplane", enabled: !model.composingSend && model.editingSend == nil) {
+                model.sendContextAccountIDs = nil
+                model.newSendKind = kind
+                model.newSendNonce = UUID()
+                model.editingSend = nil
+                model.composingSend = true
+                model.expiredSendsOnly = false
+            }
+        }
+        return [
+            newSend(.text, String(localized: "New Text Send")),
+            newSend(.file, String(localized: "New File Send")),
+            ActionMenuEntry(title: model.expiredSendsOnly ? String(localized: "Show All Sends") : String(localized: "Show Expired Sends"),
+                            symbol: "clock", separatorBefore: true) {
+                model.expiredSendsOnly.toggle()
+            },
+            ActionMenuEntry(title: String(localized: "Search Sends"), symbol: "magnifyingglass") { searchFocused = true }
+        ]
+    }
+
+    private var filterEntries: [ActionMenuEntry] {
+        [.heading(String(localized: "Show only"))] + SendFilter.allCases.map { choice in
+            ActionMenuEntry(title: choice.menuTitle, symbol: choice.symbol, checked: filter == choice) { filterRaw = choice.rawValue }
+        } + [
+            ActionMenuEntry(title: String(localized: "Clear Filter"), symbol: "xmark.circle",
+                            enabled: filter != .all || !query.isEmpty, separatorBefore: true) {
+                filterRaw = SendFilter.all.rawValue
+                query = ""
+            }
+        ]
+    }
+
+    private var sortEntries: [ActionMenuEntry] {
+        [.heading(String(localized: "Sort By"))] + SendSort.allCases.map { choice in
+            ActionMenuEntry(title: choice.menuTitle, symbol: choice.symbol, checked: sort == choice) { sortRaw = choice.rawValue }
+        } + [
+            .heading(String(localized: "Order")),
+            ActionMenuEntry(title: sort.menuOrderTitle(ascending: true), symbol: "arrow.up", checked: ascending) { self.ascending = true },
+            ActionMenuEntry(title: sort.menuOrderTitle(ascending: false), symbol: "arrow.down", checked: !ascending) { self.ascending = false }
+        ]
+    }
+}
+
+/// How the Sends list is ordered. There is no edited/created date on a Send, so the dates it does carry lead.
+enum SendSort: String, CaseIterable, Identifiable {
+    case deletion, name, views
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .deletion: "Deletes On"
+        case .name: "Name"
+        case .views: "Views"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .deletion: "trash"
+        case .name: "textformat"
+        case .views: "eye"
+        }
+    }
+
+    func orderTitle(ascending: Bool) -> LocalizedStringKey {
+        switch self {
+        case .name: ascending ? "A to Z" : "Z to A"
+        case .deletion, .views: ascending ? "Soonest First" : "Latest First"
+        }
+    }
+
+    var menuTitle: String {
+        switch self {
+        case .deletion: String(localized: "Deletes On")
+        case .name: String(localized: "Name")
+        case .views: String(localized: "Views")
+        }
+    }
+
+    func menuOrderTitle(ascending: Bool) -> String {
+        switch self {
+        case .name: ascending ? String(localized: "A to Z") : String(localized: "Z to A")
+        case .deletion, .views: ascending ? String(localized: "Soonest First") : String(localized: "Latest First")
+        }
+    }
+
+    func sorted(_ sends: [SendItem], ascending: Bool) -> [SendItem] {
+        let ordered: [SendItem]
+        switch self {
+        case .name:
+            ordered = sends.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        case .deletion:
+            // A Send with no deletion date is last either way: it never goes on its own.
+            ordered = sends.sorted { ($0.deletionDate ?? .distantFuture) < ($1.deletionDate ?? .distantFuture) }
+        case .views:
+            ordered = sends.sorted { $0.accessCount < $1.accessCount }
+        }
+        return ascending ? ordered : ordered.reversed()
+    }
+}
+
+/// What the Sends list shows, beyond the account it already narrows to.
+enum SendFilter: String, CaseIterable, Identifiable {
+    case all, text, file, password, expiring, expired
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .all: "All Sends"
+        case .text: "Text"
+        case .file: "Files"
+        case .password: "With a password"
+        case .expiring: "Not expired"
+        case .expired: "Expired"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .all: "square.grid.2x2"
+        case .text: "text.alignleft"
+        case .file: "doc"
+        case .password: "lock"
+        case .expiring: "clock"
+        case .expired: "clock.badge.xmark"
+        }
+    }
+
+    var menuTitle: String {
+        switch self {
+        case .all: String(localized: "All Sends")
+        case .text: String(localized: "Text")
+        case .file: String(localized: "Files")
+        case .password: String(localized: "With a password")
+        case .expiring: String(localized: "Not expired")
+        case .expired: String(localized: "Expired")
+        }
+    }
+
+    func matches(_ send: SendItem) -> Bool {
+        switch self {
+        case .all: true
+        case .text: send.kind != .file
+        case .file: send.kind == .file
+        case .password: send.hasPassword
+        case .expiring: !send.isExpired && !send.isUsedUp
+        case .expired: send.isExpired || send.isUsedUp
+        }
+    }
+}
+
+/// The Sends list's search field. The vault's `VaultSearchField` can't be reused: it is wired to the vault's own
+/// suggestions, chips and `SearchFilters`. This keeps its exact look — the same 32 pt capsule and `HeaderChrome`
+/// glass — so the two lists' rows read as one control, without carrying the vault's machinery.
+struct SendSearchField: View {
+    @Binding var query: String
+    var focused: FocusState<Bool>.Binding
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+            TextField("Search", text: $query, prompt: Text("Search sends"))
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused(focused)
+                // Esc clears the text first, then gives up focus — the vault field's first two steps.
+                .onKeyPress(.escape) {
+                    if !query.isEmpty { query = ""; return .handled }
+                    focused.wrappedValue = false
+                    return .handled
+                }
+                .onSubmit { focused.wrappedValue = false }
+            if !query.isEmpty {
+                Button { query = ""; focused.wrappedValue = true } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 12)).foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help(Text("Clear Search"))
+                .accessibilityLabel(Text("Clear Search"))
+                .transition(.opacity.combined(with: .scale(scale: 0.6)))
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 32)
+        .modifier(HeaderChrome(shape: .capsule, hovering: hovering || focused.wrappedValue))
+        .contentShape(.capsule)
+        .onTapGesture { focused.wrappedValue = true }
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.15), value: query.isEmpty)
+        .help(Text("Search sends by name, private notes, text or file name."))
+    }
 }
 
 /// Shown once, right after a Send is made: its link and — for a password-protected Send — the passphrase, which the
@@ -199,6 +441,8 @@ private struct CreatedCopyButton: View {
 private struct SendRow: View {
     let send: SendItem
     let selected: Bool
+    /// Search text to mark in the name.
+    var highlight = ""
 
     var body: some View {
         HStack(spacing: 10) {
@@ -207,7 +451,7 @@ private struct SendRow: View {
                 .frame(width: 30, height: 30)
                 .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                Text(send.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                Text(Highlight.marked(send.name, highlight)).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 Text(status(send)).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
@@ -377,6 +621,8 @@ private struct SendDetail: View {
             .frame(maxWidth: 680).frame(maxWidth: .infinity)
         }
         .thinScroller()
+        // The same menu its row in the list has: the vault gives an item one in both places too.
+        .appContextMenu(model.sendContextActions(send))
         .confirmationDialog("Delete “\(send.name)”?", isPresented: $confirmDelete) {
             Button("Delete Send", role: .destructive) { Task { await model.deleteSend(send) } }
         } message: {

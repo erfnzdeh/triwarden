@@ -293,6 +293,16 @@ enum Snapshot {
                        appearance: appearance, to: dir.appending(path: "edit-vault-shared-\(name).png"))
             }
         }
+        // A shared vault with one writable folder: the only choice there is, so it starts checked and Move is ready.
+        let manyCollections = vault.organizations
+        vault.organizations = [Grouping(id: "org-nw", name: "Northwind", children: [
+            Grouping(id: "col-only", name: "Family", canWrite: true),
+            Grouping(id: "col-locked", name: "Payroll", canWrite: false)])]
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            render(MoveToOrganizationSheet(itemIDs: ["2"]).environment(vault).tint(.brand), size: CGSize(width: 520, height: 600),
+                   appearance: appearance, to: dir.appending(path: "vault-shared-move-single-\(name).png"))
+        }
+        vault.organizations = manyCollections
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             render(NewFolderSheet(parent: "Work").environment(vault).tint(.brand), size: CGSize(width: 440, height: 300),
                    appearance: appearance, to: dir.appending(path: "vault-subfolder-\(name).png"))
@@ -981,6 +991,14 @@ enum SelfTest {
             } else {
                 check(false, "move to organization: no organization with a collection")
             }
+
+            // A shared vault with one writable folder: the form picks it, so Move needs no click that decides nothing.
+            let folders = [Grouping(id: "a", name: "Family", canWrite: true), Grouping(id: "b", name: "Payroll", canWrite: false)]
+            check(folders.soleWritableCollection == "a", "one writable shared folder is picked automatically")
+            check([Grouping(id: "a", name: "Family", canWrite: true), Grouping(id: "c", name: "Team", canWrite: true)]
+                    .soleWritableCollection == nil, "two writable shared folders leave the choice to the user")
+            check([Grouping(id: "b", name: "Payroll", canWrite: false)].soleWritableCollection == nil,
+                  "a read-only shared folder is never picked")
 
             // Many at once: trash, restore, move to a folder, delete forever — one request each.
             for n in 1...3 { _ = await model.createItem(.secureNote, edit: CipherEdit(name: "Selftest bulk \(n)", notes: "b")) }

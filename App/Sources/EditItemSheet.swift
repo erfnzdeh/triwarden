@@ -334,7 +334,7 @@ struct EditItemSheet: View {
                     .onChange(of: accountId) {
                         folderId = prefill?.folderPath.flatMap { path in model.session(for: accountId ?? "")?.folders.first { $0.name == path }?.id }
                         newFolderIn = nil
-                        destinationCollection = nil
+                        destinationCollection = writableCollections.soleWritableCollection
                     }
                 }
                 FormField(label: "Name") {
@@ -351,7 +351,12 @@ struct EditItemSheet: View {
                                 + ((prefill?.vaultKeys?.contains(AppModel.VaultFilter.personalKey) == true) ? [(String?.some(AppModel.VaultFilter.personalKey), String(localized: "My vault"))] : [])
                                 + (chosenSession?.organizations.filter { prefill?.vaultKeys?.contains($0.id) == true }.map { (String?.some($0.id), $0.name) } ?? []),
                                 selection: $destinationVault, accessibilityLabel: "Vault")
-                                .onChange(of: destinationVault) { destinationCollection = nil; folderId = nil; newFolderIn = nil }
+                                .onChange(of: destinationVault) {
+                                    // One folder to choose from: pick it, rather than asking for a click that decides nothing.
+                                    destinationCollection = writableCollections.soleWritableCollection
+                                    folderId = nil
+                                    newFolderIn = nil
+                                }
                         }
                     }
                     if creationOrganizationID != nil && prefill?.collectionIds.isEmpty != false {
@@ -433,7 +438,12 @@ struct EditItemSheet: View {
                 SoftMenu(options: [(String?.some(AppModel.VaultFilter.personalKey), String(localized: "My vault"))]
                     + vaultOrganizations.map { (String?.some($0.id), $0.name) },
                     selection: $destinationVault, accessibilityLabel: "Vault")
-                    .onChange(of: destinationVault) { chosenCollections = []; folderId = nil; newFolderIn = nil }
+                    .onChange(of: destinationVault) {
+                        // One folder to choose from: pick it, rather than asking for a click that decides nothing.
+                        chosenCollections = writableVaultCollections.soleWritableCollection.map { [$0] } ?? []
+                        folderId = nil
+                        newFolderIn = nil
+                    }
             }
             if movingTo != nil {
                 FormField(label: "Shared Folders", note: "Moving is one way: the shared vault owns the item afterwards.") {
@@ -879,6 +889,8 @@ struct EditItemSheet: View {
             accountId = ids.count == 1 ? ids.first : nil
         } else { accountId = model.defaultAccountId }
         if let keys = prefill?.vaultKeys, keys.count == 1 { destinationVault = keys.first }
+        // Opened straight into a shared vault with one folder to choose from: pick it, as the picker's onChange would.
+        if !mode.isEdit, destinationCollection == nil { destinationCollection = writableCollections.soleWritableCollection }
         if let path = prefill?.folderPath, let accountId {
             folderId = model.session(for: accountId)?.folders.first { $0.name == path }?.id
         }

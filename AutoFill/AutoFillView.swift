@@ -302,12 +302,13 @@ struct AutoFillView: View {
 // MARK: - The app's look, for the extension (which can't use the app's own controls)
 
 private enum Palette {
-    static let brand = Color(nsColor: .triwardenBrand)
     static let window = adaptive(light: NSColor(red: 0.945, green: 0.947, blue: 0.965, alpha: 1),
                                  dark: NSColor(red: 0.105, green: 0.108, blue: 0.125, alpha: 1))
     static let card = adaptive(light: NSColor.white.withAlphaComponent(0.40), dark: NSColor.white.withAlphaComponent(0.07))
     static let edge = adaptive(light: NSColor.white, dark: NSColor.white.withAlphaComponent(0.08))
-    static let selected = adaptive(light: NSColor.triwardenBrand.withAlphaComponent(0.1), dark: NSColor.triwardenBrand.withAlphaComponent(0.2))
+    /// A chosen row: the app's own selected row (`Color.rowSelected` in the vault list), a raised neutral tile
+    /// rather than a brand wash.
+    static let selected = adaptive(light: NSColor.white, dark: NSColor.white.withAlphaComponent(0.12))
 
     static func adaptive(light: NSColor, dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light })
@@ -410,7 +411,7 @@ private struct LetterTile: View {
     }
 }
 
-/// A row to pick: soft until hovered or chosen, then a brand tint and border.
+/// A row to pick: soft until hovered or chosen, then the app's own selected row — a raised neutral tile.
 private struct ChoiceRow<Leading: View>: View {
     let title: String
     let subtitle: String
@@ -418,6 +419,7 @@ private struct ChoiceRow<Leading: View>: View {
     var trailing: LocalizedStringKey?
     @ViewBuilder var leading: Leading
     @State private var hovering = false
+    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
         HStack(spacing: 12) {
@@ -435,11 +437,13 @@ private struct ChoiceRow<Leading: View>: View {
             }
         }
         .padding(.horizontal, 10).frame(height: 50)
+        // The card's 16 pt corner less its 6 pt inset: the tile's curve sits concentric inside the card's.
         .background(selected ? Palette.selected : hovering ? Color.primary.opacity(0.05) : .clear,
-                    in: .rect(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(selected ? Palette.brand.opacity(0.6) : .clear))
+                    in: .rect(cornerRadius: 10, style: .continuous))
+        .shadow(color: .black.opacity(selected ? (scheme == .dark ? 0.12 : 0.04) : 0), radius: 4, y: 2)
         .contentShape(.rect)
         .onHover { hovering = $0 }
+        .animation(.snappy(duration: 0.18), value: selected)
     }
 }
 
