@@ -636,6 +636,9 @@ struct SendComposer: View {
     @Environment(AppModel.self) private var model
     /// Set to change an existing Send (same link) instead of making a new one.
     var editing: SendItem?
+    /// Snapshots only: open a new Send with the expiry controls already unfolded, so their date field is in the
+    /// render.
+    var opensExpiry = false
     enum Kind: Hashable { case text, file }
     @State private var deletionDate = Date.now.addingTimeInterval(7 * 86_400)
     @State private var removePassword = false
@@ -646,6 +649,9 @@ struct SendComposer: View {
     @State private var file: URL?
     @State private var deleteAfterDays = 7
     @State private var expires = false
+    /// Whether the "Advanced" disclosure shows its expiry controls. Presentation only: folding it leaves what is
+    /// set alone, and the row says what that is while it is closed.
+    @State private var showExpiry = false
     @State private var expiration = Date.now.addingTimeInterval(86_400)
     @State private var limitViews = false
     @State private var maxViews = 1
@@ -660,6 +666,37 @@ struct SendComposer: View {
 
     private var destinationSessions: [AccountSession] { model.sessions.filter { model.sendContextAccountIDs?.contains($0.id) ?? true } }
 
+    /// What the closed disclosure says: the date the link stops working, in the app's own words.
+    private var expirationSummary: String {
+        String(localized: "Expires \(expiration.formatted(date: .abbreviated, time: .shortened))")
+    }
+
+    /// The Send's own end, in the New Send form: the deletion window counted from now.
+    private var expiryLimit: Date {
+        Date.now.addingTimeInterval(Double(deleteAfterDays) * 86_400)
+    }
+
+    /// The last moment the link can work: the Send's deletion. Editing a Send edits that date directly; a new one
+    /// counts it from the deletion window. A Send already past its deletion keeps a minute of room, so the field's
+    /// range is never empty.
+    private var expiryEnd: Date {
+        max(editing != nil ? deletionDate : expiryLimit, Date.now.addingTimeInterval(60))
+    }
+
+    /// The expiry field's window. A Send that already expired keeps the date it has — opening the form must not
+    /// quietly move it to now.
+    private var expiryRange: ClosedRange<Date> {
+        let start = min(Date.now, expiration)
+        return start...max(expiryEnd, start.addingTimeInterval(60))
+    }
+
+    /// Pulls the expiry back when it is now later than the Send's own deletion: a shorter deletion window must move
+    /// it, so "Expire earlier" keeps meaning earlier. A date that is already inside the window is left alone — an
+    /// expired Send keeps the date it has.
+    private func clampExpiration() {
+        if expiration > expiryEnd { expiration = expiryEnd }
+    }
+
     private var ready: Bool {
         accountId != nil && !name.trimmingCharacters(in: .whitespaces).isEmpty && (kind == .text ? !text.isEmpty : (file != nil || editing != nil))
     }
@@ -673,6 +710,7 @@ struct SendComposer: View {
             kind = model.newSendKind
             if let ids = model.sendContextAccountIDs { accountId = ids.count == 1 ? ids.first : nil }
             else { accountId = model.defaultAccountId }
+            if opensExpiry { expires = true; showExpiry = true }
             // "Share by Link…" from an item: its name and fields, hidden until the recipient reveals them. No
             // password: the link is a bearer token for a real secret, but pre-filling one would be a decision the
             // sender has to undo, and the dice beside the field is one click away for whoever wants it (issue #85).
@@ -692,7 +730,7 @@ struct SendComposer: View {
         notes = send.notes ?? ""
         hideEmail = send.hideEmail
         deletionDate = send.deletionDate ?? deletionDate
-        if let expiration = send.expirationDate { expires = true; self.expiration = expiration }
+        if let expiration = send.expirationDate { expires = true; showExpiry = true; self.expiration = expiration }
         if let max = send.maxAccessCount { limitViews = true; maxViews = max }
         accountId = send.accountId
     }
@@ -743,8 +781,12 @@ struct SendComposer: View {
 
                     FormCard(title: "Availability") {
                         if editing != nil {
-                            DatePicker("Deletes on", selection: $deletionDate, in: Date.now...Date.now.addingTimeInterval(31 * 86_400))
-                                .font(.system(size: 13))
+                            FormField(label: "Deletes on") {
+                                // A Send past its deletion date, or one set further out than the form's own month,
+                                // keeps that date in the field rather than jumping: the range grows to include it.
+                                SoftDateField(label: "Deletes on", date: $deletionDate,
+                                              range: min(Date.now, deletionDate)...max(Date.now.addingTimeInterval(31 * 86_400), deletionDate))
+                            }
                         } else {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Delete after").font(.system(size: 13))
@@ -755,12 +797,25 @@ struct SendComposer: View {
                             .accessibilityLabel(Text("Delete after"))
                         }
                         }
-                        Toggle("Expire earlier", isOn: $expires).toggleStyle(.trailingSwitch)
-                        if expires {
-                            DatePicker("Expires", selection: $expiration,
-                                       in: Date.now...Date.now.addingTimeInterval(Double(deleteAfterDays) * 86_400))
-                                .font(.system(size: 13))
+                        // The two dates are different on the server (the link stops working, then the Send is
+                        // deleted) but the same to whoever opens the link, and the second can never outlast the
+                        // first — so it stays out of the way until it is asked for (issue #97). Folding it back
+                        // only hides it: an expiry that is set stays set, and the row keeps saying when.
+                        FormDisclosure(title: "Advanced", summary: expires ? expirationSummary : nil,
+                                       isExpanded: $showExpiry) {
+                            Toggle("Expire earlier", isOn: $expires).toggleStyle(.trailingSwitch)
+                            if expires {
+                                FormField(label: "Expires",
+                                          note: "The link stops working then, and the Send stays in the list as expired.") {
+                                    SoftDateField(label: "Expires", date: $expiration, range: expiryRange)
+                                }
+                            }
                         }
+                        // A shorter deletion window can leave the expiry past the Send's own end: pull it back in,
+                        // so "Expire earlier" keeps meaning earlier.
+                        .onChange(of: expires) { _, _ in clampExpiration() }
+                        .onChange(of: deleteAfterDays) { _, _ in clampExpiration() }
+                        .onChange(of: deletionDate) { _, _ in clampExpiration() }
                         Toggle("Limit views", isOn: $limitViews).toggleStyle(.trailingSwitch)
                         if limitViews {
                             HStack {

@@ -466,6 +466,43 @@ enum Snapshot {
                    size: CGSize(width: 1100, height: 860), appearance: appearance,
                    to: dir.appending(path: "send-compose-\(name).png"))
             vault.composingSend = false
+            // The dates the Send form can carry (issues #96, #97): the expiry unfolded in a new Send, and the
+            // deletion date in Edit Send. Both are the app's own soft date field.
+            render(desktop(SendComposer(opensExpiry: true).environment(vault).tint(.brand).padding(14), dark: name == "dark"),
+                   size: CGSize(width: 720, height: 1120), appearance: appearance,
+                   to: dir.appending(path: "send-compose-expiry-\(name).png"))
+            render(desktop(SendComposer(editing: vault.sends[0]).environment(vault).tint(.brand).padding(14), dark: name == "dark"),
+                   size: CGSize(width: 720, height: 1000), appearance: appearance,
+                   to: dir.appending(path: "send-edit-\(name).png"))
+            // The calendar the date field opens, on its own: a popover can't be captured offscreen.
+            render(VStack {
+                DateCalendar(label: "Expires",
+                             date: .constant(.now.addingTimeInterval(3 * 86_400)),
+                             range: Date.now...Date.now.addingTimeInterval(7 * 86_400))
+                    .background(Color.panelStrong, in: .rect(cornerRadius: 12, style: .continuous))
+                    .padding(20)
+            }.frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.windowBase),
+                   size: CGSize(width: 320, height: 380), appearance: appearance,
+                   to: dir.appending(path: "send-date-calendar-\(name).png"))
+            // The folded "Advanced" row: it says what is set without being opened.
+            let expiry = Date.now.addingTimeInterval(3 * 86_400)
+            render(VStack {
+                FormDisclosure(title: "Advanced",
+                               summary: String(localized: "Expires \(expiry.formatted(date: .abbreviated, time: .shortened))"),
+                               isExpanded: .constant(false)) {
+                    EmptyView()
+                }
+                .padding(18)
+                .background(Color.panelStrong, in: .rect(cornerRadius: 18, style: .continuous))
+            }.padding(20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top).background(Color.windowBase),
+                   size: CGSize(width: 560, height: 130), appearance: appearance,
+                   to: dir.appending(path: "send-expiry-summary-\(name).png"))
+            // Edit Send with an expiry set: the same disclosure, open, over the deletion date.
+            var expiring = vault.sends[0]
+            expiring.expirationDate = expiry
+            render(desktop(SendComposer(editing: expiring).environment(vault).tint(.brand).padding(14), dark: name == "dark"),
+                   size: CGSize(width: 720, height: 1060), appearance: appearance,
+                   to: dir.appending(path: "send-edit-expiry-\(name).png"))
         }
         // "Share by Link…" (issue #85): the composer as it opens from an item, name and fields filled in.
         vault.composeNewSend(prefill: SendPrefill(
