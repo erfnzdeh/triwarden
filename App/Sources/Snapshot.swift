@@ -406,7 +406,7 @@ enum Snapshot {
                    size: CGSize(width: 580, height: 700), appearance: appearance,
                    to: dir.appending(path: "edit-\(name).png"))
             var card = demoItems.first { $0.kind == .card }!
-            card.properties = ["cardholderName": "Alex Chen", "brand": "Visa", "number": "4111111111116411", "expMonth": "8", "expYear": "2029", "code": "123"]
+            card.properties = ["cardholderName": "Alex Chen", "brand": "Visa", "number": "4111111111116411", "expMonth": "10", "expYear": "2026", "code": "123"]
             card.customFields = [CustomField(name: "PIN", value: "0420", kind: .hidden), CustomField(name: "Virtual", value: "true", kind: .boolean)]
             render(EditItemSheet(mode: .edit(card)).environment(vault).tint(.brand),
                    size: CGSize(width: 580, height: 700), appearance: appearance,
@@ -716,10 +716,10 @@ enum Snapshot {
             var card = VaultItem(id: "7", kind: .card, name: "Travel Visa", username: "•••• 6411", host: nil, password: nil,
                                  totp: nil, notes: nil, favorite: false,
                                  fields: [ItemField(label: "Card number", value: "4111111111116411", secret: true, monospaced: true),
-                                          ItemField(label: "Cardholder", value: "Alex Chen"), ItemField(label: "Expires", value: "08/2029"),
+                                          ItemField(label: "Cardholder", value: "Alex Chen"), ItemField(label: "Expires", value: "10/2026"),
                                           ItemField(label: "Security code", value: "123", secret: true, monospaced: true)])
             card.properties = ["brand": "Visa", "number": "4111111111116411", "cardholderName": "Alex Chen",
-                               "expMonth": "8", "expYear": "2029", "code": "123"]
+                               "expMonth": "10", "expYear": "2026", "code": "123"]
             return card
         }(),
         VaultItem(id: "5", name: "Tailscale", username: "alexchen", host: "login.tailscale.com", password: "ts-Lw8!r2Kq$7m",
