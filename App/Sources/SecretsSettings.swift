@@ -11,6 +11,7 @@ struct SecretsSettings: View {
             Section {
                 Text("Save API keys in your vault. Use Tools to choose how a tool receives a saved key.")
                 Button("Open Tools") { model.showToolsAndProjects() }
+                Button("Setup Guide…") { model.showToolGuide() }
                 Button("Terminal Helper Setup…") { helperSetup = true }
             } header: { Text("Local Tool Access") }
             Section {

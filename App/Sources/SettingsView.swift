@@ -44,14 +44,19 @@ struct SettingsView: View {
     static let paneKey = "settingsPane"
     @AppStorage(paneKey) private var paneRaw = Pane.general.rawValue
 
+    private var selectedPane: Pane {
+        if paneRaw.hasPrefix("account:") { return .accounts }
+        let pane = Pane(rawValue: paneRaw) ?? .general
+        return pane == .secrets && !model.showsAPIKeyTools ? .developer : pane
+    }
     private var selection: Binding<Pane?> {
-        Binding(get: { paneRaw.hasPrefix("account:") ? .accounts : Pane(rawValue: paneRaw) ?? .general },
+        Binding(get: { selectedPane },
                 set: { paneRaw = ($0 ?? .general).rawValue })
     }
 
     var body: some View {
         NavigationSplitView {
-            List(Pane.allCases, selection: selection) { pane in
+            List(Pane.allCases.filter { $0 != .secrets || model.showsAPIKeyTools }, selection: selection) { pane in
                 Label(pane.title, systemImage: pane.symbol).tag(pane)
             }
             .listStyle(.sidebar)
@@ -490,8 +495,21 @@ private struct DeveloperSettings: View {
     private var configLine: String { "Host *\n  IdentityAgent \"\(model.sshAgent.socketPath)\"" }
 
     var body: some View {
+        @Bindable var model = model
         let agent = model.sshAgent!
         Form {
+            Section {
+                Toggle("Show API key tools", isOn: $model.showsAPIKeyTools)
+                    .accessibilityIdentifier("showAPIKeyTools")
+                if model.showsAPIKeyTools {
+                    Button("Start Setup Guide…") { model.showToolGuide() }.disabled(!model.isUnlocked)
+                    Text("Unlock your vault, then open Tools to start the guide.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            } header: { Text("Local API keys") } footer: {
+                Text("Show API Keys, Tools, and API-key actions. Hiding them keeps saved keys and configured launches.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section {
                 Toggle("Use Triwarden as SSH agent", isOn: $enabled)
                     .onChange(of: enabled) { _, on in

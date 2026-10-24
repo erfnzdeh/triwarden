@@ -63,6 +63,7 @@ struct AccessPane: View {
         #endif
         return model.sshAgent.accessLog.events
     }
+    private var showsAPIKeys: Bool { model.showsAPIKeyTools || !grants.isEmpty }
 
     var body: some View {
         let index = ToolBrowserIndex(profiles: profiles, items: model.items, unlocked: Set(model.sessions.map(\.id)))
@@ -98,10 +99,11 @@ struct AccessPane: View {
         .onChange(of: model.wantsAccessSearchFocus, initial: true) { _, wants in
             if wants { model.wantsAccessSearchFocus = false; searchFocused = true }
         }
+        .onChange(of: showsAPIKeys) { _, visible in if !visible { source = .all } }
         .confirmationDialog("Revoke all temporary access?", isPresented: $revokeAll) {
             Button("Revoke Temporary Access", role: .destructive) { model.secrets.reset(); model.sshAgent.reset() }
         } message: {
-            Text("Temporary API-key and SSH approvals will end, and pending requests will be cancelled. Always Allowed SSH apps are kept; remove them separately below. Keys already delivered and established SSH connections cannot be recalled.")
+            Text(showsAPIKeys ? "Temporary API-key and SSH approvals will end, and pending requests will be cancelled. Always Allowed SSH apps are kept; remove them separately below. Keys already delivered and established SSH connections cannot be recalled." : "Temporary SSH approvals will end. Always Allowed SSH apps are kept. Established SSH connections cannot be recalled.")
         }
         .confirmationDialog("Clear SSH history?", isPresented: $clearHistory) {
             Button("Clear SSH History", role: .destructive) { model.sshAgent.clearAccessLog() }
@@ -109,12 +111,14 @@ struct AccessPane: View {
     }
 
     private var search: some View {
-        WorkspaceSearchField(prompt: "Search apps, tools or keys", text: $query, focused: $searchFocused)
+        WorkspaceSearchField(prompt: showsAPIKeys ? "Search apps, tools or keys" : "Search apps or keys", text: $query, focused: $searchFocused)
             .frame(minWidth: 140).accessibilityIdentifier("accessSearch")
     }
     private var filters: some View {
         Group {
-            WorkspaceFilter(title: "Access type", options: Source.allCases.map { ($0, $0.title) }, selection: $source)
+            if showsAPIKeys {
+                WorkspaceFilter(title: "Access type", options: Source.allCases.map { ($0, $0.title) }, selection: $source)
+            }
             if history {
                 WorkspaceFilter(title: "Result", options: HistoryFilter.allCases.map { ($0, $0.title) }, selection: $outcome)
             }
@@ -126,7 +130,7 @@ struct AccessPane: View {
     }
 
     private func permissions(_ lookup: [String: ToolBrowserIndex.Entry]) -> some View {
-        let api = source == .ssh ? [] : grants.filter { grant in
+        let api = !showsAPIKeys || source == .ssh ? [] : grants.filter { grant in
             let entry = lookup[grant.tool]
             return matches([entry?.profile.title ?? grant.tool, grant.caller.label] + (entry?.keys.flatMap { [$0.name, $0.binding.variable] } ?? []))
         }
@@ -141,7 +145,7 @@ struct AccessPane: View {
             }.padding(.horizontal, 18).padding(.vertical, 12)
             if api.isEmpty && temporary.isEmpty && persistent.isEmpty {
                 ContentUnavailableView(query.isEmpty && source == .all ? "No active permissions" : "No matching permissions", systemImage: "checkmark.shield",
-                                       description: Text("Temporary approvals appear after you allow a launch or SSH signature. Saving a tool does not grant access."))
+                                       description: Text(showsAPIKeys ? "Temporary approvals appear after you allow a launch or SSH signature. Saving a tool does not grant access." : "SSH approvals appear after you allow a signature."))
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
@@ -207,7 +211,7 @@ struct AccessPane: View {
                 Spacer()
                 Button("Clear SSH History…") { clearHistory = true }.buttonStyle(.appSecondarySmall).disabled(events.isEmpty)
             }.padding(.horizontal, 18).padding(.top, 14)
-            Text("SSH requests only · most recent 200 records. API-key launch history is not recorded.")
+            Text(showsAPIKeys ? "SSH requests only · most recent 200 records. API-key launch history is not recorded." : "The most recent 200 SSH requests appear here.")
                 .font(.system(size: 11)).foregroundStyle(.secondary).padding(.horizontal, 18).padding(.vertical, 10)
             if filtered.isEmpty {
                 ContentUnavailableView(source == .apiKeys ? "API-key history is not available" : "No matching SSH records",

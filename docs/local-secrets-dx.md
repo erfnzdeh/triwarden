@@ -1,5 +1,9 @@
 # Start a saved tool from Terminal
 
+New to this feature? Start with the [guided setup](local-api-keys-getting-started.md).
+Enable **Settings > Developer > Show API key tools**, then open the **Setup Guide** from Tools.
+This visibility preference is off for new users. Existing saved tool setups keep their entry after upgrading.
+
 ## Set up a tool
 
 1. Select an API key in your vault.

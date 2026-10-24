@@ -66,6 +66,7 @@ extension VaultItem {
 
 extension AppModel {
     func beginAPIKey(accountIDs: [String]? = nil) {
+        guard showsAPIKeyTools else { return }
         var prefill = EditItemSheet.Prefill()
         prefill.apiKey = true
         prefill.accountIDs = accountIDs
@@ -73,14 +74,26 @@ extension AppModel {
     }
 
     func provideKeyToTool(_ item: VaultItem) {
+        guard showsAPIKeyTools else { return }
         leaveNewItemForm {
             self.toolLaunchReference = ToolLaunchReference(accountID: item.accountId, itemID: item.id)
         }
     }
 
     func showToolsAndProjects() {
+        guard showsAPIKeyTools else { return }
         leaveNewItemForm {
             self.requestedSection = .toolLaunches
+            self.bringToFront()
+        }
+    }
+
+    func showToolGuide() {
+        guard showsAPIKeyTools, isUnlocked else { return }
+        leaveNewItemForm {
+            self.dismissHelpPanels()
+            self.requestedSection = .toolLaunches
+            self.showingToolGuide = true
             self.bringToFront()
         }
     }

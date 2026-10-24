@@ -3,6 +3,8 @@ import SecretsAgent
 import SwiftUI
 
 struct EnvKeyImportSheet: View {
+    var onImported: ((ToolLaunchReference) -> Void)? = nil
+    var onSavedTool: ((SecretsProfile) -> Void)? = nil
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var flow = EnvKeyImport()
@@ -88,8 +90,11 @@ struct EnvKeyImportSheet: View {
                     flow.locked(); flow.accountID = ""; savedTool = nil; setup = nil
                 }
             }
+            .onChange(of: flow.stage) { _, stage in
+                if stage == .saved, let reference = importedReference { onImported?(reference) }
+            }
             .sheet(item: $setup) { reference in
-                ToolLaunchSetup(reference: reference, onSaved: { savedTool = $0 }).environment(model)
+                ToolLaunchSetup(reference: reference, onSaved: { savedTool = $0; onSavedTool?($0) }).environment(model)
             }
     }
 
@@ -218,8 +223,12 @@ struct EnvKeyImportSheet: View {
     }
 
     private func setUpTool() {
-        guard let first = flow.bindings.first else { return }
-        setup = ToolLaunchReference(accountID: first.accountID, itemID: first.itemID,
+        setup = importedReference
+    }
+
+    private var importedReference: ToolLaunchReference? {
+        guard let first = flow.bindings.first else { return nil }
+        return ToolLaunchReference(accountID: first.accountID, itemID: first.itemID,
             initialBindings: flow.bindings, suggestedName: flow.project,
             suggestedDirectory: flow.source?.deletingLastPathComponent().path)
     }

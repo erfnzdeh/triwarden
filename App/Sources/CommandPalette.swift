@@ -877,7 +877,11 @@ struct CommandPalette: View {
                                    keywords: ["preferences"]) {
             model.showSettings()
         })
-        return list
+        if model.showsAPIKeyTools, model.isUnlocked {
+            list.append(PaletteCommand(id: "tools-guide", title: String(localized: "API Key Setup Guide"), symbol: "questionmark.circle",
+                keywords: ["learn", "tools", "start", "tutorial"]) { model.showToolGuide() })
+        }
+        return model.showsAPIKeyTools ? list : list.filter { !["new-api-key", "tools-projects", "go-apiKeys"].contains($0.id) }
     }
 }
 

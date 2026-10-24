@@ -9,8 +9,9 @@ struct HelpGuideView: View {
 
     private var shown: [HelpTopic] {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return HelpTopic.all }
-        return HelpTopic.all.filter {
+        let topics = HelpTopic.all.filter { $0.id != "local-api-keys" || model.showsAPIKeyTools }
+        guard !q.isEmpty else { return topics }
+        return topics.filter {
             String(localized: $0.title).localizedStandardContains(q) || String(localized: $0.body).localizedStandardContains(q)
         }
     }
@@ -105,6 +106,9 @@ struct HelpGuideView: View {
                         Button("Show Keyboard Shortcuts") { model.showShortcuts() }
                             .buttonStyle(.appPrimarySmall)
                     }
+                    if topic.id == "local-api-keys" {
+                        Button("Open Setup Guide") { model.showToolGuide() }.buttonStyle(.appPrimarySmall).disabled(!model.isUnlocked)
+                    }
                 }
                 .padding(28)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -141,6 +145,8 @@ struct HelpTopic: Identifiable {
                   body: "Safari, Chrome and other apps can fill passwords, passkeys and one-time codes. A login saved for one site also fills on the sites it owns, such as a google.com login on youtube.com."),
         HelpTopic(id: "ssh", symbol: "terminal", title: "SSH agent",
                   body: "An SSH key in the vault can sign git commits and SSH sessions. Triwarden asks which app wants the signature. An app you trust is allowed next time without asking, and every answer is kept in a log on this Mac."),
+        HelpTopic(id: "local-api-keys", symbol: "key.horizontal", title: "API keys and tools",
+                  body: "Save a provider key or import an .env file. Set up a tool, install the terminal helper, then approve your first launch. The setup guide opens the real forms and includes a dummy-key exercise. Open Access to review or revoke temporary approvals. Lock and revoke cannot recover keys that a program already received."),
         HelpTopic(id: "watchtower", symbol: "shield", title: "Watchtower",
                   body: "Watchtower marks weak, reused and breached passwords, and logins that still use http. The item list shows each issue. Change on Site opens that site’s own page for changing the password."),
         HelpTopic(id: "lock", symbol: "lock", title: "Lock and unlock",

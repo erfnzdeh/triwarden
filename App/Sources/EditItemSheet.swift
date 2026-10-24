@@ -38,6 +38,7 @@ struct EditItemSheet: View {
         var focusTOTP = false
         var importSSH = false
         var apiKey = false
+        var practiceAPIKey = false
     }
 
     @Environment(AppModel.self) private var model
@@ -47,6 +48,7 @@ struct EditItemSheet: View {
     var prefill: Prefill?
     /// In the detail panel rather than a sheet: Cancel and Save sit at the top, by the title.
     var inPanel = false
+    var onSaved: (() -> Void)? = nil
 
     @State private var name = ""
     @State private var username = ""
@@ -65,6 +67,7 @@ struct EditItemSheet: View {
     @State private var customFields: [CustomField] = []
     @State private var apiPresetFieldIDs: Set<UUID> = []
     @State private var apiVariableCustomized = false
+    @State private var apiKeyPresentation: Bool?
     @State private var reprompt = false
     @State private var showSecrets = false
     @State private var showGenerator = false
@@ -775,6 +778,7 @@ struct EditItemSheet: View {
 
     private var isAPIKey: Bool {
         if prefill?.apiKey == true { return true }
+        guard apiKeyPresentation ?? model.showsAPIKeyTools else { return false }
         switch mode {
         case .edit(let item), .clone(let item): return item.isAPIKey
         case .create: return false
@@ -859,6 +863,7 @@ struct EditItemSheet: View {
     }
 
     private func load() {
+        if apiKeyPresentation == nil { apiKeyPresentation = model.showsAPIKeyTools }
         defer {
             prepareAPIFields()
             // After the fields have settled (pickers tidy their values on appear).
@@ -880,7 +885,15 @@ struct EditItemSheet: View {
                 password = prefill.password
                 if !prefill.uri.isEmpty { websites = [WebsiteRow(text: prefill.uri)] }
                 if prefill.importSSH { DispatchQueue.main.async { choosingSSHKey = true } }
-                if prefill.apiKey { customFields = APIKeyTemplate.fields }
+                if prefill.apiKey {
+                    customFields = APIKeyTemplate.fields
+                    if prefill.practiceAPIKey {
+                        for index in customFields.indices {
+                            if customFields[index].name == APIKeyTemplate.keyField { customFields[index].value = "triwarden-preview-only" }
+                            if customFields[index].name == APIKeyTemplate.environmentField { customFields[index].value = "TRIWARDEN_TEST_KEY" }
+                        }
+                    }
+                }
             }
             return
         case .edit(let item): source = item
@@ -949,7 +962,7 @@ struct EditItemSheet: View {
             if cleanFields != item.customFields.filter({ $0.kind != .linked }) { edit.customFields = cleanFields }
             ok = edit == CipherEdit() ? true : await model.updateItem(item.id, edit: edit)
         }
-        if ok { close(saved: true) }
+        if ok { onSaved?(); close(saved: true) }
     }
 }
 

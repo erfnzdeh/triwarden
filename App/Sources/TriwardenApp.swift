@@ -130,7 +130,9 @@ struct TriwardenApp: App {
                 Button("New Secure Note") { model.beginEditing(EditRequest(mode: .create(.secureNote))) }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                     .disabled(!model.isUnlocked)
-                Button("New API Key") { model.beginAPIKey() }.disabled(!model.isUnlocked)
+                if model.showsAPIKeyTools {
+                    Button("New API Key") { model.beginAPIKey() }.disabled(!model.isUnlocked)
+                }
                 Menu("New Other Item") {
                     Button("Card") { model.beginEditing(EditRequest(mode: .create(.card))) }
                     Button("Identity") { model.beginEditing(EditRequest(mode: .create(.identity))) }

@@ -133,9 +133,43 @@ enum ToolsBrowserSelfTest {
             check(!FileManager.default.fileExists(atPath: root.path), "isolated access diagnostics clean up without a real vault or socket")
         } catch { check(false, "isolated access persistence: \(error.localizedDescription)") }
         try? FileManager.default.removeItem(at: root)
+        checkGuideVisibility(check)
         checkSavedToolsCLI(check)
         print("Tools browser self-test: \(failed) failure(s)")
         exit(failed == 0 ? 0 : 1)
+    }
+
+    private static func checkGuideVisibility(_ check: (Bool, String) -> Void) {
+        let previous = AccountStore.namespace
+        AccountStore.namespace = "ToolsGuideSelfTest-" + UUID().uuidString
+        defer {
+            if let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AccountStore.appGroup) {
+                try? FileManager.default.removeItem(at: group.appendingPathComponent(AccountStore.namespace))
+            }
+            AccountStore.namespace = previous
+        }
+        let model = AppModel()
+        model.previewUnlocked = true; model.phase = .vault
+        check(!model.showsAPIKeyTools, "new users start without API-key developer pages")
+        let hidden = Set(CommandPalette.commands(model: model, close: {}).map(\.id))
+        check(hidden.isDisjoint(with: ["new-api-key", "tools-projects", "go-apiKeys", "tools-guide"]),
+              "hidden developer pages also leave no API-key palette commands")
+        check(!model.showsNavigation(.section(.apiKeys)) && !model.showsNavigation(.toolLaunches) &&
+              model.showsNavigation(.section(.notes)) && model.showsNavigation(.access) && model.showsNavigation(.section(.sshKeys)),
+              "sidebar visibility hides local API tools and preserves notes and SSH")
+        model.beginAPIKey(); model.provideKeyToTool(APIKeyTemplate.fixture); model.showToolGuide()
+        check(model.editing == nil && model.toolLaunchReference == nil && !model.showingToolGuide,
+              "hidden API-key actions cannot open stale developer forms")
+        check(VaultSection.notes.includes(APIKeyTemplate.fixture), "API keys remain ordinary Secure Notes when developer pages are hidden")
+        model.showsAPIKeyTools = true
+        let shown = Set(CommandPalette.commands(model: model, close: {}).map(\.id))
+        check(shown.isSuperset(of: ["new-api-key", "tools-projects", "go-apiKeys", "tools-guide"]),
+              "opting in exposes creation, navigation, and the replayable guide")
+        check(model.showsNavigation(.section(.apiKeys)) && model.showsNavigation(.toolLaunches),
+              "developer sidebar and keyboard navigation use the same visible destinations")
+        model.showsAPIKeyTools = false
+        check(!CommandPalette.commands(model: model, close: {}).contains { $0.id == "new-api-key" },
+              "hiding developer pages updates commands without restarting the app")
     }
 
     /// The real signed CLI reads only a disposable catalog, with no vault, socket or approval.

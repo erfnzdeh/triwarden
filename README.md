@@ -174,19 +174,21 @@ generators, passkeys), `VaultwardenAPI` (login, 2FA, SSO, sync, edits, attachmen
 
 ## Command line
 
-Turn on **Settings › Developer › Answer the tw command**, then link the bundled tool:
-
-```bash
-sudo ln -sf /Applications/Triwarden.app/Contents/MacOS/tw /usr/local/bin/tw
-```
+For vault lookups, turn on **Settings > Developer > Answer the tw command**.
+Open **Terminal Helper Setup…** on that page. Check the install destination before running the copied command.
 
 `tw get github | pbcopy`, `tw code github`, `tw list mail`, `tw generate --length 32`, `tw lock`.
 Reading from the vault asks for Touch ID in the app.
 
-For local API keys, configure one saved command and vault field in **Settings › Secrets**, then run
-`tw run --profile NAME`. Each launch refreshes the account online and asks for approval plus Touch ID
-or your Mac password. The command receives the key through its environment without a plaintext
-configuration file. See [Local API credentials](docs/local-secrets.md) for setup and security limits.
+Local API-key tools are optional developer features. New users start with these pages hidden.
+Enable **Settings > Developer > Show API key tools**, then open **Tools > Start Setup Guide…**.
+The guide covers key storage, tool setup, helper installation, first approval, and repeat use.
+It includes a dummy-key exercise that needs no provider account or API charges.
+
+Use the copied launch command to start the saved tool. Once remains the default approval.
+The program receives the selected keys and can retain or transmit them.
+Start with [Getting started](docs/local-api-keys-getting-started.md).
+See the [Terminal guide](docs/local-secrets-dx.md) for commands and [Local API credentials](docs/local-secrets.md) for security limits.
 
 ## Security
 

@@ -6,6 +6,7 @@ import Observation
 import SwiftUI
 import UserNotifications
 import VaultwardenAPI
+import SecretsAgent
 
 /// Drives the item form in the detail panel.
 struct EditRequest: Identifiable {
@@ -462,6 +463,13 @@ final class AppModel {
     @ObservationIgnored private(set) var sshAgent: SSHAgentService!
     @ObservationIgnored private(set) var cli: CLIBridge!
     @ObservationIgnored private(set) var secrets: SecretsController!
+    @ObservationIgnored private let developerPreferences: UserDefaults?
+    static let apiKeyToolsPreference = "showLocalAPIKeyTools"
+    /// A visibility preference, not a permission or a switch for configured launch services.
+    var showsAPIKeyTools = false {
+        didSet { developerPreferences?.set(showsAPIKeyTools, forKey: Self.apiKeyToolsPreference) }
+    }
+    var showingToolGuide = false
     let updates: Updater
     /// Fork-style licensing: everything works unregistered; official builds remind now and then.
     let license = License()
@@ -473,6 +481,7 @@ final class AppModel {
         // No updater while testing, rendering snapshots, previewing or showing the demo vault.
         let quiet = CommandLine.arguments.contains { ["--selftest", "--snapshot"].contains($0) || $0.hasPrefix("--selftest") || $0.hasPrefix("--demo") }
             || ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        developerPreferences = quiet ? nil : .standard
         updates = Updater(start: !quiet)
         AttachmentFiles.wipe() // leftovers from a crash
         Self.current = self
@@ -482,6 +491,9 @@ final class AppModel {
         if !tooling, UserDefaults.standard.bool(forKey: Pref.sshAgent) { sshAgent.start() }
         cli = CLIBridge(model: self)
         secrets = secretsFactory?(self) ?? SecretsController(model: self, start: !tooling && !CommandLine.arguments.contains(where: { $0.hasPrefix("--demo") }))
+        let saved = developerPreferences?.object(forKey: Self.apiKeyToolsPreference) as? Bool
+        showsAPIKeyTools = ToolGuide.showsTools(saved: saved, hasTools: !secrets.profiles.isEmpty || secrets.lastError != nil)
+        if saved == nil { developerPreferences?.set(showsAPIKeyTools, forKey: Self.apiKeyToolsPreference) }
         if !tooling { cli.refreshRunning() }
         if !tooling {
             trackForegroundApps()

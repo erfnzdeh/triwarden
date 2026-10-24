@@ -24,6 +24,7 @@ enum Snapshot {
         model.setPreviewAccounts([SavedAccount(id: "demo", email: "alex@example.com", serverKind: "selfHosted",
             serverURL: "https://vault.example.com", kdf: .pbkdf2(iterations: 600_000), protectedUserKey: "")])
         model.previewUnlocked = true; model.phase = .vault
+        model.showsAPIKeyTools = true
         model.items = ToolsPreviewFixture.keys()
         let profiles = ToolsPreviewFixture.profiles(64)
         let envImport = try? EnvImportFile(data: Data("OPENAI_API_KEY=test-only-one\nSEARCH_API_KEY=test-only-two\nPORT=3000\nVITE_PUBLIC_KEY=test-only-public\nNODE_OPTIONS=--require=disabled\n".utf8))
@@ -53,6 +54,11 @@ enum Snapshot {
         }
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let views: [(String, AnyView, CGSize)] = [
+                ("guide-key", AnyView(ToolSetupGuide(previewStep: .key, previewProfiles: [])), CGSize(width: 640, height: 640)),
+                ("guide-tool", AnyView(ToolSetupGuide(previewStep: .tool, previewProfiles: ToolsPreviewFixture.profiles(1, keys: 1))), CGSize(width: 640, height: 640)),
+                ("guide-helper", AnyView(ToolSetupGuide(previewStep: .helper, previewProfiles: ToolsPreviewFixture.profiles(1, keys: 1))), CGSize(width: 640, height: 640)),
+                ("guide-launch", AnyView(ToolSetupGuide(previewStep: .launch, previewProfiles: ToolsPreviewFixture.profiles(1, keys: 1))), CGSize(width: 640, height: 640)),
+                ("guide-daily", AnyView(ToolSetupGuide(previewStep: .daily, previewProfiles: ToolsPreviewFixture.profiles(1, keys: 1))), CGSize(width: 640, height: 640)),
                 ("env-import", AnyView(EnvKeyImportSheet(previewFile: envImport)), CGSize(width: 600, height: 640)),
                 ("env-export", AnyView(EnvReferenceExport(profile: ToolsPreviewFixture.profiles(1, keys: 2)[0])), CGSize(width: 520, height: 480)),
                 ("env-saved", AnyView(EnvReferenceExport(profile: ToolsPreviewFixture.profiles(1, keys: 2)[0], previewSavedURL: URL(fileURLWithPath: "/Users/alex/Projects/my-assistant/.env.triwarden"))), CGSize(width: 520, height: 480)),
@@ -80,7 +86,7 @@ enum Snapshot {
                 ("history-compact", AnyView(AccessPane(previewProfiles: [], previewGrants: [], previewSSHTrusts: [], previewAlways: [], previewHistory: history, previewShowsHistory: true)), CGSize(width: 440, height: 800))
             ]
             let only = ProcessInfo.processInfo.environment["TRIWARDEN_TOOLS_PREVIEW_ONLY"]
-            for (stage, view, size) in views where only == nil || only == stage {
+            for (stage, view, size) in views where only == nil || only == stage || stage.hasPrefix((only ?? "") + "-") {
                 render(view.background { WindowBackdrop() }.environment(model).environment(\.colorScheme, name == "dark" ? .dark : .light),
                        size: size, appearance: appearance, to: directory.appendingPathComponent("tools-workspace-" + stage + "-" + name + ".png"))
             }
@@ -99,6 +105,7 @@ enum Snapshot {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("api-key-preview-" + UUID().uuidString)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let model = AppModel()
+        model.showsAPIKeyTools = true
         model.setPreviewAccounts([SavedAccount(id: "demo", email: "alex@example.com", serverKind: "selfHosted",
             serverURL: "https://vault.example.com", kdf: .pbkdf2(iterations: 600_000), protectedUserKey: "")])
         model.previewUnlocked = true; model.phase = .vault

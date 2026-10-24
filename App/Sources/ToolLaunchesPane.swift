@@ -145,6 +145,10 @@ struct ToolLaunchesPane: View {
                 Text("Tools").font(.system(size: 20, weight: .bold))
                 Text(verbatim: String(total)).font(.system(size: 12)).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
+                Button("Setup Guide", systemImage: "questionmark.circle") { model.showToolGuide() }
+                    .labelStyle(.iconOnly).buttonStyle(.plain)
+                    .frame(width: 32, height: 32).modifier(HeaderChrome(shape: .circle))
+                    .help("Setup Guide").accessibilityIdentifier("toolSetupGuide")
                 Button { replacement = nil; choosingKey = true } label: { Label("Add Tool", systemImage: "plus") }
                     .buttonStyle(.appPrimarySmall).accessibilityIdentifier("addTool")
                     .disabled(total >= 64)
@@ -172,6 +176,7 @@ struct ToolLaunchesPane: View {
 
     private var workspaceActions: [ActionMenuEntry] {
         [ActionMenuEntry(title: String(localized: "Import .env File…"), symbol: "square.and.arrow.down") { importingEnv = true },
+         ActionMenuEntry(title: String(localized: "Setup Guide…"), symbol: "questionmark.circle") { model.showToolGuide() },
          ActionMenuEntry(title: String(localized: "Terminal Helper Setup…"), symbol: "terminal") { helperSetup = true },
          ActionMenuEntry(title: String(localized: "View Access"), symbol: "checkmark.shield") { model.requestedSection = .access }]
     }
@@ -449,9 +454,8 @@ struct ToolLaunchesPane: View {
         ContentUnavailableView {
             Label("Use saved keys with your tools", systemImage: "terminal")
         } description: { Text("Choose a saved API key and set up the tool that needs it. Keys stay in your vault.") } actions: {
-            Button("Add Tool…") { replacement = nil; choosingKey = true }.buttonStyle(.appPrimary)
-            Button("Save an API Key") { model.beginAPIKey() }.buttonStyle(.appSecondary)
-            Button("Import .env File…") { importingEnv = true }.buttonStyle(.appSecondary)
+            Button("Start Setup Guide…") { model.showToolGuide() }.buttonStyle(.appPrimary)
+            Button("Add Tool…") { replacement = nil; choosingKey = true }.buttonStyle(.appSecondary)
         }.frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     private func errorBanner(_ error: String) -> some View {
@@ -523,7 +527,7 @@ private struct ToolBrowserRow: View {
     }
 }
 
-private struct ToolKeyPicker: View {
+struct ToolKeyPicker: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
