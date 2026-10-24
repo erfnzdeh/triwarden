@@ -441,8 +441,7 @@ private struct QuickActions: View {
             }
             tile("paperplane", "New Send") {
                 model.bringToFront()
-                model.requestedSection = .sends
-                model.composingSend = true
+                model.composeNewSend()
             }
             tile("clock.badge.checkmark", "Codes") {
                 model.bringToFront()

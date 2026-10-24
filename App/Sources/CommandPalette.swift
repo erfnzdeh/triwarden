@@ -887,7 +887,7 @@ struct CommandPalette: View {
                     model.bringToFront(); model.promptNewFolder()
                 },
                 PaletteCommand(id: "new-send", title: String(localized: "New Send"), symbol: "paperplane", keywords: ["share", "link"]) {
-                    model.bringToFront(); model.requestedSection = .sends; model.composingSend = true
+                    model.bringToFront(); model.composeNewSend()
                 },
                 PaletteCommand(id: "generator", title: String(localized: "Generator"), symbol: "dice", shortcut: "⌘G",
                                keywords: ["random", "generate", "password", "passphrase", "username"]) { model.bringToFront(); model.showingGenerator = true },

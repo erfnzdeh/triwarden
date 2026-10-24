@@ -151,6 +151,16 @@ struct GeneratorView: View {
 
     // MARK: Compact (popover)
 
+    /// "Use Password" / "Use Passphrase" / "Use Username" — the button must name what it inserts, and the compact
+    /// form offers all three (a passphrase is not a password).
+    private var useTitle: LocalizedStringKey {
+        switch mode {
+        case .password: "Use Password"
+        case .passphrase: "Use Passphrase"
+        case .username: "Use Username"
+        }
+    }
+
     private var compactBody: some View {
         VStack(alignment: .leading, spacing: 12) {
             if modes.count > 1 { modePicker }
@@ -160,7 +170,7 @@ struct GeneratorView: View {
             if let onUse {
                 HStack {
                     Spacer()
-                    Button(mode == .username ? "Use Username" : "Use Password") { remember(); onUse(value) }
+                    Button(useTitle) { remember(); onUse(value) }
                         .buttonStyle(.appPrimary)
                         .disabled(value.isEmpty)
                 }

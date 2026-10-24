@@ -140,15 +140,7 @@ extension AppModel {
         case .sends:
             func send(_ kind: SendComposer.Kind, _ title: String) -> SidebarContextAction {
                 action(title, "paperplane", enabled: !ids.isEmpty && !composingSend && editingSend == nil) {
-                    self.leaveNewItemForm {
-                        self.sendContextAccountIDs = ids
-                        self.newSendKind = kind
-                        self.newSendNonce = UUID()
-                        self.editingSend = nil
-                        self.composingSend = true
-                        self.expiredSendsOnly = false
-                        self.requestedSection = .sends
-                    }
+                    self.leaveNewItemForm { self.composeNewSend(kind: kind, accountIDs: ids) }
                 }
             }
             return [send(.text, String(localized: "New Text Send")), send(.file, String(localized: "New File Send")),
