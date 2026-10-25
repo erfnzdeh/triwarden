@@ -1364,6 +1364,8 @@ private struct SSHRequestsButton: View {
                 .font(.system(size: 14, weight: .medium))
                 .symbolRenderingMode(.monochrome)
                 .frame(width: PaletteTrigger.height, height: PaletteTrigger.height)
+                .modifier(HeaderChrome(shape: .circle, hovering: hovering))
+                // Over the chrome, not under it: the circle's bright edge would otherwise cut across the badge.
                 .overlay(alignment: .topTrailing) {
                     if count > 0 {
                         Text(verbatim: count > 9 ? "9+" : "\(count)")
@@ -1375,7 +1377,6 @@ private struct SSHRequestsButton: View {
                             .offset(x: 3, y: -1)
                     }
                 }
-                .modifier(HeaderChrome(shape: .circle, hovering: hovering))
                 .contentShape(.circle)
                 .animation(.easeOut(duration: 0.12), value: hovering)
         }
