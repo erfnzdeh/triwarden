@@ -3431,6 +3431,7 @@ struct ToastView: View {
 private struct ClipboardCountdown: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.windowVisible) private var windowVisible
     @State private var hovering = false
     @State private var labelWidth: CGFloat = 0
 
@@ -3448,8 +3449,9 @@ private struct ClipboardCountdown: View {
                         .frame(width: hovering ? labelWidth + 15 : 0, alignment: .trailing)
                         .clipped()
                         .opacity(hovering ? 1 : 0)
-                    // The same ring as a one-time code's: draining, the seconds inside. Only it redraws with the clock.
-                    TimelineView(.animation(minimumInterval: 1 / 15)) { context in
+                    // The same ring as a one-time code's: draining, the seconds inside. Only it redraws with the clock,
+                    // and not while the window can't be seen.
+                    TimelineView(.animation(minimumInterval: 1 / 15, paused: !windowVisible)) { context in
                         let remaining = max(0, clears.timeIntervalSince(context.date))
                         CountdownRing(fraction: remaining / total, seconds: Int(remaining.rounded(.up)), size: 20, digits: 0.46)
                     }

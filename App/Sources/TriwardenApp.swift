@@ -59,6 +59,7 @@ struct TriwardenApp: App {
                 .environment(model)
                 .modifier(ReducedMotionPolicy())
                 .modifier(LiveAppearance())
+                .tracksWindowVisibility()
                 .onAppear { appDelegate.model = model; Bench.markAfterCommit("first-frame") }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                     model.appDidBecomeActive()
@@ -80,6 +81,7 @@ struct TriwardenApp: App {
                 .environment(model)
                 .modifier(ReducedMotionPolicy())
                 .modifier(LiveAppearance())
+                .tracksWindowVisibility() // the panel stays built while it's closed
         } label: {
             Image(nsImage: MenuBarGlyph.image(pending: model.sshAgent.pendingCount > 0))
                 .opacity(model.isUnlocked ? 1 : 0.55)

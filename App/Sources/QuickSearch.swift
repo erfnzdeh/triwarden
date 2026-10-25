@@ -283,7 +283,8 @@ final class QuickSearchController {
         let hosting = NSHostingView(rootView: CommandPalette(close: { [weak self] in self?.close() },
             sizeChanged: { [weak self] size in self?.resizePanel(to: size) })
             .environment(model)
-            .modifier(LiveAppearance()))
+            .modifier(LiveAppearance())
+            .tracksWindowVisibility()) // the palette stays built while it's hidden, its highlighted row too
         hosting.wantsLayer = true
         hosting.layer?.cornerRadius = 22
         hosting.layer?.masksToBounds = true
