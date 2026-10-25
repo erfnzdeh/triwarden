@@ -136,7 +136,21 @@ targets:
         TW_LICENSE_PUBLIC_KEY: "tKfg++yszjBWpgVoyELeDo2CRrKq2RCU+UvNdp5dvIs=" # must match Komori's triwarden-live signing identity
         SPARKLE_PUBLIC_KEY: "7DshdRJXizUaeQeMuAi1w4A8QeYH+2YJxaOdvtxPfTI=" # sparkle-public-key (written by `make sparkle-keys`; the private key never enters the repo)
     scheme:
-      testTargets: [TriwardenUITests]
+      testTargets: [TriwardenIconTests, TriwardenUITests]
+
+  TriwardenIconTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - AppTests
+      - App/Sources/IconStore.swift
+    dependencies:
+      - package: VaultCore
+        product: VaultwardenAPI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.sinhong2011.triwarden.icontests
+        GENERATE_INFOPLIST_FILE: YES
 
   TriwardenUITests:
     type: bundle.ui-testing
@@ -274,3 +288,12 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.sinhong2011.triwarden.autofill
         GENERATE_INFOPLIST_FILE: NO
+
+# Logic tests compile the production cache directly, without launching the app or opening Keychain.
+schemes:
+  IconStoreTests:
+    build:
+      targets:
+        TriwardenIconTests: [test]
+    test:
+      targets: [TriwardenIconTests]

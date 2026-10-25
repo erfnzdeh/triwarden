@@ -139,7 +139,7 @@ jobs:
             build/Build
             build/ModuleCache.noindex
             build/SourcePackages
-          key: app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-${{ hashFiles('project.yml', 'Packages/VaultCore/Package.resolved', 'App/**', 'Shared/**', 'AutoFill/**', 'BrowserExtension/**', 'CLI/**', 'Helpers/**', 'UITests/**', 'Packages/VaultCore/Sources/**') }}
+          key: app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-${{ hashFiles('project.yml', 'Packages/VaultCore/Package.resolved', 'App/**', 'Shared/**', 'AutoFill/**', 'BrowserExtension/**', 'CLI/**', 'Helpers/**', 'UITests/**', 'AppTests/**', 'Packages/VaultCore/Sources/**') }}
           restore-keys: |
             app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-
       - name: Install XcodeGen
@@ -151,6 +151,11 @@ jobs:
           mkdir -p build/ci
           xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee build/ci/build.log | tail -20
+      - name: IconStore memory budget tests (no app host)
+        run: |
+          xcodebuild -project Triwarden.xcodeproj -scheme IconStoreTests -configuration Debug \
+            -destination 'platform=macOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
+            -resultBundlePath build/ci/icon-store.xcresult test 2>&1 | tee build/ci/icon-store.log | tail -30
       - name: Auto-Type helper icon
         run: |
           # System Settings reads this nested bundle, not the host app. macOS 26 uses CFBundleIconName plus
@@ -177,7 +182,7 @@ jobs:
             build/Build
             build/ModuleCache.noindex
             build/SourcePackages
-          key: app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-${{ hashFiles('project.yml', 'Packages/VaultCore/Package.resolved', 'App/**', 'Shared/**', 'AutoFill/**', 'BrowserExtension/**', 'CLI/**', 'Helpers/**', 'UITests/**', 'Packages/VaultCore/Sources/**') }}
+          key: app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-${{ hashFiles('project.yml', 'Packages/VaultCore/Package.resolved', 'App/**', 'Shared/**', 'AutoFill/**', 'BrowserExtension/**', 'CLI/**', 'Helpers/**', 'UITests/**', 'AppTests/**', 'Packages/VaultCore/Sources/**') }}
       - name: UI smoke tests (ad-hoc signing, no release credentials)
         run: |
           test -f UITests/CISmokeTests.swift

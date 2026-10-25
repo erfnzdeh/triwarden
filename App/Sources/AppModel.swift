@@ -1613,6 +1613,7 @@ final class AppModel {
 
     /// Locks one account; the others stay open.
     func lock(_ accountId: String) {
+        IconStore.shared.clearMemory()
         session(for: accountId)?.close()
         sessions.removeAll { $0.id == accountId }
         if accountFilter == accountId { accountFilter = nil }
@@ -2277,6 +2278,7 @@ final class AppModel {
     /// Locks every account. `animated` (a lock the user asked for): the keys go at once, but the vault's contents stay
     /// on screen a moment longer, so the door can close over them before they're cleared.
     func lock(animated: Bool = false) {
+        IconStore.shared.clearMemory()
         let transition = beginGateTransition()
         accountDoor = nil
         previewURL = nil
@@ -2348,6 +2350,7 @@ final class AppModel {
     static let gateClose = 0.6
 
     private func clearVaultContents() {
+        IconStore.shared.clearMemory()
         selectedID = nil
         repromptPassed = [:]
         repromptRequest = nil
