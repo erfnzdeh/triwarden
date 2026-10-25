@@ -972,6 +972,7 @@ final class AppModel {
         guard let id = accountId ?? unlockTarget?.id else { return }
         if let session = session(for: id) { session.close() }
         sessions.removeAll { $0.id == id }
+        ItemSort.forgetLetters()
         AccountStore.erase(id)
         if accountFilter == id { accountFilter = nil }
         unlockTargetID = nil
@@ -1614,6 +1615,7 @@ final class AppModel {
     /// Locks one account; the others stay open.
     func lock(_ accountId: String) {
         IconStore.shared.clearMemory()
+        ItemSort.forgetLetters()
         session(for: accountId)?.close()
         sessions.removeAll { $0.id == accountId }
         if accountFilter == accountId { accountFilter = nil }
@@ -2351,6 +2353,7 @@ final class AppModel {
 
     private func clearVaultContents() {
         IconStore.shared.clearMemory()
+        ItemSort.forgetLetters()
         selectedID = nil
         repromptPassed = [:]
         repromptRequest = nil
