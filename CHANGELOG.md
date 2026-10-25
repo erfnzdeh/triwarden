@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.1](https://github.com/sinhong2011/triwarden/compare/v0.5.0...v0.5.1) (2026-10-25)
+
+
+### Fixes
+
+* **header:** draw the bell's count badge over the button's chrome ([#106](https://github.com/sinhong2011/triwarden/issues/106)) ([1d928cc](https://github.com/sinhong2011/triwarden/commit/1d928cc7f3412c0a559028afe10ae783eb9c4e0e))
+
+
+### Performance
+
+* bound IconStore memory and reject stale icon requests ([#104](https://github.com/sinhong2011/triwarden/issues/104)) ([12a25ee](https://github.com/sinhong2011/triwarden/commit/12a25ee7d70f04c8ac965277fddceb2912e74639))
+* **vault:** take live window geometry out of the vault's body, and settle the header ([#110](https://github.com/sinhong2011/triwarden/issues/110)) ([b768927](https://github.com/sinhong2011/triwarden/commit/b7689272e4e29c8391bfec3126ecf063204fe4fa))
+
 ## [0.5.0](https://github.com/sinhong2011/triwarden/compare/v0.4.0...v0.5.0) (2026-10-24)
 
 
