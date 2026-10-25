@@ -171,6 +171,11 @@ enum Snapshot {
             renderWindow(VaultView().environment(vault).tint(.brand), size: CGSize(width: 1180, height: 760),
                          appearance: appearance, to: dir.appending(path: "window-page-item-\(name).png"))
             vault.clipboardClearsAt = nil // the pages as they usually look (they end up in the README)
+            // The header bell with something waiting: its count badge sits over the circle's bright edge, not under it.
+            vault.updates.noteAvailableVersion("0.6.0")
+            renderWindow(VaultView().environment(vault).tint(.brand), size: CGSize(width: 1180, height: 760),
+                         appearance: appearance, to: dir.appending(path: "window-bell-badge-\(name).png"))
+            vault.updates.noteAvailableVersion(nil)
             let selected = vault.selectedID
             vault.beginEditing(EditRequest(mode: .create(.sshKey)))
             renderWindow(VaultView().environment(vault).tint(.brand), size: CGSize(width: 1180, height: 760),
@@ -755,21 +760,41 @@ enum Snapshot {
         // The window as the screen shows it (glass and all), when the window server lets the app capture its own
         // window; otherwise its views drawn offscreen (glass comes out black).
         if let image = Self.capture(window) {
-            try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
+            Self.write(image, to: url)
         } else if let frame = window.contentView?.superview,
                   let rep = frame.bitmapImageRepForCachingDisplay(in: frame.bounds) {
             frame.cacheDisplay(in: frame.bounds, to: rep)
-            try? rep.representation(using: .png, properties: [:])?.write(to: url)
+            Self.write(rep, to: url)
         }
         // The same live window after a change to the model: what a sync or an edit does to views already on screen.
         if let change, let changedURL {
             change()
             RunLoop.main.run(until: .now + 1)
             if let image = Self.capture(window) {
-                try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: changedURL)
+                Self.write(image, to: changedURL)
             }
         }
         window.orderOut(nil)
+    }
+
+    /// Streams the render when a test runner asked for it, else writes it into the app's container.
+    private static func write(_ image: CGImage, to url: URL) {
+        guard let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { return }
+        write(png, to: url)
+    }
+
+    private static func write(_ rep: NSBitmapImageRep, to url: URL) {
+        guard let png = rep.representation(using: .png, properties: [:]) else { return }
+        write(png, to: url)
+    }
+
+    private static func write(_ png: Data, to url: URL) {
+        // Synthetic renders can be streamed directly to a test runner without reading the app container.
+        if ProcessInfo.processInfo.environment["TRIWARDEN_SNAPSHOT_STDOUT"] == "1" {
+            print("SNAPSHOT \(url.lastPathComponent) \(png.base64EncodedString())")
+        } else {
+            try? png.write(to: url)
+        }
     }
 
     private static func firstSplitView(in view: NSView?) -> NSSplitView? {
@@ -808,14 +833,7 @@ enum Snapshot {
         let frame = host.superview ?? host
         guard let rep = frame.bitmapImageRepForCachingDisplay(in: frame.bounds) else { return }
         frame.cacheDisplay(in: frame.bounds, to: rep)
-        if let png = rep.representation(using: .png, properties: [:]) {
-            // Synthetic renders can be streamed directly to a test runner without reading the app container.
-            if ProcessInfo.processInfo.environment["TRIWARDEN_SNAPSHOT_STDOUT"] == "1" {
-                print("SNAPSHOT \(url.lastPathComponent) \(png.base64EncodedString())")
-            } else {
-                try? png.write(to: url)
-            }
-        }
+        Self.write(rep, to: url)
         window.orderOut(nil)
     }
 }
