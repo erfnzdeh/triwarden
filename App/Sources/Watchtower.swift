@@ -136,6 +136,20 @@ struct WatchtowerReport {
 
     var problemCount: Int { Set(issues.filter { !$0.key.isAdvisory }.values.flatMap { $0.map(\.id) }).count }
 
+    /// The same count as a report's `problemCount`, without building the report (its lists, cards, duplicate groups
+    /// and password ages): the sidebar's badge asks for it on every redraw. The problems are the issues that aren't
+    /// advisory (breached, reused, weak, insecure), counted once per item.
+    static func countProblems(in items: [VaultItem], breaches: [String: Int]?) -> Int {
+        var ids = Set<String>()
+        for item in items where !item.isDeleted && item.kind == .login {
+            guard let pw = item.password else { continue }
+            if (breaches?[item.id] ?? 0) > 0 || item.reuseCount > 0 || Self.isWeak(pw) || item.websites.contains(where: Self.isInsecure) {
+                ids.insert(item.id)
+            }
+        }
+        return ids.count
+    }
+
     /// The setup guide for a host or the domain it falls under.
     static func guide(for host: String, in directory: [String: URL]) -> URL? {
         var parts = host.lowercased().split(separator: ".")
