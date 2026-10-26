@@ -48,6 +48,8 @@ enum SSHApprovalNotifier {
 extension Notification.Name {
     static let sshApprovalReveal = Notification.Name("sshApprovalReveal")
     static let inboxReveal = Notification.Name("inboxReveal")
+    /// Save or Not Now on a login-save banner. `userInfo`: "id" and "save" (Bool).
+    static let loginSaveAnswer = Notification.Name("loginSaveAnswer")
 }
 
 /// One macOS banner for something waiting in the bell. A tap only opens the bell.
@@ -97,7 +99,21 @@ final class SSHNotificationBridge: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        let opensInbox = response.notification.request.content.userInfo["inbox"] != nil
+        let info = response.notification.request.content.userInfo
+        if let saveID = info[LoginSaveNotifier.userInfoKey] as? String {
+            let action = response.actionIdentifier
+            guard action == LoginSaveNotifier.saveAction || action == LoginSaveNotifier.notNowAction else {
+                // A click on the banner itself: show it in the bell, where Save and Not Now wait.
+                await MainActor.run { NotificationCenter.default.post(name: .inboxReveal, object: nil) }
+                return
+            }
+            let save = action == LoginSaveNotifier.saveAction
+            await MainActor.run {
+                NotificationCenter.default.post(name: .loginSaveAnswer, object: nil, userInfo: ["id": saveID, "save": save])
+            }
+            return
+        }
+        let opensInbox = info["inbox"] != nil
         await MainActor.run {
             NotificationCenter.default.post(name: opensInbox ? .inboxReveal : .sshApprovalReveal, object: nil)
         }
