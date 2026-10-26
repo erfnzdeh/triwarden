@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.1](https://github.com/sinhong2011/triwarden/compare/v0.5.0...v0.5.1) (2026-10-26)
+
+
+### Fixes
+
+* **cli:** resolve tw's own path with proc_pidpath for install-chrome ([#121](https://github.com/sinhong2011/triwarden/issues/121)) ([9a42c84](https://github.com/sinhong2011/triwarden/commit/9a42c849e45d6974afeed7c8db95dc4b08026022)) (@sinhong2011)
+* **header:** draw the bell's count badge over the button's chrome ([#106](https://github.com/sinhong2011/triwarden/issues/106)) ([1d928cc](https://github.com/sinhong2011/triwarden/commit/1d928cc7f3412c0a559028afe10ae783eb9c4e0e)) (@sinhong2011)
+* **menubar:** offer a sign-in when no account is signed in ([#123](https://github.com/sinhong2011/triwarden/issues/123)) ([3ff4b3c](https://github.com/sinhong2011/triwarden/commit/3ff4b3cfc7999f71d95e41eeb9fe9ab09b82f5e1)) (@sinhong2011)
+* **ui:** draggable scroll thumb, OTP tile width, new-item keys, and no AutoFill at launch ([#119](https://github.com/sinhong2011/triwarden/issues/119)) ([7505738](https://github.com/sinhong2011/triwarden/commit/7505738eb950f06988a667e36d2909c0af83055b)) (@sinhong2011)
+
+
+### Performance
+
+* **app:** keep input bookkeeping out of observation ([#118](https://github.com/sinhong2011/triwarden/issues/118)) ([e28561b](https://github.com/sinhong2011/triwarden/commit/e28561b3d018603b83098aeb87fa72cbf4430528)) (@erfnzdeh)
+* bound IconStore memory and reject stale icon requests ([#104](https://github.com/sinhong2011/triwarden/issues/104)) ([12a25ee](https://github.com/sinhong2011/triwarden/commit/12a25ee7d70f04c8ac965277fddceb2912e74639)) (@sinhong2011)
+* **list:** filter and sort the item list once per update, and index letters without ICU ([#115](https://github.com/sinhong2011/triwarden/issues/115)) ([5724089](https://github.com/sinhong2011/triwarden/commit/57240893937de4509a9513480a81c8178885850d)) (@erfnzdeh)
+* **otp:** rest countdown rings while their window can't be seen ([#117](https://github.com/sinhong2011/triwarden/issues/117)) ([5a56b2f](https://github.com/sinhong2011/triwarden/commit/5a56b2faef813541edbed425f512942a1639af44)) (@erfnzdeh)
+* **sidebar:** count rows in place, and work out the Watchtower badge without the whole report ([#116](https://github.com/sinhong2011/triwarden/issues/116)) ([5d26e99](https://github.com/sinhong2011/triwarden/commit/5d26e9935629e174689734c50f58856572bfccac)) (@erfnzdeh)
+* **vault:** take live window geometry out of the vault's body, and settle the header ([#110](https://github.com/sinhong2011/triwarden/issues/110)) ([b768927](https://github.com/sinhong2011/triwarden/commit/b7689272e4e29c8391bfec3126ecf063204fe4fa)) (@sinhong2011)
+
 ## [0.5.0](https://github.com/sinhong2011/triwarden/compare/v0.4.0...v0.5.0) (2026-10-24)
 
 
