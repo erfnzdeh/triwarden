@@ -1270,10 +1270,10 @@ private struct NewItemButton: View {
         ActionMenu(entries: [
             ActionMenuEntry(title: String(localized: "New Login"), symbol: "key", shortcut: "⌘N") { model.beginEditing(EditRequest(mode: .create(.login))) },
             ActionMenuEntry(title: String(localized: "New Secure Note"), symbol: "note.text", shortcut: "⇧⌘N") { model.beginEditing(EditRequest(mode: .create(.secureNote))) },
-            ActionMenuEntry(title: String(localized: "New Card"), symbol: "creditcard") { model.beginEditing(EditRequest(mode: .create(.card))) },
-            ActionMenuEntry(title: String(localized: "New Identity"), symbol: "person.crop.rectangle") { model.beginEditing(EditRequest(mode: .create(.identity))) },
-            ActionMenuEntry(title: String(localized: "New SSH Key"), symbol: "terminal") { model.beginEditing(EditRequest(mode: .create(.sshKey))) },
-            ActionMenuEntry(title: String(localized: "New Send"), symbol: "paperplane") { model.composeNewSend() },
+            ActionMenuEntry(title: String(localized: "New Card"), symbol: "creditcard", shortcut: "⌥⌘B") { model.beginEditing(EditRequest(mode: .create(.card))) },
+            ActionMenuEntry(title: String(localized: "New Identity"), symbol: "person.crop.rectangle", shortcut: "⌥⌘I") { model.beginEditing(EditRequest(mode: .create(.identity))) },
+            ActionMenuEntry(title: String(localized: "New SSH Key"), symbol: "terminal", shortcut: "⌥⌘K") { model.beginEditing(EditRequest(mode: .create(.sshKey))) },
+            ActionMenuEntry(title: String(localized: "New Send"), symbol: "paperplane", shortcut: "⌥⌘S") { model.composeNewSend() },
             ActionMenuEntry(title: String(localized: "New Folder…"), symbol: "folder.badge.plus", shortcut: "⌥⌘N") { model.promptNewFolder() },
             ActionMenuEntry(title: String(localized: "Import…"), symbol: "square.and.arrow.down", shortcut: "⇧⌘I", enabled: !model.sessions.isEmpty) { model.beginImport() }
         ]) {
@@ -3038,8 +3038,8 @@ struct ItemDetail: View {
 }
 
 extension HeroCard {
-    /// The password and one-time-code tiles.
-    @ViewBuilder func tiles(_ style: HeroStyle) -> some View {
+    /// The password and one-time-code tiles. `stacked`: one above the other, each the column's full width.
+    @ViewBuilder func tiles(_ style: HeroStyle, stacked: Bool = false) -> some View {
         if let password = item.password {
             Tile(style: style) {
                 passwordArmed = model.copyCount
@@ -3077,19 +3077,21 @@ extension HeroCard {
                     CopyStatusIcon(copied: codeCopied)
                 }
                 .font(.system(size: 12)).foregroundStyle(style.muted)
-                // Pinned to the tile's bottom, so it sits low like the password and its strength bar, with room above.
-                Spacer(minLength: 4)
+                // The row takes the tile's slack and sits at its bottom, level with the password's strength bar.
                 HStack(alignment: .center, spacing: 12) {
                     LiveOTPCode(totp: totp, size: 22)
                     // The ring sits at the tile's trailing edge, under the copy icon, at any tile width.
                     Spacer(minLength: 12)
                     LiveCountdownRing(totp: totp, size: 24, digits: 0.38)
                 }
+                .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, 2)
             }
-            .frame(minWidth: item.password == nil ? nil : 220,
-                   maxWidth: item.password == nil ? .infinity : nil)
-            .fixedSize(horizontal: item.password != nil, vertical: false)
+            // Beside the password it keeps its own width, as before. Stacked, it takes the column's width instead:
+            // hugging there left the ring floating mid-column with a gap after it.
+            .frame(minWidth: stacked || item.password == nil ? nil : 220,
+                   maxWidth: stacked || item.password == nil ? .infinity : nil)
+            .fixedSize(horizontal: !stacked && item.password != nil, vertical: false)
             .help(Text("Copy one-time code"))
             .accessibilityLabel(Text("Copy One-time code"))
             .copyTick(armed: $codeArmed, copied: $codeCopied)
@@ -3177,7 +3179,7 @@ private struct HeroCard: View {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 10) { tiles(style) }
                         .frame(minWidth: 0, idealWidth: 440, maxWidth: .infinity, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 10) { tiles(style) }
+                    VStack(alignment: .leading, spacing: 10) { tiles(style, stacked: true) }
                 }
                 .fixedSize(horizontal: false, vertical: true)
             }

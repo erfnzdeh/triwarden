@@ -10,7 +10,7 @@ struct ThinScroller: ViewModifier {
     @State private var position = ScrollPosition(edge: .top)
     @State private var hovering = false
     @State private var scrolling = false
-    @State private var dragStart: CGFloat?
+    @State private var dragging = false
     @State private var thumbHover = false
     @Environment(\.colorScheme) private var scheme
 
@@ -35,33 +35,30 @@ struct ThinScroller: ViewModifier {
             let height = max(36, track * ratio)
             let maxOffset = g.contentSize.height - g.containerSize.height
             let progress = min(max((g.contentOffset.y + g.contentInsets.top) / maxOffset, 0), 1)
-            let visible = hovering || scrolling || dragStart != nil
+            let visible = hovering || scrolling || dragging
+            let widened = thumbHover || dragging
             Capsule()
-                .fill(Color.primary.opacity(thumbHover || dragStart != nil ? (scheme == .dark ? 0.45 : 0.35) : (scheme == .dark ? 0.28 : 0.22)))
-                .frame(width: thumbHover || dragStart != nil ? 7 : 5, height: height)
+                .fill(Color.primary.opacity(widened ? (scheme == .dark ? 0.45 : 0.35) : (scheme == .dark ? 0.28 : 0.22)))
+                .frame(width: widened ? 7 : 5, height: height)
                 .frame(width: 16, alignment: .trailing) // real hit area stays stable as the thumb expands
+                // A view of its own takes the drag before the rows below see the mouse: a row's `.draggable` would
+                // otherwise start a drag out of the list, and the thumb would never move. It has to be attached
+                // before the offset below, or the hit area stays at the top of the track while the thumb moves.
+                .overlay {
+                    ThumbHandle(progress: progress, track: track, thumbHeight: height, visible: visible,
+                                onHover: { thumbHover = $0 },
+                                onDrag: { progress in
+                                    // Grouped Form/List can report geometry without honoring ScrollPosition.
+                                    // Drive their AppKit clip view directly; ordinary SwiftUI scroll views use the binding.
+                                    if !nativeDriver.scroll(to: progress) { position.scrollTo(y: progress * maxOffset) }
+                                },
+                                onEnd: { dragging = false },
+                                onBegan: { dragging = true })
+                }
                 .padding(.trailing, 3)
                 .offset(y: 6 + (track - height) * progress)
-                .contentShape(.rect)
-                .onHover { thumbHover = $0 }
-                .highPriorityGesture(
-                    // Measured in window space: the thumb moves under the pointer, so its own space would cancel the drag out.
-                    DragGesture(minimumDistance: 0, coordinateSpace: .global)
-                        .onChanged { drag in
-                            let start = dragStart ?? (g.contentOffset.y + g.contentInsets.top)
-                            if dragStart == nil { dragStart = start }
-                            let perPoint = maxOffset / max(track - height, 1)
-                            let offset = min(max(start + drag.translation.height * perPoint, 0), maxOffset)
-                            // Grouped Form/List can report geometry without honoring ScrollPosition.
-                            // Drive their AppKit clip view directly; ordinary SwiftUI scroll views use the binding.
-                            if !nativeDriver.scroll(to: offset / maxOffset) {
-                                position.scrollTo(y: offset)
-                            }
-                        }
-                        .onEnded { _ in dragStart = nil }
-                )
                 .opacity(visible ? 1 : 0)
-                .animation(.easeOut(duration: 0.15), value: thumbHover)
+                .animation(.easeOut(duration: 0.15), value: widened)
                 .accessibilityHidden(true) // the scroll view itself stays scrollable for VoiceOver
         }
     }
@@ -70,6 +67,89 @@ struct ThinScroller: ViewModifier {
 extension View {
     /// Hides the system scroller and shows the app's slim one on hover or while scrolling.
     func thinScroller() -> some View { modifier(ThinScroller()) }
+}
+
+/// The thumb's drag, in AppKit. A SwiftUI `DragGesture` on the thumb loses the mouse to a row's `.draggable`
+/// underneath (the vault list's rows can be dragged into folders), so the drag lives in a view of its own.
+private struct ThumbHandle: NSViewRepresentable {
+    var progress: CGFloat
+    var track: CGFloat
+    var thumbHeight: CGFloat
+    var visible: Bool
+    var onHover: (Bool) -> Void
+    var onDrag: (CGFloat) -> Void
+    var onEnd: () -> Void
+    var onBegan: () -> Void
+
+    func makeNSView(context: Context) -> Handle {
+        let view = Handle()
+        apply(to: view)
+        return view
+    }
+
+    func updateNSView(_ view: Handle, context: Context) { apply(to: view) }
+
+    private func apply(to view: Handle) {
+        view.progress = progress
+        view.track = track
+        view.thumbHeight = thumbHeight
+        view.visible = visible
+        view.onHover = onHover
+        view.onDrag = onDrag
+        view.onEnd = onEnd
+        view.onBegan = onBegan
+    }
+
+    final class Handle: NSView {
+        var progress: CGFloat = 0
+        var track: CGFloat = 1
+        var thumbHeight: CGFloat = 36
+        var visible = false
+        var onHover: (Bool) -> Void = { _ in }
+        var onDrag: (CGFloat) -> Void = { _ in }
+        var onEnd: () -> Void = {}
+        var onBegan: () -> Void = {}
+
+        private var grabY: CGFloat = 0
+        private var grabProgress: CGFloat = 0
+        private var tracking: NSTrackingArea?
+
+        /// A press on the thumb starts the drag even when the window is not the active one.
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            if let tracking { removeTrackingArea(tracking) }
+            let area = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+                                      owner: self)
+            addTrackingArea(area)
+            tracking = area
+        }
+
+        override func mouseEntered(with event: NSEvent) { onHover(true) }
+        override func mouseExited(with event: NSEvent) { onHover(false) }
+
+        override func mouseDown(with event: NSEvent) {
+            grabY = event.locationInWindow.y
+            grabProgress = progress
+            onBegan()
+        }
+
+        // Measured in window space: the thumb moves under the pointer, so its own space would cancel the drag out.
+        override func mouseDragged(with event: NSEvent) {
+            let travel = max(track - thumbHeight, 1)
+            let delta = (grabY - event.locationInWindow.y) / travel
+            onDrag(min(max(grabProgress + delta, 0), 1))
+        }
+
+        override func mouseUp(with event: NSEvent) { onEnd() }
+
+        /// Only the thumb takes clicks, and only while it is showing.
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            guard visible, !isHiddenOrHasHiddenAncestor else { return nil }
+            return super.hitTest(point)
+        }
+    }
 }
 
 /// Resolve the native scroll view belonging to this modifier, without intercepting pointer events.
