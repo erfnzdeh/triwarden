@@ -140,20 +140,45 @@
   }
 
   // ---- Offer to save on submit ----
+  // Only a real login attempt counts: a form's submit, a click on its submit button (some pages handle that click
+  // themselves and never fire submit), or, on pages with no form, Enter in the password field or a button that
+  // reads like logging in. Other clicks (show password, menus, anything outside the form) never offer to save.
+  // The app doesn't interrupt: it posts a notification and keeps the login in its bell until you answer.
+  const LOGIN_LABEL = /\b(log ?in|log ?on|sign ?in|sign ?on|sign ?up|register|create account|continue|next|submit|save|update|change password)\b/i;
   let lastOffer = "";
+
+  /** The password worth saving in `scope`: the new one on a change-password form, else the last one filled. */
+  function submittedPassword(scope) {
+    const filled = [...scope.querySelectorAll('input[type="password"]')].filter((p) => p.value);
+    return filled.find((p) => /new-password/.test(p.autocomplete || "")) || filled[filled.length - 1];
+  }
+
   function offerSave(scope) {
-    const pw = [...(scope || document).querySelectorAll('input[type="password"]')].find((p) => p.value);
+    const pw = submittedPassword(scope || document);
     if (!pw) return;
-    const username = usernameFor(pw)?.value || "";
+    const username = (usernameFor(pw)?.value || "").trim();
     const key = `${username}\u0000${pw.value}`;
     if (key === lastOffer) return;
     lastOffer = key;
     send({ command: "save", username, password: pw.value });
   }
+
   document.addEventListener("submit", (e) => offerSave(e.target), true);
   document.addEventListener("click", (e) => {
-    const b = e.target.closest?.('button, input[type="submit"]');
-    if (b && (b.type === "submit" || b.form) && (b.form || document).querySelector('input[type="password"]')) offerSave(b.form);
+    const b = e.target.closest?.('button, input[type="submit"], input[type="button"], [role="button"]');
+    if (!b || b.disabled) return;
+    if (b.form) {
+      // Inside a form only its submit button counts; type="button" ones (show password, etc.) never do.
+      if (b.type === "submit") offerSave(b.form);
+      return;
+    }
+    if (b.closest("form")) return; // a [role=button] inside a form: the form's own submit covers it
+    const label = `${b.textContent || ""} ${b.value || ""} ${b.getAttribute("aria-label") || ""}`;
+    if (LOGIN_LABEL.test(label)) offerSave(document);
+  }, true);
+  document.addEventListener("keydown", (e) => {
+    const t = e.target;
+    if (e.key === "Enter" && t instanceof HTMLInputElement && !t.form && (t.type === "password" || textLike(t))) offerSave(document);
   }, true);
 
   document.addEventListener("mousedown", (e) => { if (menu && !e.composedPath().includes(host)) closeMenu(); }, true);

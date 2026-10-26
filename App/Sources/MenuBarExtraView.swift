@@ -22,6 +22,7 @@ struct MenuBarContent: View {
             topRow
             if model.isUnlocked, focusedOpen {
                 if query.trimmingCharacters(in: .whitespaces).isEmpty {
+                    PendingSavesCard()
                     FrontTabMatchPrompt()
                     SiteCard()
                     ShelfCard()
@@ -254,6 +255,43 @@ private struct CopyIcon: View {
 
 
 /// The logins for the page (or app) the panel was opened over; a click types it in there.
+/// Logins the browser extension caught, waiting for Save or Not Now. Opening the panel is when you see them.
+private struct PendingSavesCard: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let saves = Array(model.cli.pendingSaves.reversed())
+        if !saves.isEmpty {
+            PanelCard(padding: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("From your browser")
+                        .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                        .padding(.horizontal, 8).padding(.top, 2)
+                    ForEach(saves) { save in
+                        HStack(spacing: 8) {
+                            Image(systemName: save.isUpdate ? "key.horizontal" : "key.fill")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(Color.brand)
+                                .frame(width: 16)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(verbatim: save.title).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                                Text(verbatim: save.detail).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                            Spacer(minLength: 6)
+                            Button("Not Now") { Task { await model.cli.answerSave(save.id, save: false) } }
+                                .buttonStyle(.appSecondarySmall)
+                            Button(save.isUpdate ? String(localized: "Update") : String(localized: "Save")) { Task { await model.cli.answerSave(save.id, save: true) } }
+                                .buttonStyle(.appPrimarySmall)
+                        }
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                    }
+                }
+            }
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+}
+
 private struct SiteCard: View {
     @Environment(AppModel.self) private var model
 
