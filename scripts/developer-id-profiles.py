@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Makes sure each bundle ID has an active Developer ID provisioning profile for the Developer ID Application
-certificate in the keychain, and installs it where Xcode looks. Prints `bundle-id<TAB>profile name` per line, for the
-export's provisioningProfiles.
+certificate in the keychain, and installs it where Xcode looks. Prints `bundle-id<TAB>profile name` per line, for CI
+archive signing and the export's provisioningProfiles.
 
     scripts/developer-id-profiles.py io.github.sinhong2011.triwarden io.github.sinhong2011.triwarden.autofill
 
-Needs an App Store Connect API key with Admin access: ASC_KEY_PATH, ASC_KEY_ID, ASC_ISSUER_ID. Xcode's automatic
-Developer ID export goes through Apple's cloud signing, which only the Account Holder may use; manual signing with
-these profiles and the imported certificate doesn't. Standard library plus the system `openssl`, so CI needs nothing
-installed.
+Needs an App Store Connect API key with Admin access: ASC_KEY_PATH, ASC_KEY_ID, ASC_ISSUER_ID. Called before archive
+when ASC_KEY_PATH is set so release.sh can Manual-sign with Developer ID (Automatic + Apple Development on a clean
+CI runner would mint Mac Development certificates and hit Apple's quota). Xcode's automatic Developer ID export goes
+through Apple's cloud signing, which only the Account Holder may use; manual signing with these profiles and the
+imported certificate doesn't. Standard library plus the system `openssl`, so CI needs nothing installed.
 """
 import base64
 import json

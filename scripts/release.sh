@@ -11,7 +11,10 @@
 #
 # Signing in to Apple, either:
 #   local: your Xcode account + `xcrun notarytool store-credentials triwarden-notary --apple-id … --team-id FX3VR69P5K`
+#          (archive uses project.yml Automatic + Apple Development; export uses Automatic Developer ID)
 #   CI:    an App Store Connect API key: ASC_KEY_PATH, ASC_KEY_ID, ASC_ISSUER_ID
+#          (imports Developer ID .p12; release.sh fetches MAC_APP_DIRECT profiles and archives with Manual
+#           Developer ID so runners never mint Mac/Apple Development certificates)
 # Sparkle update signature: the EdDSA private key from your keychain (`make sparkle-keys`), or SPARKLE_KEY_FILE in CI.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -40,20 +43,29 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 echo "== Generate project"
 xcodegen generate -q
 
-echo "== Archive $VERSION ($BUILD)"
-xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Release \
-  -archivePath "$ARCHIVE" -allowProvisioningUpdates "${AUTH[@]}" \
-  MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" archive | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)"
+# Bundles embedded in Triwarden.app that must sign during archive/export.
+DEVELOPER_ID_BUNDLES=(
+  io.github.sinhong2011.triwarden
+  io.github.sinhong2011.triwarden.autofill
+  io.github.sinhong2011.triwarden.safari
+  io.github.sinhong2011.triwarden.autotype
+  io.github.sinhong2011.triwarden.tw
+)
 
-echo "== Export with Developer ID"
 if [[ -n ${ASC_KEY_PATH:-} ]]; then
-  # CI: manual signing with the imported Developer ID certificate and profiles fetched (or made) with the API key.
-  # (Automatic signing would go through Apple's cloud signing, which only the Account Holder may use.)
-  # Only the targets with the AutoFill entitlement need a profile; the rest sign without one.
+  # CI: prepare Developer ID profiles *before* archive, then force Manual + Developer ID
+  # on the generated project. project.yml stays Automatic + Apple Development for local
+  # Debug; without this, archive + -allowProvisioningUpdates mints Mac Development certs
+  # on clean runners and eventually hits Apple's certificate quota.
+  echo "== Prepare Developer ID profiles"
+  PROFILES_TSV=$OUT/developer-id-profiles.tsv
+  scripts/developer-id-profiles.py "${DEVELOPER_ID_BUNDLES[@]}" | tee "$PROFILES_TSV"
+  scripts/apply-developer-id-signing.py "$PROFILES_TSV"
+
   PROFILES=""
   while IFS=$'\t' read -r bundle name; do
     PROFILES+="    <key>$bundle</key><string>$name</string>"$'\n'
-  done < <(scripts/developer-id-profiles.py io.github.sinhong2011.triwarden io.github.sinhong2011.triwarden.autofill)
+  done < "$PROFILES_TSV"
   cat > "$OUT/ExportOptions.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -78,6 +90,13 @@ else
 </dict></plist>
 PLIST
 fi
+
+echo "== Archive $VERSION ($BUILD)"
+xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Release \
+  -archivePath "$ARCHIVE" -allowProvisioningUpdates "${AUTH[@]}" \
+  MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" archive | grep -E "error:|ARCHIVE (SUCCEEDED|FAILED)"
+
+echo "== Export with Developer ID"
 xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportPath "$OUT/export" \
   -exportOptionsPlist "$OUT/ExportOptions.plist" -allowProvisioningUpdates "${AUTH[@]}" | grep -E "error:|EXPORT (SUCCEEDED|FAILED)"
 APP=$OUT/export/Triwarden.app
