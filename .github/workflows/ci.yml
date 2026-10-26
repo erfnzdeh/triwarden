@@ -24,22 +24,74 @@ defaults:
     shell: bash
 
 jobs:
-  vaultcore:
-    name: VaultCore tests
-    runs-on: macos-26
-    timeout-minutes: 15
+  # On pull requests, skip the macOS VaultCore / Vaultwarden / app jobs when only docs
+  # or release-please config changed. main, workflow_dispatch, and workflow_call always run
+  # the full suite. Required checks (VaultCore tests, Build app) still report success on the
+  # skip path so rulesets stay green.
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.resolve.outputs.code }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.sha }}
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            code:
+              - 'App/**'
+              - 'AppTests/**'
+              - 'AutoFill/**'
+              - 'BrowserExtension/**'
+              - 'CLI/**'
+              - 'Design/**'
+              - 'Helpers/**'
+              - 'Packages/**'
+              - 'Shared/**'
+              - 'UITests/**'
+              - 'project.yml'
+              - 'scripts/**'
+              - '.github/workflows/ci.yml'
+      - id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+          FILTER: ${{ steps.filter.outputs.code }}
+        run: |
+          if [[ $EVENT != pull_request ]]; then
+            echo code=true >> "$GITHUB_OUTPUT"
+          else
+            echo "code=${FILTER:-false}" >> "$GITHUB_OUTPUT"
+          fi
+
+  vaultcore:
+    name: VaultCore tests
+    needs: changes
+    runs-on: ${{ needs.changes.outputs.code == 'true' && 'macos-26' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - name: Docs / config only
+        if: needs.changes.outputs.code != 'true'
+        run: echo 'No app/code paths in this PR; skipping VaultCore tests.'
+      - if: needs.changes.outputs.code == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - name: Show toolchain
+        if: needs.changes.outputs.code == 'true'
         run: xcodebuild -version && swift --version
       - name: Unit tests
+        if: needs.changes.outputs.code == 'true'
         working-directory: Packages/VaultCore
         run: swift test
 
   integration:
     name: Vaultwarden ${{ matrix.version }} integration
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: macos-26
     timeout-minutes: 45
     strategy:
@@ -115,24 +167,31 @@ jobs:
 
   app:
     name: Build app
-    # This existing required check is the final gate, including server tests.
-    needs: [vaultcore, integration]
-    if: always()
-    runs-on: macos-26
+    # Final gate for code PRs (includes server tests). Docs/config PRs report success without macOS.
+    needs: [changes, vaultcore, integration]
+    if: always() && needs.changes.result == 'success' && needs.vaultcore.result == 'success' && (needs.integration.result == 'success' || needs.integration.result == 'skipped')
+    runs-on: ${{ needs.changes.outputs.code == 'true' && 'macos-26' || 'ubuntu-latest' }}
     timeout-minutes: 25
     steps:
+      - name: Docs / config only
+        if: needs.changes.outputs.code != 'true'
+        run: echo 'No app/code paths in this PR; skipping Build app.'
       - name: Require successful tests
+        if: needs.changes.outputs.code == 'true'
         env:
           CORE_RESULT: ${{ needs.vaultcore.result }}
           SERVER_RESULT: ${{ needs.integration.result }}
         run: test "$CORE_RESULT" = success && test "$SERVER_RESULT" = success
-      - uses: actions/checkout@v4
+      - if: needs.changes.outputs.code == 'true'
+        uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.sha }}
       - name: Xcode cache identity
+        if: needs.changes.outputs.code == 'true'
         id: sdk
         run: echo "version=$(xcodebuild -version | tr '\n' '-')" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
+      - if: needs.changes.outputs.code == 'true'
+        uses: actions/cache@v4
         id: app-cache
         with:
           path: |
@@ -143,20 +202,25 @@ jobs:
           restore-keys: |
             app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-
       - name: Install XcodeGen
+        if: needs.changes.outputs.code == 'true'
         run: brew install xcodegen
       - name: Generate project
+        if: needs.changes.outputs.code == 'true'
         run: xcodegen generate
       - name: Build (unsigned)
+        if: needs.changes.outputs.code == 'true'
         run: |
           mkdir -p build/ci
           xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee build/ci/build.log | tail -20
       - name: IconStore memory budget tests (no app host)
+        if: needs.changes.outputs.code == 'true'
         run: |
           xcodebuild -project Triwarden.xcodeproj -scheme IconStoreTests -configuration Debug \
             -destination 'platform=macOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO \
             -resultBundlePath build/ci/icon-store.xcresult test 2>&1 | tee build/ci/icon-store.log | tail -30
       - name: Auto-Type helper icon
+        if: needs.changes.outputs.code == 'true'
         run: |
           # System Settings reads this nested bundle, not the host app. macOS 26 uses CFBundleIconName plus
           # the compiled icon (Assets.car, and AppIcon.icns when actool emits one).
@@ -175,7 +239,7 @@ jobs:
             exit 1
           fi
       - name: Save compiled app before UI tests
-        if: steps.app-cache.outputs.cache-hit != 'true'
+        if: needs.changes.outputs.code == 'true' && steps.app-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: |
@@ -184,6 +248,7 @@ jobs:
             build/SourcePackages
           key: app-${{ runner.os }}-${{ runner.arch }}-${{ steps.sdk.outputs.version }}-${{ hashFiles('project.yml', 'Packages/VaultCore/Package.resolved', 'App/**', 'Shared/**', 'AutoFill/**', 'BrowserExtension/**', 'CLI/**', 'Helpers/**', 'UITests/**', 'AppTests/**', 'Packages/VaultCore/Sources/**') }}
       - name: UI smoke tests (ad-hoc signing, no release credentials)
+        if: needs.changes.outputs.code == 'true'
         run: |
           test -f UITests/CISmokeTests.swift
           # Codesigning changes do not always invalidate Xcode's copied extension bundles.
@@ -199,6 +264,7 @@ jobs:
       # Run after ad-hoc signing: changing the executable's signature after it creates Keychain items
       # would prompt for access in the UI tests.
       - name: Offline compatibility self-test
+        if: needs.changes.outputs.code == 'true'
         run: |
           # Older release tags predate this entry point; current PRs must run it.
           if [[ -f App/Sources/CompatibilitySelfTest.swift ]]; then
@@ -208,17 +274,20 @@ jobs:
             exit 1
           fi
       - name: Verify local command failure reporting
+        if: needs.changes.outputs.code == 'true'
         run: python3 scripts/test-make-exit-codes.py
       # tw is built as a dependency of the app; install-chrome must name the real binary when
       # started through PATH, not the working directory plus "tw".
       - name: Verify install-chrome host path
+        if: needs.changes.outputs.code == 'true'
         run: python3 scripts/test-install-chrome-path.py
       - name: JavaScript syntax
+        if: needs.changes.outputs.code == 'true'
         run: |
           node --check BrowserExtension/WebExtension/content.js
           node --check BrowserExtension/WebExtension/background.js
       - name: Upload test evidence
-        if: always()
+        if: always() && needs.changes.outputs.code == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: app-ci-evidence
