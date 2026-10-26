@@ -74,7 +74,7 @@ struct VaultDoorStage: View {
             }
         }
         .background {
-            DoorAnimationVisibility(visible: $animationVisible)
+            WindowVisibilityProbe(visible: $animationVisible, needsActiveApp: true)
                 .allowsHitTesting(false)
         }
         .accessibilityHidden(true)
@@ -90,60 +90,6 @@ struct VaultDoorStage: View {
         VaultDoorArt(steps: Double(turns), busy: busy ? 1 : 0, time: time, opened: opened, closed: closed, alert: alert,
                      lit: typed, radius: radius, center: center, dark: scheme == .dark, room: room, dial: dial)
             .animation(.easeInOut(duration: 0.4), value: busy)
-    }
-}
-
-/// Tracks the actual hosting window, including minimization and occlusion, without polling.
-private struct DoorAnimationVisibility: NSViewRepresentable {
-    @Binding var visible: Bool
-
-    func makeNSView(context: Context) -> VisibilityView {
-        let view = VisibilityView()
-        view.changed = { visible = $0 }
-        return view
-    }
-
-    func updateNSView(_ view: VisibilityView, context: Context) {
-        view.changed = { visible = $0 }
-    }
-
-    static func dismantleNSView(_ view: VisibilityView, coordinator: ()) {
-        NotificationCenter.default.removeObserver(view)
-        view.changed = nil
-    }
-
-    final class VisibilityView: NSView {
-        var changed: ((Bool) -> Void)?
-
-        override func hitTest(_ point: NSPoint) -> NSView? { nil }
-
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            let notifications = NotificationCenter.default
-            notifications.removeObserver(self)
-            if let window {
-                for name in [NSWindow.didChangeOcclusionStateNotification,
-                             NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification] {
-                    notifications.addObserver(self, selector: #selector(refresh), name: name, object: window)
-                }
-                for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification,
-                             NSApplication.didHideNotification, NSApplication.didUnhideNotification] {
-                    notifications.addObserver(self, selector: #selector(refresh), name: name, object: nil)
-                }
-            }
-            refresh()
-        }
-
-        @objc private func refresh() {
-            // Window attachment can happen during a SwiftUI update. Publish on the next main-loop turn,
-            // reading current state so queued notifications cannot restore an outdated visibility value.
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.changed?(NSApp.isActive && !NSApp.isHidden && self.window.map {
-                    $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible)
-                } == true)
-            }
-        }
     }
 }
 

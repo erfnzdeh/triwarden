@@ -141,15 +141,18 @@ struct LiveOTPCode: View {
 /// A code's countdown ring, drawn like the clipboard's countdown: SwiftUI redraws it 15 times a second (the arc
 /// drains smoothly, the seconds roll, the ring pops on a new code). Only a few show at once — one in the codes page's
 /// header, one per code elsewhere — so that's cheap; the codes themselves stay on the shared once-a-second clock.
+/// It rests while its window can't be seen: the palette and the menu bar panel stay built after they close, with a
+/// ring still in them.
 struct LiveCountdownRing: View {
     let totp: TOTP
     var size: CGFloat = 38
     /// The seconds' size against the ring's.
     var digits: CGFloat = 0.32
     var lively = true
+    @Environment(\.windowVisible) private var windowVisible
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1 / 15, paused: !Motion.plays)) { context in
+        TimelineView(.animation(minimumInterval: 1 / 15, paused: !Motion.plays || !windowVisible)) { context in
             let period = Double(totp.period)
             let into = context.date.timeIntervalSince1970.truncatingRemainder(dividingBy: period)
             CountdownRing(fraction: 1 - into / period, seconds: totp.secondsRemaining(at: context.date), size: size,
