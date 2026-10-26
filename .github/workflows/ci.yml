@@ -209,6 +209,10 @@ jobs:
           fi
       - name: Verify local command failure reporting
         run: python3 scripts/test-make-exit-codes.py
+      # tw is built as a dependency of the app; install-chrome must name the real binary when
+      # started through PATH, not the working directory plus "tw".
+      - name: Verify install-chrome host path
+        run: python3 scripts/test-install-chrome-path.py
       - name: JavaScript syntax
         run: |
           node --check BrowserExtension/WebExtension/content.js

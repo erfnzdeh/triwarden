@@ -48,12 +48,29 @@ func nativeMessagingLoop() -> Never {
     exit(0)
 }
 
+/// The running binary's absolute path, with symlinks resolved.
+///
+/// `argv[0]` is only "tw" when started through PATH (a Homebrew symlink, say), and treating that
+/// as a file URL would resolve it against the current directory. Ask the system instead, and fall
+/// back to `argv[0]` only when it is already absolute.
+func executablePath() -> String? {
+    var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+    if proc_pidpath(getpid(), &buffer, UInt32(buffer.count)) > 0 {
+        return URL(fileURLWithPath: String(cString: buffer)).resolvingSymlinksInPath().path
+    }
+    let argv0 = CommandLine.arguments[0]
+    guard argv0.hasPrefix("/") else { return nil }
+    return URL(fileURLWithPath: argv0).resolvingSymlinksInPath().path
+}
+
 /// `tw install-chrome <extension-id>` registers this binary as Chrome's native-messaging host.
 func installChromeHost(_ extensionID: String) -> Never {
     guard extensionID.range(of: "^[a-p]{32}$", options: .regularExpression) != nil else {
         fail("that doesn't look like a Chrome extension id (32 letters a–p, see chrome://extensions)", code: 64)
     }
-    let me = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath().path
+    guard let me = executablePath() else {
+        fail("couldn't work out where tw is installed; run it by its full path", code: 70)
+    }
     let manifest: [String: Any] = [
         "name": chromeHost, "description": "Triwarden", "path": me, "type": "stdio",
         "allowed_origins": ["chrome-extension://\(extensionID)/"],
