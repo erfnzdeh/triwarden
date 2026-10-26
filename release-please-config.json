@@ -3,6 +3,7 @@
   "release-type": "simple",
   "include-v-in-tag": true,
   "include-component-in-tag": false,
+  "include-commit-authors": true,
   "bump-minor-pre-major": true,
   "bootstrap-sha": "c11d2dc55735f638ce361693a15a9ae9c3c39633",
   "pull-request-title-pattern": "chore: release ${version}",

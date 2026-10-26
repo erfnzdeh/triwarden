@@ -6,7 +6,8 @@ Releases are automatic once the one-time setup is done:
    `perf: …`, `security: …` show up in the changelog; `docs:`, `chore:`, `test:` don't. `feat!:` or a
    `BREAKING CHANGE:` footer marks a breaking change (before 1.0 that bumps the minor version).
 2. [release-please](https://github.com/googleapis/release-please) keeps a **release PR** open with the next version
-   (in `project.yml`) and `CHANGELOG.md`.
+   (in `project.yml`) and `CHANGELOG.md`. With `include-commit-authors` in `release-please-config.json`, each
+   entry ends with `(@username)` when GitHub knows the author (otherwise the author name).
 3. Merging the release PR tags `vX.Y.Z` and creates the GitHub release. The `build` job in
    `.github/workflows/release.yml` then runs `scripts/release.sh X.Y.Z --publish`:
    - archive a Release build (build number = commit count);
