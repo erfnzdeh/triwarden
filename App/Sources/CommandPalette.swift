@@ -156,6 +156,8 @@ struct CommandPalette: View {
     @State private var index = 0
     @State private var appeared = false
     @FocusState private var focused: Bool
+    /// Bumped to put the keyboard in the unlock row's password field.
+    @State private var unlockFocusRequest = 0
     /// The item whose actions are listed (→ / Tab), or nil for the results.
     @State private var actionsFor: VaultItem?
     /// The generator row's current value, remade when the request changes or on ⌘R.
@@ -373,8 +375,10 @@ struct CommandPalette: View {
         .onGeometryChange(for: CGSize.self) { $0.size } action: { sizeChanged($0) }
         .frame(maxWidth: .infinity, alignment: .top)
         .onChange(of: model.quickSearchNonce, initial: true) {
-            query = initialQuery; scopeTokens = []; index = 0; focused = true
+            query = initialQuery; scopeTokens = []; index = 0
             promoteScopes()
+            // Locked: nothing to search until it's open, so the keyboard goes to the master password.
+            if showsUnlock { unlockFocusRequest += 1 } else { focused = true }
             actionsFor = nil; flash = nil
             regenerate()
             if initialActions {
@@ -455,6 +459,9 @@ struct CommandPalette: View {
         }
     }
 
+    /// The vault is locked and the query isn't commands-only: the unlock row (with its password field) leads.
+    private var showsUnlock: Bool { !model.isUnlocked && !parsed.commandsOnly && model.unlockTarget != nil }
+
     /// The results scroll once they're taller than this (an identity's actions, a long command list).
     private static let resultsMaxHeight: CGFloat = 430
 
@@ -477,7 +484,7 @@ struct CommandPalette: View {
     private func resultRows(_ sections: [Section]) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             if !model.isUnlocked && !parsed.commandsOnly {
-                PaletteUnlock()
+                PaletteUnlock(focusRequest: unlockFocusRequest)
             }
             let flat = sections.flatMap(\.entries)
             ForEach(Array(flat.enumerated()), id: \.element.id) { i, entry in
@@ -991,6 +998,8 @@ private struct PaletteUnlock: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorScheme) private var scheme
     @State private var password = ""
+    /// Bumped by the palette each time it opens over the locked vault (the row stays alive between openings).
+    var focusRequest = 0
     @State private var usePassword = false
     @FocusState private var focused: Bool
 
@@ -1041,6 +1050,9 @@ private struct PaletteUnlock: View {
             }
             .padding(12)
             .onAppear { focused = true }
+            .onChange(of: focusRequest) { Task { @MainActor in focused = true } }
+            // Let go on close, so the next opening's request lands as a change.
+            .onChange(of: model.quickSearchDismissNonce) { focused = false }
             .onChange(of: model.errorMessage) { _, message in
                 guard message != nil else { return }
                 password = ""
