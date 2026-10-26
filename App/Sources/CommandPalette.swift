@@ -879,14 +879,17 @@ struct CommandPalette: View {
                                keywords: ["add", "password", "create"]) { create(.login) },
                 PaletteCommand(id: "new-note", title: String(localized: "New Secure Note"), symbol: "note.text", shortcut: "⇧⌘N",
                                keywords: ["add", "create"]) { create(.secureNote) },
-                PaletteCommand(id: "new-card", title: String(localized: "New Card"), symbol: "creditcard", keywords: ["add", "credit"]) { create(.card) },
-                PaletteCommand(id: "new-identity", title: String(localized: "New Identity"), symbol: "person.crop.rectangle",
+                PaletteCommand(id: "new-card", title: String(localized: "New Card"), symbol: "creditcard", shortcut: "⌥⌘B",
+                               keywords: ["add", "credit"]) { create(.card) },
+                PaletteCommand(id: "new-identity", title: String(localized: "New Identity"), symbol: "person.crop.rectangle", shortcut: "⌥⌘I",
                                keywords: ["add", "address"]) { create(.identity) },
-                PaletteCommand(id: "new-ssh", title: String(localized: "New SSH Key"), symbol: "terminal", keywords: ["add", "ed25519"]) { create(.sshKey) },
+                PaletteCommand(id: "new-ssh", title: String(localized: "New SSH Key"), symbol: "terminal", shortcut: "⌥⌘K",
+                               keywords: ["add", "ed25519"]) { create(.sshKey) },
                 PaletteCommand(id: "new-folder", title: String(localized: "New Folder…"), symbol: "folder.badge.plus", shortcut: "⌥⌘N") {
                     model.bringToFront(); model.promptNewFolder()
                 },
-                PaletteCommand(id: "new-send", title: String(localized: "New Send"), symbol: "paperplane", keywords: ["share", "link"]) {
+                PaletteCommand(id: "new-send", title: String(localized: "New Send"), symbol: "paperplane", shortcut: "⌥⌘S",
+                               keywords: ["share", "link"]) {
                     model.bringToFront(); model.composeNewSend()
                 },
                 PaletteCommand(id: "generator", title: String(localized: "Generator"), symbol: "dice", shortcut: "⌘G",

@@ -1334,7 +1334,8 @@ private struct ShortcutsSettings: View {
     /// The menu commands and their keys, as the app's menus define them.
     private static let inApp: [(LocalizedStringKey, String)] = [
         ("Triwarden Help", "⌘?"), ("Keyboard Shortcuts", "⌃⇧/"),
-        ("New Login", "⌘N"), ("New Secure Note", "⇧⌘N"), ("New Folder", "⌥⌘N"),
+        ("New Login", "⌘N"), ("New Secure Note", "⇧⌘N"), ("New Card", "⌥⌘B"), ("New Identity", "⌥⌘I"),
+        ("New SSH Key", "⌥⌘K"), ("New Send", "⌥⌘S"), ("New Folder", "⌥⌘N"),
         ("Edit", "⌘E"), ("Copy Username", "⇧⌘C"), ("Copy Password", "⌥⌘C"), ("Copy One-Time Code", "⌃⌘C"),
         ("Copy Notes", "⌃⌘N"),
         ("Toggle Favorite", "⌘D"), ("Archive", "⌥⌘A"), ("Move to Trash", "⌘⌫"), ("Generator", "⌘G"),
