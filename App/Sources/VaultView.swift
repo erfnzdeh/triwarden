@@ -1706,7 +1706,7 @@ private struct InboxNote: Identifiable {
     /// What the bell counts. Rows of one kind count once, and a kind whose rows were all swiped away stops counting.
     var kind: Kind = .watchtower
 
-    enum Kind: Hashable { case sync, update, emergency, watchtower, sends }
+    enum Kind: Hashable { case loginSave, sync, update, emergency, watchtower, sends }
 }
 
 /// Press and hover for a row in the bell. The fill lives here so a click is visible.
@@ -2017,6 +2017,8 @@ private enum Inbox {
     static func badgeCount(model: AppModel, emergency: [EmergencyNotice], visible notes: [InboxNote]) -> Int {
         let kinds = Set(notes.map(\.kind))
         var count = model.sshAgent?.pending == nil ? 0 : 1
+        // Each waiting login is its own question, so each one counts.
+        count += notes.filter { $0.kind == .loginSave }.count
         if kinds.contains(.sync) { count += 1 }
         if kinds.contains(.update) { count += 1 }
         if kinds.contains(.sends) { count += 1 }
@@ -2027,6 +2029,21 @@ private enum Inbox {
 
     static func notes(model: AppModel, emergency: [EmergencyNotice], dismiss: @escaping () -> Void, reload: @escaping () async -> Void) -> [InboxNote] {
         var notes: [InboxNote] = []
+        // Newest first: the login you just submitted is the one you're looking for.
+        for save in model.cli.pendingSaves.reversed() {
+            notes.append(InboxNote(
+                id: AppModel.loginSaveNotePrefix + save.id,
+                symbol: save.isUpdate ? "key.horizontal" : "key.fill",
+                tint: Color.brand,
+                title: save.title,
+                subtitle: save.detail,
+                primaryTitle: save.isUpdate ? String(localized: "Update") : String(localized: "Save"),
+                primary: { Task { await model.cli.answerSave(save.id, save: true) } },
+                secondaryTitle: String(localized: "Not Now"),
+                secondary: { Task { await model.cli.answerSave(save.id, save: false) } },
+                kind: .loginSave
+            ))
+        }
         if model.sessions.contains(where: { $0.lastSyncError != nil }) {
             notes.append(InboxNote(
                 id: "sync",

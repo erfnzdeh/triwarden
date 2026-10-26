@@ -500,6 +500,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                                name: .sshApprovalReveal, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(revealInbox),
                                                name: .inboxReveal, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(answerLoginSave(_:)),
+                                               name: .loginSaveAnswer, object: nil)
+        LoginSaveNotifier.registerCategories()
         // The last window closing: with "Keep running in the menu bar" on, Triwarden leaves the Dock.
         NotificationCenter.default.addObserver(self, selector: #selector(windowWillClose(_:)),
                                                name: NSWindow.willCloseNotification, object: nil)
@@ -511,6 +514,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func revealInbox() {
         model?.revealInbox()
+    }
+
+    /// Save or Not Now straight from the banner: answered in place, without bringing the window forward.
+    @objc private func answerLoginSave(_ note: Notification) {
+        guard let model, let id = note.userInfo?["id"] as? String, let save = note.userInfo?["save"] as? Bool else { return }
+        Task { await model.cli.answerSave(id, save: save) }
     }
 
     @objc private func windowWillClose(_ note: Notification) {

@@ -876,6 +876,16 @@ final class AppModel {
             session.scheduleSync()
         }
         announceInbox()
+        revealRecentSaves()
+    }
+
+    /// Bringing Triwarden forward soon after a browser login opens the bell on it, so Save is one click away.
+    /// Only once per save, and only while it's fresh: an unrelated visit later just sees the badge.
+    private func revealRecentSaves() {
+        guard isUnlocked, cli.revealSavesOnActivate else { return }
+        cli.revealSavesOnActivate = false
+        guard let newest = cli.pendingSaves.last, Date.now.timeIntervalSince(newest.date) < 10 * 60 else { return }
+        presentInbox = true
     }
 
     /// The bell should open. A system notification tap sets this; the header button consumes it.
@@ -886,8 +896,17 @@ final class AppModel {
     var hiddenInbox: Set<String> = []
 
     func hideInbox(_ id: String) {
+        // Swiping a waiting login away is Not Now: it shouldn't linger unseen with its password in memory.
+        if id.hasPrefix(Self.loginSaveNotePrefix) {
+            let saveID = String(id.dropFirst(Self.loginSaveNotePrefix.count))
+            Task { await cli.answerSave(saveID, save: false) }
+            return
+        }
         hiddenInbox.insert(id)
     }
+
+    /// Bell row ids for logins waiting to be saved.
+    static let loginSaveNotePrefix = "login-save-"
 
     /// Brings the vault forward and opens the bell.
     func revealInbox() {

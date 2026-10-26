@@ -4,6 +4,7 @@ import Foundation
 import LocalAuthentication
 import Observation
 import SSHAgent
+import UserNotifications
 import VaultwardenAPI
 
 /// Answers the `tw` command over a socket in the App Group container. Anything that reveals vault
@@ -25,8 +26,14 @@ final class CLIBridge {
     private weak var model: AppModel?
     /// Self-test hook: skip the Touch ID prompt.
     var approveOverride: ((String) -> Bool)?
-    /// Self-test hook: answer "Save this login?" without showing it.
-    var confirmOverride: ((String) -> Bool)?
+
+    /// Logins the browser extension saw you submit, newest last. They wait in the bell, the menu bar panel and a
+    /// banner for Save or Not Now; nothing is written until you answer. Kept in memory only and dropped on lock.
+    private(set) var pendingSaves: [PendingLoginSave] = []
+    /// Site + username pairs you said Not Now to. They stay quiet until the vault locks.
+    private var declinedSaves: Set<String> = []
+    /// A save arrived since the vault window was last brought forward: bringing it forward opens the bell.
+    var revealSavesOnActivate = false
 
     /// Runs while the command line or the browser extension is turned on.
     func refreshRunning() {
@@ -63,7 +70,99 @@ final class CLIBridge {
         isRunning = false
     }
 
-    func reset() { approvedUntil = [:] }
+    func reset() {
+        approvedUntil = [:]
+        LoginSaveNotifier.withdraw(pendingSaves.map(\.id))
+        pendingSaves = []
+        declinedSaves = []
+        revealSavesOnActivate = false
+    }
+
+    // MARK: Saving from the browser
+
+    enum SaveDecision: Equatable {
+        /// Already in the vault as typed.
+        case unchanged
+        /// Not worth asking: no username on a site that already has logins, so it is most likely a "confirm your
+        /// password" step (GitHub's sudo mode and the like), and there is no telling which login it belongs to.
+        case ignore
+        case add
+        case update(existingID: String, name: String)
+    }
+
+    /// What a submitted login means for the vault.
+    static func decide(host: String, username: String, password: String, items: [VaultItem]) -> SaveDecision {
+        let siteLogins = Self.logins(for: host, in: items)
+        guard !username.isEmpty else {
+            if siteLogins.contains(where: { $0.password == password }) { return .unchanged }
+            return siteLogins.isEmpty ? .add : .ignore
+        }
+        guard let existing = siteLogins.first(where: { ($0.username ?? "").caseInsensitiveCompare(username) == .orderedSame }) else {
+            return .add
+        }
+        return existing.password == password ? .unchanged : .update(existingID: existing.id, name: existing.name)
+    }
+
+    /// Queues a submitted login for you to answer later, without taking the screen. Returns what happened.
+    func queueSave(host: String, scheme: String, username: String, password: String, items: [VaultItem]) -> String {
+        let existing: (id: String, name: String)?
+        switch Self.decide(host: host, username: username, password: password, items: items) {
+        case .unchanged: return "unchanged"
+        case .ignore: return "ignored"
+        case .add: existing = nil
+        case .update(let id, let name): existing = (id, name)
+        }
+        let key = PendingLoginSave.key(host: host, username: username)
+        guard !declinedSaves.contains(key) else { return "skipped" }
+        // One entry per site and username: a retry after a typo replaces the first attempt instead of piling up.
+        let replaced = pendingSaves.filter { $0.key == key }
+        if let same = replaced.first, same.password == password, same.existingID == existing?.id { return "pending" }
+        pendingSaves.removeAll { $0.key == key }
+        LoginSaveNotifier.withdraw(replaced.map(\.id))
+        let pending = PendingLoginSave(host: host, scheme: scheme, username: username, password: password,
+                                       existingID: existing?.id, existingName: existing?.name)
+        pendingSaves.append(pending)
+        if pendingSaves.count > Self.maxPendingSaves {
+            let dropped = pendingSaves.prefix(pendingSaves.count - Self.maxPendingSaves)
+            LoginSaveNotifier.withdraw(dropped.map(\.id))
+            pendingSaves.removeFirst(dropped.count)
+        }
+        revealSavesOnActivate = true
+        LoginSaveNotifier.post(pending)
+        return "pending"
+    }
+
+    private static let maxPendingSaves = 8
+
+    /// Save (or update) a waiting login, or put it away with Not Now. False when it couldn't be written.
+    @discardableResult
+    func answerSave(_ id: String, save: Bool) async -> Bool {
+        guard let index = pendingSaves.firstIndex(where: { $0.id == id }) else { return false }
+        let pending = pendingSaves.remove(at: index)
+        LoginSaveNotifier.withdraw([pending.id])
+        if pendingSaves.isEmpty { revealSavesOnActivate = false }
+        guard save else {
+            declinedSaves.insert(pending.key)
+            return true
+        }
+        guard let model, model.isUnlocked else { return false }
+        let written: Bool
+        // The login it would update may have gone since: then it is a new login after all.
+        if let existingID = pending.existingID,
+           model.items.contains(where: { $0.id == existingID && !$0.isDeleted && !$0.isArchived }) {
+            written = await model.updateItem(existingID, edit: CipherEdit(password: pending.password))
+        } else {
+            let name = pending.host.hasPrefix("www.") ? String(pending.host.dropFirst(4)) : pending.host
+            let edit = CipherEdit(name: name, username: pending.username, password: pending.password,
+                                  uri: "\(pending.scheme)://\(pending.host)")
+            written = await model.createItem(.login, edit: edit)
+        }
+        // Offline or refused: keep it in the bell to try again, unless the vault locked meanwhile.
+        if !written, model.isUnlocked, !pendingSaves.contains(where: { $0.key == pending.key }) {
+            pendingSaves.append(pending)
+        }
+        return written
+    }
 
     private func handle(_ request: CLIRequest, peer: FramedSocketServer.Peer) async -> CLIResponse {
         guard let model else { return .failure("Triwarden is quitting.") }
@@ -93,22 +192,13 @@ final class CLIBridge {
             guard await approve(String(localized: "fill “\(item.name)” on \(host)"), peer: peer) else { return .failure(Self.denied) }
             return .credentials(username: item.username, password: item.password, totp: item.totp?.code())
         case .save:
+            guard Self.isOwnBinary(peer) else { return .failure("Unknown client.") }
             guard model.isUnlocked else { return .failure(Self.locked) }
             guard let url = request.url.flatMap(URL.init(string:)), let host = url.host()?.lowercased(),
                   let password = request.password, !password.isEmpty else { return .failure("Nothing to save.") }
-            let username = request.username ?? ""
-            let existing = Self.logins(for: host, in: model.items)
-                .first { ($0.username ?? "").caseInsensitiveCompare(username) == .orderedSame }
-            if let existing {
-                guard existing.password != password else { return .success("unchanged") }
-                guard confirm(String(localized: "Update the password for “\(existing.name)” (\(username))?")) else { return .success("skipped") }
-                return await model.updateItem(existing.id, edit: CipherEdit(password: password)) ? .success("updated") : .failure("Couldn't save.")
-            }
-            let label = username.isEmpty ? host : "\(username) · \(host)"
-            guard confirm(String(localized: "Save this login to Triwarden? \(label)")) else { return .success("skipped") }
-            let name = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
-            let edit = CipherEdit(name: name, username: username, password: password, uri: "\(url.scheme ?? "https")://\(host)")
-            return await model.createItem(.login, edit: edit) ? .success("saved") : .failure("Couldn't save.")
+            let username = (request.username ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return .success(queueSave(host: host, scheme: url.scheme ?? "https", username: username, password: password,
+                                      items: model.items))
         case .status:
             return .success(model.isUnlocked
                 ? "unlocked · \(model.sessions.count) account(s) · \(model.items.filter { !$0.isDeleted && !$0.isArchived }.count) items"
@@ -166,18 +256,6 @@ final class CLIBridge {
         return allowed
     }
 
-    /// "Save this login?" — a real dialog, since a page could otherwise fill the vault with junk.
-    private func confirm(_ message: String) -> Bool {
-        if let confirmOverride { return confirmOverride(message) }
-        NSApp.activate()
-        let alert = NSAlert()
-        alert.messageText = message
-        alert.informativeText = String(localized: "Requested by the Triwarden browser extension.")
-        alert.addButton(withTitle: String(localized: "Save"))
-        alert.addButton(withTitle: String(localized: "Not Now"))
-        return alert.runModal() == .alertFirstButtonReturn
-    }
-
     /// Our Safari extension and the bundled `tw` (Chrome's native-messaging host) live inside the app.
     static func isOwnBinary(_ peer: FramedSocketServer.Peer) -> Bool {
         guard let path = peer.path else { return false }
@@ -230,5 +308,89 @@ final class CLIBridge {
             return item.customFields.first { $0.name.caseInsensitiveCompare(field) == .orderedSame }?.value
                 ?? item.properties.first { $0.key.caseInsensitiveCompare(field) == .orderedSame }?.value
         }
+    }
+}
+
+/// A login the browser extension saw you submit, waiting for Save or Not Now.
+struct PendingLoginSave: Identifiable, Equatable, Sendable {
+    let id = UUID().uuidString
+    let host: String
+    let scheme: String
+    let username: String
+    let password: String
+    /// The login whose password this replaces; nil saves a new login.
+    let existingID: String?
+    let existingName: String?
+    let date = Date.now
+
+    var key: String { Self.key(host: host, username: username) }
+    static func key(host: String, username: String) -> String { host + "\u{0}" + username.lowercased() }
+
+    var isUpdate: Bool { existingID != nil }
+    var title: String {
+        if let existingName { return String(localized: "Update the password for “\(existingName)”?") }
+        let site = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        return String(localized: "Save the login for \(site)?")
+    }
+    var detail: String { username.isEmpty ? host : "\(username) · \(host)" }
+}
+
+/// The banner for a login waiting to be saved. Save and Not Now answer it right there; a click on the banner opens
+/// the bell. It never carries the password.
+enum LoginSaveNotifier {
+    static let saveCategory = "login-save"
+    static let updateCategory = "login-update"
+    static let saveAction = "login-save.save"
+    static let notNowAction = "login-save.not-now"
+    static let userInfoKey = "loginSave"
+
+    /// The banner buttons. Called once at launch.
+    static func registerCategories() {
+        let notNow = UNNotificationAction(identifier: notNowAction, title: String(localized: "Not Now"), options: [])
+        let save = UNNotificationAction(identifier: saveAction, title: String(localized: "Save"), options: [])
+        let update = UNNotificationAction(identifier: saveAction, title: String(localized: "Update"), options: [])
+        UNUserNotificationCenter.current().setNotificationCategories([
+            UNNotificationCategory(identifier: saveCategory, actions: [save, notNow], intentIdentifiers: [], options: []),
+            UNNotificationCategory(identifier: updateCategory, actions: [update, notNow], intentIdentifiers: [], options: []),
+        ])
+    }
+
+    static func post(_ pending: PendingLoginSave) {
+        // The self-tests answer saves directly; they shouldn't ask for notification permission or leave banners.
+        guard !CommandLine.arguments.contains(where: { $0.hasPrefix("--selftest") || $0 == "--snapshot" }) else { return }
+        let id = pending.id, title = pending.title, isUpdate = pending.isUpdate
+        let body = pending.username.isEmpty
+            ? String(localized: "From your browser · \(pending.host)")
+            : String(localized: "\(pending.username) · from your browser")
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            switch settings.authorizationStatus {
+            case .notDetermined:
+                center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+                    if granted { add(id: id, title: title, body: body, isUpdate: isUpdate, center: center) }
+                }
+            case .authorized, .provisional:
+                add(id: id, title: title, body: body, isUpdate: isUpdate, center: center)
+            default:
+                break // The bell and the menu bar panel still show it.
+            }
+        }
+    }
+
+    private static func add(id: String, title: String, body: String, isUpdate: Bool, center: UNUserNotificationCenter) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.categoryIdentifier = isUpdate ? updateCategory : saveCategory
+        content.userInfo = [userInfoKey: id]
+        center.add(UNNotificationRequest(identifier: "login-save-" + id, content: content, trigger: nil))
+    }
+
+    static func withdraw(_ ids: [String]) {
+        guard !ids.isEmpty else { return }
+        let identifiers = ids.map { "login-save-" + $0 }
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+        center.removeDeliveredNotifications(withIdentifiers: identifiers)
     }
 }

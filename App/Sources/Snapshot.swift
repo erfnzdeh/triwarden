@@ -1210,9 +1210,6 @@ enum SelfTest {
 
                 // Browser extension commands over the same socket (as Safari's handler / Chrome's host send them).
                 model.cli.approveOverride = { approvals.append($0); return true }
-                var confirmations: [String] = []
-                var confirmAnswer = true
-                model.cli.confirmOverride = { confirmations.append($0); return confirmAnswer }
                 _ = await model.createItem(.login, edit: CipherEdit(name: "Selftest web", username: "web-user", password: "web-pass-1",
                                                                     uri: "https://login.chiikawa.test/signin"))
                 func bridge(_ r: CLIRequest) async -> CLIResponse {
@@ -1228,18 +1225,26 @@ enum SelfTest {
                 check(matched.rows?.count == 1 && matched.rows?.first?.detail == "web-user" && elsewhere.rows?.isEmpty == true
                       && filled.username == "web-user" && filled.password == "web-pass-1" && !wrongSite.ok,
                       "browser: suggestions only for the page's site, fill after approval, never on another site")
+                // Saving never takes the screen: a submitted login waits in the bell until it's answered.
                 let same = await bridge(CLIRequest(command: .save, url: page, username: "web-user", password: "web-pass-1"))
-                let updated = await bridge(CLIRequest(command: .save, url: page, username: "web-user", password: "web-pass-2"))
-                let added = await bridge(CLIRequest(command: .save, url: "https://new.chiikawa.test/login", username: "newbie", password: "n-1"))
-                confirmAnswer = false
-                let declined = await bridge(CLIRequest(command: .save, url: "https://other.chiikawa.test/", username: "x", password: "y"))
+                let changed = await bridge(CLIRequest(command: .save, url: page, username: "web-user", password: "web-pass-2"))
+                let reauth = await bridge(CLIRequest(command: .save, url: page, password: "sudo-prompt"))
+                let added = await bridge(CLIRequest(command: .save, url: "https://new.chiikawa.test/login", username: "newbie", password: "n-0"))
+                let retried = await bridge(CLIRequest(command: .save, url: "https://new.chiikawa.test/login", username: "newbie", password: "n-1"))
+                let offered = await bridge(CLIRequest(command: .save, url: "https://other.chiikawa.test/", username: "x", password: "y"))
+                let waiting = model.cli.pendingSaves
+                let unwritten = model.items.first { $0.id == webID }?.password == "web-pass-1" && !model.items.contains { $0.host == "new.chiikawa.test" }
+                for save in waiting { await model.cli.answerSave(save.id, save: save.host != "other.chiikawa.test") }
+                let again = await bridge(CLIRequest(command: .save, url: "https://other.chiikawa.test/", username: "x", password: "y"))
                 let newItem = model.items.first { $0.host == "new.chiikawa.test" }
-                check(same.value == "unchanged" && updated.value == "updated" && added.value == "saved" && declined.value == "skipped"
-                      && confirmations.count == 3 && model.items.first { $0.id == webID }?.password == "web-pass-2"
-                      && newItem?.username == "newbie" && !model.items.contains { $0.host == "other.chiikawa.test" },
-                      "browser: save new, update changed, skip unchanged, respect Not Now")
+                check(same.value == "unchanged" && changed.value == "pending" && reauth.value == "ignored" && added.value == "pending"
+                      && retried.value == "pending" && offered.value == "pending" && waiting.count == 3 && unwritten
+                      && again.value == "skipped" && model.cli.pendingSaves.isEmpty
+                      && model.items.first { $0.id == webID }?.password == "web-pass-2"
+                      && newItem?.username == "newbie" && newItem?.password == "n-1" && !model.items.contains { $0.host == "other.chiikawa.test" },
+                      "browser: queue new and changed logins without a dialog, ignore re-auth prompts, retry replaces, respect Not Now")
                 for item in model.items where item.name == "Selftest web" || item.host == "new.chiikawa.test" { await model.deleteForever(item) }
-                model.cli.confirmOverride = nil
+                model.cli.reset()
 
                 model.cli.stop()
                 model.cli.approveOverride = nil
