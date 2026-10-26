@@ -439,6 +439,19 @@ final class AppModel {
     }
 
     var isUnlocked: Bool { phase.id == Phase.vault.id && (!sessions.isEmpty || previewUnlocked) }
+    /// A decrypted vault the menu bar can search and copy from: the open one, or one left open while another account
+    /// is being added (that puts the window on the login screen, but the other vault stays open behind it).
+    var hasOpenVault: Bool { !sessions.isEmpty || previewUnlocked }
+    /// Nothing signed in on this Mac: the main window is on the login screen (or part-way through signing in, on
+    /// two-step, device verification or SSO's master password), and no vault is open. There is nothing to unlock, so
+    /// the menu bar offers signing in rather than a lock.
+    var isSignedOut: Bool {
+        guard !hasOpenVault else { return false }
+        return switch phase {
+        case .login, .twoFactor, .deviceVerification, .ssoPassword: true
+        case .locked, .vault: false
+        }
+    }
     /// Snapshots and `--demo`: treat demo items as an unlocked vault.
     var previewUnlocked = false
 

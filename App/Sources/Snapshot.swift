@@ -377,6 +377,21 @@ enum Snapshot {
                    size: CGSize(width: 380, height: 760), appearance: appearance,
                    to: dir.appending(path: "menubar-\(name).png"))
         }
+        // The panel with no vault open: nothing signed in on this Mac, then a real locked vault beside it.
+        let signedOutPanel = AppModel()
+        signedOutPanel.setPreviewAccounts([])
+        signedOutPanel.phase = .login
+        let lockedPanel = AppModel()
+        lockedPanel.setPreviewAccounts(vault.accounts)
+        lockedPanel.phase = .locked
+        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            render(MenuBarContent().environment(signedOutPanel).tint(.brand).background(.regularMaterial),
+                   size: CGSize(width: 380, height: 270), appearance: appearance,
+                   to: dir.appending(path: "menubar-signed-out-\(name).png"))
+            render(MenuBarContent().environment(lockedPanel).tint(.brand).background(.regularMaterial),
+                   size: CGSize(width: 380, height: 240), appearance: appearance,
+                   to: dir.appending(path: "menubar-locked-\(name).png"))
+        }
         // The palette's states: ranked and loose matches, an item's actions, the generator, a new login from the query,
         // a type scope, commands only, and a locked vault.
         for (slug, query, actions) in [("query", "git", false), ("fuzzy", "gthb", false), ("actions", "git", true),

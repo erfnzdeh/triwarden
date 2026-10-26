@@ -20,7 +20,7 @@ struct MenuBarContent: View {
                 }
             }
             topRow
-            if model.isUnlocked, focusedOpen {
+            if model.hasOpenVault, focusedOpen {
                 if query.trimmingCharacters(in: .whitespaces).isEmpty {
                     FrontTabMatchPrompt()
                     SiteCard()
@@ -31,6 +31,8 @@ struct MenuBarContent: View {
                 } else {
                     SearchResults(query: query)
                 }
+            } else if model.isSignedOut {
+                SignedOutCard()
             } else {
                 LockedCard(account: model.focusedAccountID.flatMap { id in model.accounts.first { $0.id == id } })
             }
@@ -56,7 +58,7 @@ struct MenuBarContent: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                     .focused($searching)
-                    .disabled(!model.isUnlocked)
+                    .disabled(!model.hasOpenVault)
                     .onSubmit {
                         // Return fills the top login into the app the panel was opened over, else copies its password.
                         guard let first = SearchResults.matches(model.focusedItems, query).first else { return }
@@ -103,8 +105,10 @@ struct MenuBarContent: View {
                     Text("Couldn't sync")
                 } else if let synced = model.lastSynced {
                     Text("Synced \(synced.formatted(.relative(presentation: .named)))")
+                } else if model.isSignedOut {
+                    Text("Not signed in")
                 } else {
-                    Text(model.isUnlocked ? "Offline · saved vault" : "Locked")
+                    Text(model.hasOpenVault ? "Offline · saved vault" : "Locked")
                 }
             }
             .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
@@ -580,6 +584,29 @@ private struct LockedCard: View {
                     Text("Vault locked").font(.system(size: 14, weight: .semibold))
                 }
                 Button("Unlock…") { model.bringToFront() }
+                    .buttonStyle(.appPrimarySmall)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+        }
+    }
+}
+
+/// No account on this Mac: there's nothing to unlock, so the panel asks for a sign-in instead.
+private struct SignedOutCard: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        PanelCard {
+            VStack(spacing: 10) {
+                Image(systemName: "person.crop.circle").font(.system(size: 20)).foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+                    .background(Color.primary.opacity(0.07), in: .rect(cornerRadius: 12, style: .continuous))
+                Text("Not signed in").font(.system(size: 14, weight: .semibold))
+                Text("Sign in to Triwarden to search your vault")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button("Log in…") { model.bringToFront() }
                     .buttonStyle(.appPrimarySmall)
             }
             .frame(maxWidth: .infinity)

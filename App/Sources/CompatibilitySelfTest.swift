@@ -4,7 +4,7 @@ import Foundation
 import TriCrypto
 import VaultwardenAPI
 
-/// Synthetic, offline checks of the shared decoder and the app's mutation boundaries.
+/// Synthetic, offline checks of the shared decoder, the app's mutation boundaries and the menu bar's phase.
 @MainActor
 enum CompatibilitySelfTest {
     static func runIfRequested() {
@@ -95,6 +95,19 @@ enum CompatibilitySelfTest {
                 await model.setArchived(item, true)
                 check(model.items == decoded.items, "mixed batch and single actions cannot optimistically mutate unsupported items")
                 check(model.itemContextActions(item).allSatisfy { !$0.enabled }, "context menu offers no unsafe actions")
+
+                // The menu bar follows the window's phase: with nothing signed in there is no vault to unlock.
+                model.previewUnlocked = false
+                for (label, phase) in [("login", AppModel.Phase.login), ("two-step", .twoFactor(providers: [])),
+                                       ("device verification", .deviceVerification), ("SSO password", .ssoPassword)] {
+                    model.phase = phase
+                    check(model.isSignedOut && !model.isUnlocked && !model.hasOpenVault, "menu bar offers a sign-in while \(label)")
+                }
+                model.phase = .locked
+                check(!model.isSignedOut && !model.isUnlocked && !model.hasOpenVault, "menu bar offers an unlock for a locked vault")
+                model.previewUnlocked = true
+                model.phase = .login
+                check(!model.isSignedOut && model.hasOpenVault, "an open vault is not signed out, even on the login screen")
             } catch {
                 check(false, "synthetic compatibility fixture: \(error)")
             }
