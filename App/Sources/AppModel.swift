@@ -514,7 +514,7 @@ final class AppModel {
     }
 
     /// Logins with any locally-detectable issue (sidebar badge).
-    var watchtowerIssueCount: Int { WatchtowerReport(items: items, breaches: breachCounts).problemCount }
+    var watchtowerIssueCount: Int { WatchtowerReport.countProblems(in: items, breaches: breachCounts) }
 
     #if DEBUG
     /// Snapshot/demo only: pretend these accounts are saved.
