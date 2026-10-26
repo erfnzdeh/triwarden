@@ -515,16 +515,19 @@ private struct Sidebar: View {
     @State private var closed: Set<String> = []
     @FocusState private var focused: Bool
 
-    private func count(_ selection: SidebarSelection) -> Int { model.vaultItems.filter(selection.includes).count }
+    /// How many of `items` (the vault shown) a row stands for: counted in place, not copied out.
+    private static func count(_ selection: SidebarSelection, in items: [VaultItem]) -> Int {
+        items.count(where: selection.includes)
+    }
 
     /// Whether a nested group is open.
     private func open(_ key: String) -> Binding<Bool> {
         Binding(get: { !closed.contains(key) }, set: { if $0 { closed.remove(key) } else { closed.insert(key) } })
     }
 
-    private func row(_ s: VaultSection, depth: Int = 0, expanded: Binding<Bool>? = nil) -> some View {
+    private func row(_ s: VaultSection, in items: [VaultItem], depth: Int = 0, expanded: Binding<Bool>? = nil) -> some View {
         SidebarRow(depth: depth, expanded: expanded, selected: section == .section(s), action: { pick(.section(s)) }) {
-            SidebarLabel(s.title, symbol: s.symbol, tag: .section(s), count: count(.section(s)))
+            SidebarLabel(s.title, symbol: s.symbol, tag: .section(s), count: Self.count(.section(s), in: items))
         }
         .sidebarContextMenu(model.sidebarActions(for: .section(s)), selection: .section(s))
         .id(SidebarSelection.section(s))
@@ -639,6 +642,9 @@ private struct Sidebar: View {
 
     var body: some View {
         let folders = FolderNode.tree(model.folders)
+        // The vault shown, worked out once for every row's count (with a vault filter on, it's a filtered copy).
+        let items = model.vaultItems
+        let count = { (selection: SidebarSelection) in Self.count(selection, in: items) }
         ScrollViewReader { scroll in
             ScrollView {
                 VStack(alignment: .leading, spacing: SidebarRow<EmptyView>.gap) {
@@ -647,9 +653,9 @@ private struct Sidebar: View {
                     // A row and its fold sit together: the fold brings its own gap, so the stack's spacing would
                     // double it (and leave one under a closed group).
                     VStack(spacing: 0) {
-                        row(.all, expanded: $typesExpanded)
+                        row(.all, in: items, expanded: $typesExpanded)
                         SidebarFold(expanded: typesExpanded) {
-                            ForEach(VaultSection.underAll, id: \.self) { row($0, depth: 1) }
+                            ForEach(VaultSection.underAll, id: \.self) { row($0, in: items, depth: 1) }
                         }
                     }
                     // Where items live: your own vault, then each shared vault (opening onto its shared folders). A
@@ -668,7 +674,7 @@ private struct Sidebar: View {
                     SidebarHeading(title: "Tools")
                     tool("Send", symbol: "paperplane", .sends, count: model.sends.count)
                     tool("One-Time Codes", symbol: "clock.badge.checkmark", .codes,
-                         count: model.vaultItems.filter { !$0.isDeleted && !$0.isArchived && $0.totp != nil }.count)
+                         count: items.count(where: { !$0.isDeleted && !$0.isArchived && $0.totp != nil }))
                     tool("Generator", symbol: "dice", .generator)
                     tool("Watchtower", symbol: "checkmark.shield", .watchtower, count: model.watchtowerIssueCount)
                     // Your own ways of sorting items, and items set aside: kept (Archive) or on their way out (Trash).
@@ -688,8 +694,8 @@ private struct Sidebar: View {
                             }
                         }
                     }
-                    row(.archive)
-                    row(.trash)
+                    row(.archive, in: items)
+                    row(.trash, in: items)
                 }
                 .padding(.horizontal, 10)
                 .padding(.bottom, 8)
@@ -1267,10 +1273,10 @@ private struct NewItemButton: View {
         ActionMenu(entries: [
             ActionMenuEntry(title: String(localized: "New Login"), symbol: "key", shortcut: "⌘N") { model.beginEditing(EditRequest(mode: .create(.login))) },
             ActionMenuEntry(title: String(localized: "New Secure Note"), symbol: "note.text", shortcut: "⇧⌘N") { model.beginEditing(EditRequest(mode: .create(.secureNote))) },
-            ActionMenuEntry(title: String(localized: "New Card"), symbol: "creditcard") { model.beginEditing(EditRequest(mode: .create(.card))) },
-            ActionMenuEntry(title: String(localized: "New Identity"), symbol: "person.crop.rectangle") { model.beginEditing(EditRequest(mode: .create(.identity))) },
-            ActionMenuEntry(title: String(localized: "New SSH Key"), symbol: "terminal") { model.beginEditing(EditRequest(mode: .create(.sshKey))) },
-            ActionMenuEntry(title: String(localized: "New Send"), symbol: "paperplane") { model.composeNewSend() },
+            ActionMenuEntry(title: String(localized: "New Card"), symbol: "creditcard", shortcut: "⌥⌘B") { model.beginEditing(EditRequest(mode: .create(.card))) },
+            ActionMenuEntry(title: String(localized: "New Identity"), symbol: "person.crop.rectangle", shortcut: "⌥⌘I") { model.beginEditing(EditRequest(mode: .create(.identity))) },
+            ActionMenuEntry(title: String(localized: "New SSH Key"), symbol: "terminal", shortcut: "⌥⌘K") { model.beginEditing(EditRequest(mode: .create(.sshKey))) },
+            ActionMenuEntry(title: String(localized: "New Send"), symbol: "paperplane", shortcut: "⌥⌘S") { model.composeNewSend() },
             ActionMenuEntry(title: String(localized: "New Folder…"), symbol: "folder.badge.plus", shortcut: "⌥⌘N") { model.promptNewFolder() },
             ActionMenuEntry(title: String(localized: "Import…"), symbol: "square.and.arrow.down", shortcut: "⇧⌘I", enabled: !model.sessions.isEmpty) { model.beginImport() }
         ]) {
@@ -3055,8 +3061,8 @@ struct ItemDetail: View {
 }
 
 extension HeroCard {
-    /// The password and one-time-code tiles.
-    @ViewBuilder func tiles(_ style: HeroStyle) -> some View {
+    /// The password and one-time-code tiles. `stacked`: one above the other, each the column's full width.
+    @ViewBuilder func tiles(_ style: HeroStyle, stacked: Bool = false) -> some View {
         if let password = item.password {
             Tile(style: style) {
                 passwordArmed = model.copyCount
@@ -3094,19 +3100,21 @@ extension HeroCard {
                     CopyStatusIcon(copied: codeCopied)
                 }
                 .font(.system(size: 12)).foregroundStyle(style.muted)
-                // Pinned to the tile's bottom, so it sits low like the password and its strength bar, with room above.
-                Spacer(minLength: 4)
+                // The row takes the tile's slack and sits at its bottom, level with the password's strength bar.
                 HStack(alignment: .center, spacing: 12) {
                     LiveOTPCode(totp: totp, size: 22)
                     // The ring sits at the tile's trailing edge, under the copy icon, at any tile width.
                     Spacer(minLength: 12)
                     LiveCountdownRing(totp: totp, size: 24, digits: 0.38)
                 }
+                .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, 2)
             }
-            .frame(minWidth: item.password == nil ? nil : 220,
-                   maxWidth: item.password == nil ? .infinity : nil)
-            .fixedSize(horizontal: item.password != nil, vertical: false)
+            // Beside the password it keeps its own width, as before. Stacked, it takes the column's width instead:
+            // hugging there left the ring floating mid-column with a gap after it.
+            .frame(minWidth: stacked || item.password == nil ? nil : 220,
+                   maxWidth: stacked || item.password == nil ? .infinity : nil)
+            .fixedSize(horizontal: !stacked && item.password != nil, vertical: false)
             .help(Text("Copy one-time code"))
             .accessibilityLabel(Text("Copy One-time code"))
             .copyTick(armed: $codeArmed, copied: $codeCopied)
@@ -3194,7 +3202,7 @@ private struct HeroCard: View {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 10) { tiles(style) }
                         .frame(minWidth: 0, idealWidth: 440, maxWidth: .infinity, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 10) { tiles(style) }
+                    VStack(alignment: .leading, spacing: 10) { tiles(style, stacked: true) }
                 }
                 .fixedSize(horizontal: false, vertical: true)
             }
