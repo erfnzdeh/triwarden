@@ -95,18 +95,12 @@ struct PasswordField: View {
                 Button {
                     toggleReveal()
                 } label: {
-                    HStack(spacing: 4) {
-                        Text(verbatim: "⌥⌘R")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.tertiary)
-                            .accessibilityHidden(true)
-                        Image(systemName: revealed ? "eye.slash" : "eye")
-                            .contentTransition(.symbolEffect(.replace))
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 26, height: 26)
-                    }
-                    .contentShape(.rect)
+                    Image(systemName: revealed ? "eye.slash" : "eye")
+                        .contentTransition(.symbolEffect(.replace))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 26, height: 26)
+                        .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
                 .help(revealHelp)
@@ -227,8 +221,8 @@ struct PasswordField: View {
         }
     }
 
-    /// Room for ⌥⌘R and the eye, plus the Caps Lock mark when it is showing.
-    private var trailingRoom: CGFloat { showsCapsLock ? 86 : 64 }
+    /// Room for the eye, plus the Caps Lock mark when it is showing.
+    private var trailingRoom: CGFloat { showsCapsLock ? 54 : 32 }
 
     @ViewBuilder
     private func styled(_ field: some View) -> some View {

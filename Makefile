@@ -14,6 +14,9 @@ BIN     := $(APP)/Contents/MacOS/Triwarden
 XCB     := xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug \
 	-derivedDataPath $(CURDIR)/build -allowProvisioningUpdates
 DEV_CA  := $(CURDIR)/DevServer/data/root.crt
+# The app is sandboxed, so snapshots land in its App Group container (the only place outside the container it can
+# write), and `make snapshots` copies them into build/snapshots.
+SNAP_DIR := $(HOME)/Library/Group Containers/FX3VR69P5K.io.github.sinhong2011.triwarden/snapshots
 
 .DEFAULT_GOAL := help
 .PHONY: help project build run site test bench screenshots license license-keys test-dev selftest selftest-compatibility selftest-cloud snapshots dev-up dev-seed dev-status dev-logs release clean
@@ -85,7 +88,7 @@ uitest: ## Click-through UI tests in --demo mode (quit any running Triwarden fir
 		test -only-testing:TriwardenUITests
 
 snapshots: build ## Render UI snapshots (light + dark) into build/snapshots; ONLY=login,send renders just those
-	@set -e -o pipefail; dir=$$(TRIWARDEN_SNAPSHOT_ONLY="$(ONLY)" "$(BIN)" --snapshot | tail -1); \
+	@set -e -o pipefail; dir=$$(TRIWARDEN_SNAPSHOT_ONLY="$(ONLY)" TRIWARDEN_SNAPSHOT_DIR="$(SNAP_DIR)" "$(BIN)" --snapshot | tail -1); \
 		mkdir -p build/snapshots; n=$$(find "$$dir" -name '*.png' -newer "$(BIN)" | wc -l | tr -d ' '); \
 		test "$$n" -gt 0 || { echo "No snapshots rendered; check ONLY and the snapshot output."; exit 1; }; \
 		find "$$dir" -name '*.png' -newer "$(BIN)" -print0 | xargs -0 -I {} cp -f {} build/snapshots/; \

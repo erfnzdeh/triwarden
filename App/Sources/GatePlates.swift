@@ -24,7 +24,7 @@ struct GatePlates: View {
     }
 
     private func face(size: CGSize) -> some View {
-        let (radius, center) = UnlockView.doorLayout(size, touchID: model.touchIDEnabled)
+        let (radius, center) = UnlockView.doorLayout(size)
         return ZStack {
             Rectangle().fill(.ultraThinMaterial)
             // Closing: the door is still apart (its assembly starts when the plates have met).

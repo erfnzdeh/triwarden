@@ -23,8 +23,10 @@ enum Snapshot {
     static func runIfRequested() {
         let args = CommandLine.arguments
         guard args.contains("--snapshot") else { return }
-        // Sandboxed: write inside our container and print the path.
-        let dir = FileManager.default.temporaryDirectory.appending(path: "snapshots", directoryHint: .isDirectory)
+        // Sandboxed: write inside our container and print the path. `TRIWARDEN_SNAPSHOT_DIR` sends them elsewhere
+        // (a folder the sandbox can already write, e.g. build/snapshots) so other tools can read them.
+        let dir = ProcessInfo.processInfo.environment["TRIWARDEN_SNAPSHOT_DIR"].map { URL(filePath: $0) }
+            ?? FileManager.default.temporaryDirectory.appending(path: "snapshots", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
         let model = AppModel()
