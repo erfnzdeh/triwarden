@@ -188,10 +188,10 @@ struct VaultView: View {
 
     // MARK: Panes
 
-    private var compactPanes: [AnyView] {
+    private func compactPanes(_ items: [VaultItem]) -> [AnyView] {
         let sidebar = AnyView(sidebarPane)
         guard isItemSection else { return [sidebar, AnyView(sectionPane)] }
-        return [sidebar, AnyView(listPane), AnyView(detailPane.environment(\.showsDetailToolbar, depth == 2))]
+        return [sidebar, AnyView(listPane(items)), AnyView(detailPane.environment(\.showsDetailToolbar, depth == 2))]
     }
 
     /// The sidebar as a pane on the narrow-window strip: the same list, on the app's panel.
@@ -223,7 +223,8 @@ struct VaultView: View {
         return model.accounts.first { $0.id == id }
     }
 
-    private var listPane: some View {
+    /// `items`: the list as filtered and sorted, worked out once per update by `content`.
+    private func listPane(_ items: [VaultItem]) -> some View {
         let locked = lockedFocus
         return ZStack {
             if let account = locked {
@@ -231,7 +232,7 @@ struct VaultView: View {
                     .id(account.id)
                     .transition(.opacity)
             } else {
-                ItemColumn(items: filtered, isTrash: section == .section(.trash), selection: Binding(get: { model.selectedID }, set: { id in
+                ItemColumn(items: items, isTrash: section == .section(.trash), selection: Binding(get: { model.selectedID }, set: { id in
                     // Picking an item leaves a new item's form (asking first when it has input).
                     model.leaveNewItemForm {
                         model.selectedID = id
@@ -271,6 +272,8 @@ struct VaultView: View {
 
     private var content: some View {
         @Bindable var model = model
+        // Filtered and sorted once per update: the list and the selection's follow-up below both use it.
+        let list = filtered
         return NavigationSplitView(columnVisibility: $columns) {
             Sidebar(section: sidebarSection)
                 .modifier(SidebarWidth())
@@ -280,10 +283,10 @@ struct VaultView: View {
         } detail: {
             ZStack {
                 if compact {
-                    withFooter(PaneStrip(panes: compactPanes, depth: $depth, maxDepth: maxDepth))
+                    withFooter(PaneStrip(panes: compactPanes(list), depth: $depth, maxDepth: maxDepth))
                 } else if isItemSection {
                     HStack(spacing: 8) {
-                        listPane.frame(width: Self.listWidth) // full height: the footer stays under the right column
+                        listPane(list).frame(width: Self.listWidth) // full height: the footer stays under the right column
                         withFooter(detailPane.frame(maxWidth: .infinity, maxHeight: .infinity))
                     }
                     .transition(pageTransition)
@@ -331,7 +334,7 @@ struct VaultView: View {
         }
         // When the selected item leaves the list (trashed, restored, deleted, filtered out), select its neighbour
         // so the list and the detail never disagree.
-        .onChange(of: filtered.map(\.id)) { old, new in
+        .onChange(of: list.map(\.id)) { old, new in
             guard let selected = model.selectedID, !new.contains(selected) else { return }
             let at = old.firstIndex(of: selected) ?? 0
             model.selectedID = new.isEmpty ? nil : new[min(at, new.count - 1)]
@@ -512,16 +515,19 @@ private struct Sidebar: View {
     @State private var closed: Set<String> = []
     @FocusState private var focused: Bool
 
-    private func count(_ selection: SidebarSelection) -> Int { model.vaultItems.filter(selection.includes).count }
+    /// How many of `items` (the vault shown) a row stands for: counted in place, not copied out.
+    private static func count(_ selection: SidebarSelection, in items: [VaultItem]) -> Int {
+        items.count(where: selection.includes)
+    }
 
     /// Whether a nested group is open.
     private func open(_ key: String) -> Binding<Bool> {
         Binding(get: { !closed.contains(key) }, set: { if $0 { closed.remove(key) } else { closed.insert(key) } })
     }
 
-    private func row(_ s: VaultSection, depth: Int = 0, expanded: Binding<Bool>? = nil) -> some View {
+    private func row(_ s: VaultSection, in items: [VaultItem], depth: Int = 0, expanded: Binding<Bool>? = nil) -> some View {
         SidebarRow(depth: depth, expanded: expanded, selected: section == .section(s), action: { pick(.section(s)) }) {
-            SidebarLabel(s.title, symbol: s.symbol, tag: .section(s), count: count(.section(s)))
+            SidebarLabel(s.title, symbol: s.symbol, tag: .section(s), count: Self.count(.section(s), in: items))
         }
         .sidebarContextMenu(model.sidebarActions(for: .section(s)), selection: .section(s))
         .id(SidebarSelection.section(s))
@@ -636,6 +642,9 @@ private struct Sidebar: View {
 
     var body: some View {
         let folders = FolderNode.tree(model.folders)
+        // The vault shown, worked out once for every row's count (with a vault filter on, it's a filtered copy).
+        let items = model.vaultItems
+        let count = { (selection: SidebarSelection) in Self.count(selection, in: items) }
         ScrollViewReader { scroll in
             ScrollView {
                 VStack(alignment: .leading, spacing: SidebarRow<EmptyView>.gap) {
@@ -644,9 +653,9 @@ private struct Sidebar: View {
                     // A row and its fold sit together: the fold brings its own gap, so the stack's spacing would
                     // double it (and leave one under a closed group).
                     VStack(spacing: 0) {
-                        row(.all, expanded: $typesExpanded)
+                        row(.all, in: items, expanded: $typesExpanded)
                         SidebarFold(expanded: typesExpanded) {
-                            ForEach(VaultSection.underAll, id: \.self) { row($0, depth: 1) }
+                            ForEach(VaultSection.underAll, id: \.self) { row($0, in: items, depth: 1) }
                         }
                     }
                     // Where items live: your own vault, then each shared vault (opening onto its shared folders). A
@@ -665,7 +674,7 @@ private struct Sidebar: View {
                     SidebarHeading(title: "Tools")
                     tool("Send", symbol: "paperplane", .sends, count: model.sends.count)
                     tool("One-Time Codes", symbol: "clock.badge.checkmark", .codes,
-                         count: model.vaultItems.filter { !$0.isDeleted && !$0.isArchived && $0.totp != nil }.count)
+                         count: items.count(where: { !$0.isDeleted && !$0.isArchived && $0.totp != nil }))
                     tool("Generator", symbol: "dice", .generator)
                     tool("Watchtower", symbol: "checkmark.shield", .watchtower, count: model.watchtowerIssueCount)
                     // Your own ways of sorting items, and items set aside: kept (Archive) or on their way out (Trash).
@@ -685,8 +694,8 @@ private struct Sidebar: View {
                             }
                         }
                     }
-                    row(.archive)
-                    row(.trash)
+                    row(.archive, in: items)
+                    row(.trash, in: items)
                 }
                 .padding(.horizontal, 10)
                 .padding(.bottom, 8)
@@ -1264,10 +1273,10 @@ private struct NewItemButton: View {
         ActionMenu(entries: [
             ActionMenuEntry(title: String(localized: "New Login"), symbol: "key", shortcut: "⌘N") { model.beginEditing(EditRequest(mode: .create(.login))) },
             ActionMenuEntry(title: String(localized: "New Secure Note"), symbol: "note.text", shortcut: "⇧⌘N") { model.beginEditing(EditRequest(mode: .create(.secureNote))) },
-            ActionMenuEntry(title: String(localized: "New Card"), symbol: "creditcard") { model.beginEditing(EditRequest(mode: .create(.card))) },
-            ActionMenuEntry(title: String(localized: "New Identity"), symbol: "person.crop.rectangle") { model.beginEditing(EditRequest(mode: .create(.identity))) },
-            ActionMenuEntry(title: String(localized: "New SSH Key"), symbol: "terminal") { model.beginEditing(EditRequest(mode: .create(.sshKey))) },
-            ActionMenuEntry(title: String(localized: "New Send"), symbol: "paperplane") { model.composeNewSend() },
+            ActionMenuEntry(title: String(localized: "New Card"), symbol: "creditcard", shortcut: "⌥⌘B") { model.beginEditing(EditRequest(mode: .create(.card))) },
+            ActionMenuEntry(title: String(localized: "New Identity"), symbol: "person.crop.rectangle", shortcut: "⌥⌘I") { model.beginEditing(EditRequest(mode: .create(.identity))) },
+            ActionMenuEntry(title: String(localized: "New SSH Key"), symbol: "terminal", shortcut: "⌥⌘K") { model.beginEditing(EditRequest(mode: .create(.sshKey))) },
+            ActionMenuEntry(title: String(localized: "New Send"), symbol: "paperplane", shortcut: "⌥⌘S") { model.composeNewSend() },
             ActionMenuEntry(title: String(localized: "New Folder…"), symbol: "folder.badge.plus", shortcut: "⌥⌘N") { model.promptNewFolder() },
             ActionMenuEntry(title: String(localized: "Import…"), symbol: "square.and.arrow.down", shortcut: "⇧⌘I", enabled: !model.sessions.isEmpty) { model.beginImport() }
         ]) {
@@ -2217,16 +2226,36 @@ enum ItemSort: String, CaseIterable, Identifiable {
     }
 
     /// The index letter for a title: A–Z, with Chinese and Japanese romanised (銀行 → Y) and everything else "#".
-    static func letter(_ name: String) -> String {
+    /// The list asks for every item's letter each time it updates, so this has to be cheap.
+    @MainActor static func letter(_ name: String) -> String {
+        // A name that starts with plain ASCII comes back from romanising unchanged: decide it here, without ICU.
+        for character in name {
+            guard character.isASCII else { break }
+            if character.isWhitespace { continue }
+            return character.isLetter ? character.uppercased() : "#"
+        }
+        // ICU's transliterator is slow, so each other name is romanised once.
+        if let known = romanised[name] { return known }
+        let found = romanisedLetter(name)
+        romanised[name] = found
+        return found
+    }
+
+    private static func romanisedLetter(_ name: String) -> String {
         let latin = name.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false) ?? name
         guard let first = latin.trimmingCharacters(in: .whitespacesAndNewlines).first.map({ String($0).uppercased() }),
               first.count == 1, ("A"..."Z").contains(first) else { return "#" }
         return first
     }
 
+    /// Letters already worked out for names that needed romanising. Names are vault contents: cleared on lock.
+    @MainActor private static var romanised: [String: String] = [:]
+
+    @MainActor static func forgetLetters() { romanised = [:] }
+
     private func date(_ item: VaultItem) -> Date? { self == .created ? item.created : item.revised }
 
-    static func sorted(_ items: [VaultItem], by sort: ItemSort, ascending: Bool) -> [VaultItem] {
+    @MainActor static func sorted(_ items: [VaultItem], by sort: ItemSort, ascending: Bool) -> [VaultItem] {
         switch sort {
         case .title:
             // Letters A–Z, then # (numbers and symbols), then by name within a letter.
@@ -2247,7 +2276,7 @@ enum ItemSort: String, CaseIterable, Identifiable {
     }
 
     /// Consecutive runs of the (already sorted) items under one header each.
-    static func sections(_ items: [VaultItem], by sort: ItemSort) -> [(title: String, items: [VaultItem])] {
+    @MainActor static func sections(_ items: [VaultItem], by sort: ItemSort) -> [(title: String, items: [VaultItem])] {
         let month = Date.FormatStyle().month(.wide).year()
         var out: [(title: String, items: [VaultItem])] = []
         for item in items {
@@ -2396,7 +2425,7 @@ private struct ItemColumn: View {
                         case .item(let item):
                             ItemRow(item: item, isSelected: picked(item), highlight: query)
                                 .modifier(ArrivalPop(arrived: model.arrivedID == item.id))
-                                .onTapGesture { click(item, ordered: ItemSort.sections(items, by: order).flatMap(\.items)) }
+                                .onTapGesture { click(item, ordered: items) } // the sections run in the list's own order
                                 .accessibilityElement(children: .combine)
                                 .accessibilityAddTraits(item.id == selection ? [.isButton, .isSelected] : .isButton)
                                 .accessibilityAction { selection = item.id }
@@ -3032,8 +3061,8 @@ struct ItemDetail: View {
 }
 
 extension HeroCard {
-    /// The password and one-time-code tiles.
-    @ViewBuilder func tiles(_ style: HeroStyle) -> some View {
+    /// The password and one-time-code tiles. `stacked`: one above the other, each the column's full width.
+    @ViewBuilder func tiles(_ style: HeroStyle, stacked: Bool = false) -> some View {
         if let password = item.password {
             Tile(style: style) {
                 passwordArmed = model.copyCount
@@ -3071,19 +3100,21 @@ extension HeroCard {
                     CopyStatusIcon(copied: codeCopied)
                 }
                 .font(.system(size: 12)).foregroundStyle(style.muted)
-                // Pinned to the tile's bottom, so it sits low like the password and its strength bar, with room above.
-                Spacer(minLength: 4)
+                // The row takes the tile's slack and sits at its bottom, level with the password's strength bar.
                 HStack(alignment: .center, spacing: 12) {
                     LiveOTPCode(totp: totp, size: 22)
                     // The ring sits at the tile's trailing edge, under the copy icon, at any tile width.
                     Spacer(minLength: 12)
                     LiveCountdownRing(totp: totp, size: 24, digits: 0.38)
                 }
+                .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, 2)
             }
-            .frame(minWidth: item.password == nil ? nil : 220,
-                   maxWidth: item.password == nil ? .infinity : nil)
-            .fixedSize(horizontal: item.password != nil, vertical: false)
+            // Beside the password it keeps its own width, as before. Stacked, it takes the column's width instead:
+            // hugging there left the ring floating mid-column with a gap after it.
+            .frame(minWidth: stacked || item.password == nil ? nil : 220,
+                   maxWidth: stacked || item.password == nil ? .infinity : nil)
+            .fixedSize(horizontal: !stacked && item.password != nil, vertical: false)
             .help(Text("Copy one-time code"))
             .accessibilityLabel(Text("Copy One-time code"))
             .copyTick(armed: $codeArmed, copied: $codeCopied)
@@ -3171,7 +3202,7 @@ private struct HeroCard: View {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 10) { tiles(style) }
                         .frame(minWidth: 0, idealWidth: 440, maxWidth: .infinity, alignment: .leading)
-                    VStack(alignment: .leading, spacing: 10) { tiles(style) }
+                    VStack(alignment: .leading, spacing: 10) { tiles(style, stacked: true) }
                 }
                 .fixedSize(horizontal: false, vertical: true)
             }

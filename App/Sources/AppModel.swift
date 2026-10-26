@@ -514,7 +514,7 @@ final class AppModel {
     }
 
     /// Logins with any locally-detectable issue (sidebar badge).
-    var watchtowerIssueCount: Int { WatchtowerReport(items: items, breaches: breachCounts).problemCount }
+    var watchtowerIssueCount: Int { WatchtowerReport.countProblems(in: items, breaches: breachCounts) }
 
     #if DEBUG
     /// Snapshot/demo only: pretend these accounts are saved.
@@ -972,6 +972,7 @@ final class AppModel {
         guard let id = accountId ?? unlockTarget?.id else { return }
         if let session = session(for: id) { session.close() }
         sessions.removeAll { $0.id == id }
+        ItemSort.forgetLetters()
         AccountStore.erase(id)
         if accountFilter == id { accountFilter = nil }
         unlockTargetID = nil
@@ -1614,6 +1615,7 @@ final class AppModel {
     /// Locks one account; the others stay open.
     func lock(_ accountId: String) {
         IconStore.shared.clearMemory()
+        ItemSort.forgetLetters()
         session(for: accountId)?.close()
         sessions.removeAll { $0.id == accountId }
         if accountFilter == accountId { accountFilter = nil }
@@ -2188,9 +2190,11 @@ final class AppModel {
 
     // MARK: Auto-lock
 
-    private var lastActivity = Date()
-    private var monitors: [Any] = []
-    private var autoLockTimer: Timer?
+    /// Written on every key press, click, scroll and mouse move; only the auto-lock timer reads it, so it stays out of
+    /// observation (and the event monitors and the timer with it).
+    @ObservationIgnored private var lastActivity = Date()
+    @ObservationIgnored private var monitors: [Any] = []
+    @ObservationIgnored private var autoLockTimer: Timer?
 
     func noteActivity() { lastActivity = .now }
 
@@ -2250,7 +2254,9 @@ final class AppModel {
         // Hold ⌥ to reveal masked fields (only ⌥, so ⌥-shortcuts don't flash secrets).
         if let m = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged, handler: { [weak self] e in
             let flags = e.modifierFlags.intersection([.shift, .control, .option, .command])
-            self?.optionHeld = flags == .option
+            // Only a change: every Shift while typing comes through here, and the item's detail follows this.
+            let held = flags == .option
+            if self?.optionHeld != held { self?.optionHeld = held }
             return e
         }) { monitors.append(m) }
         let ws = NSWorkspace.shared.notificationCenter
@@ -2351,6 +2357,7 @@ final class AppModel {
 
     private func clearVaultContents() {
         IconStore.shared.clearMemory()
+        ItemSort.forgetLetters()
         selectedID = nil
         repromptPassed = [:]
         repromptRequest = nil

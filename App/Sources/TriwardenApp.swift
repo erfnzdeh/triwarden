@@ -72,6 +72,8 @@ struct TriwardenApp: App {
                 }
                 // Soft pastel wash from the Liquid design under every screen.
                 .containerBackground(for: .window) { WindowBackdrop() }
+                // No text field takes focus just because the window was restored (macOS would offer AutoFill there).
+                .noAutomaticFirstResponder()
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1120, height: 720)
@@ -117,10 +119,16 @@ struct TriwardenApp: App {
                     .disabled(!model.isUnlocked)
                 Menu("New Other Item") {
                     Button("Card") { model.beginEditing(EditRequest(mode: .create(.card))) }
+                        .keyboardShortcut("b", modifiers: [.command, .option])
                     Button("Identity") { model.beginEditing(EditRequest(mode: .create(.identity))) }
+                        .keyboardShortcut("i", modifiers: [.command, .option])
                     Button("SSH Key") { model.beginEditing(EditRequest(mode: .create(.sshKey))) }
+                        .keyboardShortcut("k", modifiers: [.command, .option])
                 }
                 .disabled(!model.isUnlocked)
+                Button("New Send") { model.composeNewSend() }
+                    .keyboardShortcut("s", modifiers: [.command, .option])
+                    .disabled(!model.isUnlocked)
                 Button("New Folder…") { model.promptNewFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .option])
                     .disabled(!model.isUnlocked)
