@@ -77,6 +77,8 @@ struct SendsPane: View {
                         }
                     }
                     .padding(6)
+                    // Search, filter, sort and a deleted Send move rows to their new places instead of jumping.
+                    .animation(Motion.animation(.smooth(duration: 0.24)), value: scopedSends.map(\.id))
                 }
                 .thinScroller()
                 .background(Color.panel, in: .rect(cornerRadius: 18, style: .continuous))
@@ -87,8 +89,10 @@ struct SendsPane: View {
                     if scopedSends.isEmpty {
                         Text(query.isEmpty && filter == .all ? "Your Sends appear here." : "No Sends match.")
                             .font(.system(size: 12)).foregroundStyle(.tertiary)
+                            .transition(.opacity)
                     }
                 }
+                .animation(Motion.animation(.easeOut(duration: 0.18)), value: scopedSends.isEmpty)
             }
             .padding(.horizontal, 6)
             .frame(width: 300)
@@ -100,6 +104,7 @@ struct SendsPane: View {
                         .transition(.opacity.combined(with: .offset(y: 8)))
                 } else if let send = model.sends.first(where: { $0.id == model.selectedSendID }) {
                     SendDetail(send: send).id(send.id)
+                        .transition(.opacity.combined(with: .offset(y: 8)))
                 } else {
                     VStack(spacing: 14) {
                         Image(systemName: "paperplane")
@@ -114,10 +119,13 @@ struct SendsPane: View {
                             .buttonStyle(.appPrimary)
                             .padding(.top, 4)
                     }
+                    .transition(.opacity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(.snappy(duration: 0.25), value: model.composingSend)
+            // One animation for every change of what the right panel shows (composer, a Send, the empty state), so
+            // picking a Send or opening Edit crossfades like the vault's detail does, not only "New Send".
+            .animation(Motion.animation(.smooth(duration: 0.24)), value: rightPanelKey)
         }
         // The Sends page is a tool, so VaultView lets it scroll to the window's bottom edge (a negative bottom inset
         // cancels the column's 8 pt margin). Its two panels are cards, though, and they must keep that margin: the
@@ -128,7 +136,18 @@ struct SendsPane: View {
         .onChange(of: model.sendSearchRequest) { searchFocused = true }
     }
 
-    private func compose() { withAnimation(.snappy(duration: 0.25)) { model.composeNewSend() } }
+    /// What the right panel is showing: changes whenever it should cross over to something else.
+    private var rightPanelKey: String {
+        if model.composingSend || model.editingSend != nil {
+            "composer-\(model.editingSend?.id ?? model.newSendNonce.uuidString)"
+        } else if let send = model.sends.first(where: { $0.id == model.selectedSendID }) {
+            "send-\(send.id)"
+        } else {
+            "empty"
+        }
+    }
+
+    private func compose() { model.composeNewSend() }
 
     /// A right-click on the list's empty space: the ways to make a Send, and the two things that change what the list
     /// shows. The same entries the sidebar's Sends section offers, so the two places agree.
@@ -460,6 +479,7 @@ private struct SendRow: View {
         .padding(.horizontal, 10).frame(height: 48)
         .background(selected ? Color.panelStrong : .clear, in: .rect(cornerRadius: 11, style: .continuous))
         .contentShape(.rect)
+        .animation(Motion.animation(.easeOut(duration: 0.15)), value: selected)
     }
 }
 
@@ -610,7 +630,7 @@ private struct SendDetail: View {
 
                 HStack(spacing: 8) {
                     Spacer()
-                    Button("Edit", systemImage: "pencil") { withAnimation(.snappy(duration: 0.25)) { model.editSend(send) } }
+                    Button("Edit", systemImage: "pencil") { model.editSend(send) }
                         .buttonStyle(.appSecondary)
                     Button("Delete Send", systemImage: "trash", role: .destructive) { confirmDelete = true }
                         .buttonStyle(.appSecondary)
@@ -702,7 +722,7 @@ struct SendComposer: View {
     }
 
     private func dismiss() {
-        withAnimation(.snappy(duration: 0.25)) { model.closeSendComposer() }
+        model.closeSendComposer()
     }
 
     private func prefill() {
