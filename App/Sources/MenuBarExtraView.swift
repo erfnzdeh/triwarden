@@ -8,6 +8,11 @@ struct MenuBarContent: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
     @FocusState private var searching: Bool
+    /// Footer state text: measured so it can slide in on hover without reflowing the row, and kept for trouble.
+    @State private var footerHovering = false
+    @State private var footerLabelWidth: CGFloat = 0
+
+    private var footerLabelShown: Bool { footerHovering || model.hasSyncError || model.isSyncing }
 
     /// The account in focus (from the switcher) is open; with none in focus, any is.
     private var focusedOpen: Bool { model.focusedAccountID.map(model.isUnlocked) ?? true }
@@ -20,22 +25,26 @@ struct MenuBarContent: View {
                 }
             }
             topRow
-            if model.hasOpenVault, focusedOpen {
-                if query.trimmingCharacters(in: .whitespaces).isEmpty {
-                    FrontTabMatchPrompt()
-                    SiteCard()
-                    ShelfCard()
-                    QuickActions()
-                    GeneratorCard()
-                    SSHRow()
+            Group {
+                if model.hasOpenVault, focusedOpen {
+                    if query.trimmingCharacters(in: .whitespaces).isEmpty {
+                        FrontTabMatchPrompt()
+                        SiteCard()
+                        ShelfCard()
+                        QuickActions()
+                        GeneratorCard()
+                        SSHRow()
+                    } else {
+                        SearchResults(query: query)
+                    }
+                } else if model.isSignedOut {
+                    SignedOutCard()
                 } else {
-                    SearchResults(query: query)
+                    // Locked: unlock in the panel (account + password / PIN / Touch ID). Don't force the main window.
+                    LockedCard()
                 }
-            } else if model.isSignedOut {
-                SignedOutCard()
-            } else {
-                LockedCard(account: model.focusedAccountID.flatMap { id in model.accounts.first { $0.id == id } })
             }
+            .transition(.blurReplace)
             footer
         }
         .padding(10)
@@ -48,49 +57,63 @@ struct MenuBarContent: View {
         }
         .onDisappear { MenuBarOpener.isOpen = false }
         .animation(.snappy(duration: 0.22), value: query.isEmpty)
+        // Unlocking, locking and signing out swap whole cards; ease them rather than snap.
+        .animation(.snappy(duration: 0.3), value: model.hasOpenVault)
+        .animation(.snappy(duration: 0.3), value: focusedOpen)
+        .animation(.snappy(duration: 0.3), value: model.isSignedOut)
     }
 
-    private var topRow: some View {
-        HStack(spacing: 8) {
+    @ViewBuilder private var topRow: some View {
+        if model.hasOpenVault {
             HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
-                TextField("Search vault", text: $query)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 13))
-                    .focused($searching)
-                    .disabled(!model.hasOpenVault)
-                    .onSubmit {
-                        // Return fills the top login into the app the panel was opened over, else copies its password.
-                        guard let first = SearchResults.matches(model.focusedItems, query).first else { return }
-                        if QuickCopy.canFill(first, model) { QuickCopy.fill(first, model) } else { QuickCopy.primary(first, model) }
-                    }
-                if query.isEmpty {
-                    Button {
-                        NSApp.keyWindow?.orderOut(nil) // the palette takes the panel's place
-                        DispatchQueue.main.async { model.openPalette() }
-                    } label: {
-                        ShortcutKeycaps(keys: (Shortcut.current(for: .palette) ?? .paletteDefault).parts)
-                    }
-                    .buttonStyle(.plain)
-                    .help(Text("Open the command palette"))
-                } else {
-                    Button { query = "" } label: {
-                        Image(systemName: "xmark.circle.fill").font(.system(size: 13)).foregroundStyle(.tertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text("Clear"))
+                searchField
+                if model.accounts.count > 1 { AccountMenu() }
+                if model.isUnlocked {
+                    CircleButton(symbol: "lock", help: "Lock Vault") { model.lock(animated: true) }
                 }
             }
-            .padding(.horizontal, 12).frame(height: 36)
-            .background(Color.menuCard, in: .capsule)
-            .overlay(Capsule().strokeBorder(searching ? Color.primary.opacity(0.3) : Color.menuEdge, lineWidth: searching ? 1.5 : 1))
-            .animation(.easeOut(duration: 0.15), value: searching)
+            .transition(.opacity)
+        } else if !model.accounts.isEmpty {
+            // Locked: there is nothing to search yet, so the account switcher takes the row, centred.
+            AccountMenu()
+                .frame(maxWidth: .infinity)
+                .transition(.scale(scale: 0.85).combined(with: .opacity))
+        }
+    }
 
-            if model.accounts.count > 1 { AccountMenu() }
-            if model.isUnlocked {
-                CircleButton(symbol: "lock", help: "Lock Vault") { model.lock(animated: true) }
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+            TextField("Search vault", text: $query)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused($searching)
+                .onSubmit {
+                    // Return fills the top login into the app the panel was opened over, else copies its password.
+                    guard let first = SearchResults.matches(model.focusedItems, query).first else { return }
+                    if QuickCopy.canFill(first, model) { QuickCopy.fill(first, model) } else { QuickCopy.primary(first, model) }
+                }
+            if query.isEmpty {
+                Button {
+                    NSApp.keyWindow?.orderOut(nil) // the palette takes the panel's place
+                    DispatchQueue.main.async { model.openPalette() }
+                } label: {
+                    ShortcutKeycaps(keys: (Shortcut.current(for: .palette) ?? .paletteDefault).parts)
+                }
+                .buttonStyle(.plain)
+                .help(Text("Open the command palette"))
+            } else {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 13)).foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Clear"))
             }
         }
+        .padding(.horizontal, 12).frame(height: 36)
+        .background(Color.menuCard, in: .capsule)
+        .overlay(Capsule().strokeBorder(searching ? Color.primary.opacity(0.3) : Color.menuEdge, lineWidth: searching ? 1.5 : 1))
+        .animation(.easeOut(duration: 0.15), value: searching)
     }
 
     private var footer: some View {
@@ -98,6 +121,8 @@ struct MenuBarContent: View {
             TimelineView(.periodic(from: .now, by: 30)) { _ in
                 Circle().fill(model.isOnline ? Color.green : Color.secondary).frame(width: 7, height: 7)
             }.accessibilityHidden(true)
+            // The state word only on hover: the dot already says it, and the row stays quiet the rest of the time.
+            // Trouble (a sync error) always shows, hover or not.
             Group {
                 if model.isSyncing {
                     Text("Syncing…")
@@ -112,6 +137,11 @@ struct MenuBarContent: View {
                 }
             }
             .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+            .fixedSize()
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { footerLabelWidth = $0 }
+            .opacity(footerLabelShown ? 1 : 0)
+            .frame(width: footerLabelShown ? footerLabelWidth + 6 : 0, alignment: .leading)
+            .clipped()
             .help(Text(verbatim: model.serverDisplayName))
             if model.isUnlocked {
                 FooterButton(symbol: "arrow.triangle.2.circlepath", help: "Sync Now", spinning: model.isSyncing) {
@@ -126,6 +156,9 @@ struct MenuBarContent: View {
                 .keyboardShortcut("q")
         }
         .padding(.horizontal, 6)
+        .contentShape(.rect)
+        .onHover { hovering in footerHovering = hovering }
+        .animation(.easeOut(duration: 0.18), value: footerLabelShown)
     }
 }
 
@@ -566,28 +599,173 @@ private struct SSHRow: View {
     }
 }
 
+/// Vault locked: show whose vault this is, and unlock here (master password, PIN or Touch ID).
+/// Stays in the menu bar on success — the main window is only a secondary path (footer Open Triwarden).
 private struct LockedCard: View {
     @Environment(AppModel.self) private var model
-    /// The account in focus, when it's the one that's locked (others may be open).
-    var account: SavedAccount?
+    @Environment(\.colorScheme) private var scheme
+    @State private var password = ""
+    /// With a PIN set, the field asks for it; this switches to the master password instead.
+    @State private var usePassword = false
+    /// The identity badge shows the server while hovered, the email otherwise.
+    @State private var hoveringIdentity = false
+    @FocusState private var focused: Bool
+
+    /// Account unlock should hit: a focused locked account, else AppModel.unlockTarget (covers single-account
+    /// and All accounts, where focusedAccountID is nil).
+    private var account: SavedAccount? {
+        if let id = model.focusedAccountID,
+           let focused = model.accounts.first(where: { $0.id == id }),
+           !model.isUnlocked(id) {
+            return focused
+        }
+        return model.unlockTarget
+    }
+
+    private var hasPIN: Bool { account.map { model.isPINEnabled($0.id) } ?? false }
+    private var pinMode: Bool { hasPIN && !usePassword }
 
     var body: some View {
-        PanelCard {
-            VStack(spacing: 10) {
-                if let account {
-                    AccountAvatar(account: account, size: 44, showsLock: true)
-                    Text(verbatim: account.email).font(.system(size: 14, weight: .semibold)).lineLimit(1).truncationMode(.middle)
-                } else {
+        PanelCard(padding: 12) {
+            if let account {
+                VStack(spacing: 10) {
+                    // Whose vault, centred: no avatar (the panel is one account's). The lock and email sit in one
+                    // badge; hovering it swaps the email for the server, so the panel stays one line tall.
+                    VStack(spacing: 6) {
+                        Text("Vault locked").font(.system(size: 13, weight: .semibold))
+                        identityBadge(account)
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    UnlockCapsuleField(pinMode: pinMode, password: $password, focused: $focused.wrappedBinding, submit: submit)
+
+                    // Under the field: what's happening, centred. The PIN switch keeps the trailing edge.
+                    ZStack {
+                        Group {
+                            if let message = model.errorMessage {
+                                Text(verbatim: message)
+                                    .foregroundStyle(scheme == .dark
+                                        ? Color(red: 1, green: 0.55, blue: 0.55)
+                                        : Color(red: 0.8, green: 0.2, blue: 0.2))
+                            } else if model.isBusy {
+                                Text("Unlocking…").foregroundStyle(.secondary)
+                            } else if password.isEmpty, model.touchIDEnabled {
+                                // Nothing typed: just the quiet fingerprint, centred under the field.
+                                touchIDButton
+                            } else {
+                                // The return hint and the fingerprint as one centred group.
+                                HStack(spacing: 8) {
+                                    UnlockReturnHint(hasInput: !password.isEmpty)
+                                    if model.touchIDEnabled { touchIDButton }
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        if hasPIN {
+                            HStack {
+                                Spacer(minLength: 0)
+                                pinSwitch
+                            }
+                        }
+                    }
+                    .frame(minHeight: 24)
+                    .font(.system(size: 11, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .animation(.easeOut(duration: 0.2), value: model.errorMessage)
+                    .animation(.easeOut(duration: 0.2), value: model.isBusy)
+                }
+                .onAppear {
+                    // Keep AppModel's unlock target on the account this card shows (password / PIN / Touch ID share it).
+                    if model.unlockTargetID != account.id { model.unlockTargetID = account.id }
+                    focused = true
+                }
+                .onChange(of: account.id) { _, id in
+                    model.unlockTargetID = id
+                    password = ""
+                    usePassword = false
+                    model.errorMessage = nil
+                    focused = true
+                }
+                .onChange(of: model.errorMessage) { _, message in
+                    guard message != nil else { return }
+                    password = ""
+                    Task { @MainActor in focused = true }
+                }
+                .onChange(of: password) { _, typed in
+                    if !typed.isEmpty, model.errorMessage != nil { model.errorMessage = nil }
+                }
+            } else {
+                // Signed-in state without a resolvable account shouldn't happen; keep a quiet fallback.
+                VStack(spacing: 10) {
                     Image(systemName: "lock.fill").font(.system(size: 20)).foregroundStyle(.secondary)
                         .frame(width: 44, height: 44)
                         .background(Color.primary.opacity(0.07), in: .rect(cornerRadius: 12, style: .continuous))
                     Text("Vault locked").font(.system(size: 14, weight: .semibold))
+                    Button("Open Triwarden") { model.bringToFront() }
+                        .buttonStyle(.appPrimarySmall)
                 }
-                Button("Unlock…") { model.bringToFront() }
-                    .buttonStyle(.appPrimarySmall)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+        }
+    }
+
+    /// The lock and the account, one quiet badge: email at rest, server on hover. The badge is as wide as the text
+    /// it shows — no held-open space — and the swap cross-fades.
+    private func identityBadge(_ account: SavedAccount) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: "lock.fill").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
+            Text(verbatim: hoveringIdentity ? account.serverSummary : account.email)
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .lineLimit(1).truncationMode(.middle)
+                .contentTransition(.opacity)
+        }
+        .padding(.horizontal, 8).frame(height: 20)
+        .background(Color.primary.opacity(0.07), in: .capsule)
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
+        .contentShape(.capsule)
+        .onHover { hoveringIdentity = $0 }
+        .animation(.easeOut(duration: 0.16), value: hoveringIdentity)
+        .help(Text(verbatim: "\(account.email) · \(account.serverSummary)"))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: "\(account.email), \(account.serverSummary)"))
+    }
+
+    /// The quiet fingerprint under the field: names itself on hover, and stays out of the way of an error or a
+    /// running unlock (the status line has that spot then).
+    private var touchIDButton: some View {
+        Button { Task { await model.unlockWithTouchID() } } label: {
+            Image(systemName: "touchid").font(.system(size: 15))
+                .foregroundStyle(.secondary)
+                .frame(width: 28, height: 28)
+                .background(Color.primary.opacity(0.07), in: .circle)
+                .contentShape(.circle)
+        }
+        .buttonStyle(.plain)
+        .disabled(model.isBusy)
+        .help(Text("Unlock with Touch ID"))
+        .accessibilityLabel(Text("Unlock with Touch ID"))
+        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+    }
+
+    private var pinSwitch: some View {
+        Button(pinMode ? "Use master password" : "Use PIN") {
+            usePassword.toggle()
+            password = ""
+            model.errorMessage = nil
+            focused = true
+        }
+        .buttonStyle(.plain).foregroundStyle(.secondary)
+    }
+
+    private func submit() {
+        guard let account, !password.isEmpty, !model.isBusy else { return }
+        let typed = password
+        let id = account.id
+        Task {
+            if pinMode { await model.unlockWithPIN(typed, accountId: id) }
+            else { await model.unlock(password: typed, accountId: id) }
         }
     }
 }
@@ -646,7 +824,8 @@ private struct AccountMenu: View {
         } label: {
             Group {
                 if let focused {
-                    AccountAvatar(account: focused, size: 26, showsLock: true)
+                    // No lock badge: the locked card below already says it, in words.
+                    AccountAvatar(account: focused, size: 26)
                 } else {
                     AccountAvatarStack(accounts: model.accounts, size: 20)
                 }

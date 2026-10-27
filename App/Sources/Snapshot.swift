@@ -386,12 +386,13 @@ enum Snapshot {
         let lockedPanel = AppModel()
         lockedPanel.setPreviewAccounts(vault.accounts)
         lockedPanel.phase = .locked
+        lockedPanel.touchIDEnabled = true // so the snapshot shows the trailing Touch ID glyph beside the centred name
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             render(MenuBarContent().environment(signedOutPanel).tint(.brand).background(.regularMaterial),
                    size: CGSize(width: 380, height: 270), appearance: appearance,
                    to: dir.appending(path: "menubar-signed-out-\(name).png"))
             render(MenuBarContent().environment(lockedPanel).tint(.brand).background(.regularMaterial),
-                   size: CGSize(width: 380, height: 240), appearance: appearance,
+                   size: CGSize(width: 380, height: 320), appearance: appearance,
                    to: dir.appending(path: "menubar-locked-\(name).png"))
         }
         // The palette's states: ranked and loose matches, an item's actions, the generator, a new login from the query,
