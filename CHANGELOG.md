@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.2](https://github.com/sinhong2011/triwarden/compare/v0.5.1...v0.5.2) (2026-10-27)
+
+
+### Fixes
+
+* **menubar:** unlock in the panel, with a centred locked card ([#128](https://github.com/sinhong2011/triwarden/issues/128)) ([8f83409](https://github.com/sinhong2011/triwarden/commit/8f83409e78243ab8cd112108708abdb8de022b21))
+
+
+### UI
+
+* quiet Vault Lock chrome (Touch ID, logout, reveal) ([#127](https://github.com/sinhong2011/triwarden/issues/127)) ([6e1a371](https://github.com/sinhong2011/triwarden/commit/6e1a371dbfa8aa85497f2e2290a30967562a3ee0))
+
 ## [0.5.1](https://github.com/sinhong2011/triwarden/compare/v0.5.0...v0.5.1) (2026-10-26)
 
 
