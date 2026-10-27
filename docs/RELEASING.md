@@ -3,7 +3,7 @@
 Releases are automatic once the one-time setup is done:
 
 1. Commits on `main` use [Conventional Commits](https://www.conventionalcommits.org): `feat: …`, `fix: …`,
-   `perf: …`, `security: …` show up in the changelog; `docs:`, `chore:`, `test:` don't. `feat!:` or a
+   `perf: …`, `security: …`, `ui: …` show up in the changelog; `docs:`, `chore:`, `test:` don't. `feat!:` or a
    `BREAKING CHANGE:` footer marks a breaking change (before 1.0 that bumps the minor version).
 2. [release-please](https://github.com/googleapis/release-please) keeps a **release PR** open with the next version
    (in `project.yml`) and `CHANGELOG.md`. With `include-commit-authors` in `release-please-config.json`, each

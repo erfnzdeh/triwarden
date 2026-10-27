@@ -8,19 +8,52 @@
   "bootstrap-sha": "c11d2dc55735f638ce361693a15a9ae9c3c39633",
   "pull-request-title-pattern": "chore: release ${version}",
   "changelog-sections": [
-    { "type": "feat", "section": "Features" },
-    { "type": "fix", "section": "Fixes" },
-    { "type": "perf", "section": "Performance" },
-    { "type": "security", "section": "Security" },
-    { "type": "docs", "section": "Documentation", "hidden": true },
-    { "type": "chore", "section": "Chores", "hidden": true },
-    { "type": "test", "section": "Tests", "hidden": true }
+    {
+      "type": "feat",
+      "section": "Features"
+    },
+    {
+      "type": "fix",
+      "section": "Fixes"
+    },
+    {
+      "type": "perf",
+      "section": "Performance"
+    },
+    {
+      "type": "security",
+      "section": "Security"
+    },
+    {
+      "type": "ui",
+      "section": "UI"
+    },
+    {
+      "type": "docs",
+      "section": "Documentation",
+      "hidden": true
+    },
+    {
+      "type": "chore",
+      "section": "Chores",
+      "hidden": true
+    },
+    {
+      "type": "test",
+      "section": "Tests",
+      "hidden": true
+    }
   ],
   "packages": {
     ".": {
       "package-name": "triwarden",
       "changelog-path": "CHANGELOG.md",
-      "extra-files": [{ "type": "generic", "path": "project.yml" }]
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "project.yml"
+        }
+      ]
     }
   }
 }
