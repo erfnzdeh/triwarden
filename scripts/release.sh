@@ -44,12 +44,14 @@ echo "== Generate project"
 xcodegen generate -q
 
 # Bundles embedded in Triwarden.app that must sign during archive/export.
+# XcodeGen type: tool (CLI) cannot take a provisioning profile — Developer ID
+# identity alone is enough; including .tw made archive fail with
+# "tw does not support provisioning profiles".
 DEVELOPER_ID_BUNDLES=(
   io.github.sinhong2011.triwarden
   io.github.sinhong2011.triwarden.autofill
   io.github.sinhong2011.triwarden.safari
   io.github.sinhong2011.triwarden.autotype
-  io.github.sinhong2011.triwarden.tw
 )
 
 if [[ -n ${ASC_KEY_PATH:-} ]]; then
