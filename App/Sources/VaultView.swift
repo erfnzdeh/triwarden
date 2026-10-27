@@ -2034,7 +2034,7 @@ private enum Inbox {
             notes.append(InboxNote(
                 id: AppModel.loginSaveNotePrefix + save.id,
                 symbol: save.isUpdate ? "key.horizontal" : "key.fill",
-                tint: Color.brand,
+                tint: .secondary,
                 title: save.title,
                 subtitle: save.detail,
                 primaryTitle: save.isUpdate ? String(localized: "Update") : String(localized: "Save"),

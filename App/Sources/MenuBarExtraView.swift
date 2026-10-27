@@ -308,7 +308,7 @@ private struct PendingSavesCard: View {
                         HStack(spacing: 8) {
                             Image(systemName: save.isUpdate ? "key.horizontal" : "key.fill")
                                 .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(Color.brand)
+                                .foregroundStyle(.secondary)
                                 .frame(width: 16)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(verbatim: save.title).font(.system(size: 12, weight: .medium)).lineLimit(1)
