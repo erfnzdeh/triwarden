@@ -168,3 +168,13 @@ these licenses can be found at:
 Passphrases and random usernames. "EFF's Long Wordlist" by the Electronic Frontier Foundation
 (<https://www.eff.org/dice>), licensed under CC BY 3.0 US (<https://creativecommons.org/licenses/by/3.0/us/>).
 Used unmodified.
+
+## Vazirmatn
+
+Persian and Arabic text in the browser extension's menu. <https://github.com/rastikerdar/vazirmatn>, version 33.0.3,
+the Non-Latin variable font, unmodified (`BrowserExtension/WebExtension/public/fonts/Vazirmatn-NL.woff2`). Licensed
+under the SIL Open Font License 1.1; the full license ships next to the font as `Vazirmatn-OFL.txt`.
+
+```
+Copyright 2015 The Vazirmatn Project Authors (https://github.com/rastikerdar/vazirmatn)
+```

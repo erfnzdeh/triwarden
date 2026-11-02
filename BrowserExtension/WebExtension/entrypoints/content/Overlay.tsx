@@ -1,7 +1,7 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid-js';
 import { browser } from 'wxt/browser';
 import { send } from '../../lib/send';
-import { fillOtp, otpTargets, passwordFields, setValue, usernameFor, visible } from '../../lib/dom';
+import { fillOtp, isRTL, otpTargets, passwordFields, setValue, usernameFor, visible } from '../../lib/dom';
 import type { Row } from '../../lib/protocol';
 import { AppMark } from './AppMark';
 
@@ -149,16 +149,18 @@ export default function Overlay() {
   const place = (t: Target) => {
     tick();
     if (!t.field.isConnected) return { display: 'none' };
+    // In a right-to-left field the text starts at the right edge, so the icon goes on the left, out of its way.
+    const rtl = isRTL(t.field);
     const last = t.otp?.at(-1);
     if (last && t.otp && t.otp.length > 1) {
       // A row of one-digit boxes has no room inside: put the icon after the last one.
       const r = last.getBoundingClientRect();
       if (r.width < 8) return { display: 'none' };
-      return { display: 'grid', left: `${r.right + 6}px`, top: `${r.top + (r.height - 22) / 2}px` };
+      return { display: 'grid', left: `${rtl ? r.left - 28 : r.right + 6}px`, top: `${r.top + (r.height - 22) / 2}px` };
     }
     if (!visible(t.field)) return { display: 'none' };
     const r = t.field.getBoundingClientRect();
-    return { display: 'grid', left: `${r.right - 30}px`, top: `${r.top + (r.height - 22) / 2}px` };
+    return { display: 'grid', left: `${rtl ? r.left + 8 : r.right - 30}px`, top: `${r.top + (r.height - 22) / 2}px` };
   };
 
   /** Where the menu sits: under its field, or over it when the space below is too small; kept inside the window. */
@@ -172,7 +174,9 @@ export default function Overlay() {
     const height = shown * ROW_HEIGHT + groups * 24 + 12 + (m.auto && m.state === 'rows' ? HINT_HEIGHT : 0);
     const below = innerHeight - r.bottom - 12;
     const wide = m.target.otp ? CODE_MENU_WIDTH : MENU_WIDTH;
-    const left = `${Math.max(8, Math.min(r.left, innerWidth - wide - 8))}px`;
+    // Lined up with the field's start: its left edge, or its right edge when the field is right to left.
+    const start = isRTL(f) ? r.right - wide : r.left;
+    const left = `${Math.max(8, Math.min(start, innerWidth - wide - 8))}px`;
     const width = `${wide}px`;
     return below >= height || r.top < below ? { left, width, top: `${r.bottom + 6}px` } : { left, width, bottom: `${innerHeight - r.top + 6}px` };
   };
@@ -376,8 +380,8 @@ export default function Overlay() {
           };
           const mixed = () => !m().target.otp && new Set(m().rows.map(groupOf)).size > 1;
           return (
-            <div class="menu" role="menu" style={menuStyle(m())}>
-              <Show when={m().state === 'rows'} fallback={<div class="note">{m().note}</div>}>
+            <div class="menu" role="menu" style={menuStyle(m())} data-rtl={isRTL(m().target.field)}>
+              <Show when={m().state === 'rows'} fallback={<div class="note" dir="auto">{m().note}</div>}>
                 <div class="list">
                   <For each={m().rows}>
                     {(row, i) => (
@@ -395,9 +399,16 @@ export default function Overlay() {
                         >
                           <Avatar row={row} />
                           <span class="text">
-                            <span class="name">{dupes().has(row.name) && row.detail ? row.detail : row.name}</span>
+                            {/* Names and usernames can be in any script: each takes its own direction. */}
+                            <span class="name" dir="auto">
+                              {dupes().has(row.name) && row.detail ? row.detail : row.name}
+                            </span>
                             <Show when={dupes().has(row.name) ? row.name : row.detail}>
-                              {(sub) => <span class="detail">{sub()}</span>}
+                              {(sub) => (
+                                <span class="detail" dir="auto">
+                                  {sub()}
+                                </span>
+                              )}
                             </Show>
                           </span>
                           {/* The code and its countdown belong to a code field only. */}
