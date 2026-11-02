@@ -148,9 +148,9 @@ enum Snapshot {
             let scheme: ColorScheme = name == "dark" ? .dark : .light
             let views: [(String, AnyView, CGSize)] = [
                 ("editor", AnyView(EditItemSheet(mode: .create(.secureNote), prefill: prefill, inPanel: true)), CGSize(width: 760, height: 760)),
-                ("key-detail", AnyView(ItemDetail(item: item)), CGSize(width: 720, height: 760)),
-                ("key-detail-compact", AnyView(ItemDetail(item: item)), CGSize(width: 360, height: 800)),
-                ("key-detail-long-variable", AnyView(ItemDetail(item: longVariableItem)), CGSize(width: 480, height: 880)),
+                ("key-detail", AnyView(ItemDetail(item: item, previewSecretProfiles: [profile, multiProfile])), CGSize(width: 720, height: 920)),
+                ("key-detail-compact", AnyView(ItemDetail(item: item, previewSecretProfiles: [profile, multiProfile])), CGSize(width: 360, height: 920)),
+                ("key-detail-long-variable", AnyView(ItemDetail(item: longVariableItem, previewSecretProfiles: [profile])), CGSize(width: 480, height: 980)),
                 ("tools-empty", AnyView(ToolLaunchesPane()), CGSize(width: 760, height: 680)),
                 ("setup", AnyView(ToolLaunchSetup(reference: reference)), CGSize(width: 640, height: 720)),
                 ("claude-setup", AnyView(ToolLaunchSetup(reference: reference, previewRecipe: .claudeCode)), CGSize(width: 640, height: 1000)),

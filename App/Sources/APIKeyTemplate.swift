@@ -64,6 +64,16 @@ extension VaultItem {
     }
 }
 
+extension SecretsProfile {
+    /// Environment variables through which this exact API-key field is provided by the saved tool.
+    func variables(using item: VaultItem) -> [String] {
+        bindings.compactMap { binding in
+            binding.accountID == item.accountId && binding.itemID == item.id &&
+                binding.field == .hidden(APIKeyTemplate.keyField) ? binding.variable : nil
+        }
+    }
+}
+
 extension AppModel {
     func beginAPIKey(accountIDs: [String]? = nil) {
         guard showsAPIKeyTools else { return }
@@ -83,6 +93,15 @@ extension AppModel {
     func showToolsAndProjects() {
         guard showsAPIKeyTools else { return }
         leaveNewItemForm {
+            self.requestedSection = .toolLaunches
+            self.bringToFront()
+        }
+    }
+
+    func showToolInSecrets(_ profile: SecretsProfile) {
+        guard showsAPIKeyTools else { return }
+        leaveNewItemForm {
+            self.requestedToolSelection = profile.name
             self.requestedSection = .toolLaunches
             self.bringToFront()
         }

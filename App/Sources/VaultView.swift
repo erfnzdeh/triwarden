@@ -1,4 +1,5 @@
 import AppKit
+import SecretsAgent
 import SSHAgent
 import TriCrypto
 import QuickLook
@@ -2811,8 +2812,27 @@ struct ItemDetail: View {
     @State private var starBurst = 0
     @State private var confirmDelete = false
     @State private var dropping = false
+    #if DEBUG
+    var previewSecretProfiles: [SecretsProfile]?
+    #endif
     /// Revealed by the eye, or by holding ⌥.
     private var secretsVisible: Bool { revealToggle || optionPeek }
+    private struct SecretUse: Identifiable {
+        let profile: SecretsProfile
+        let variables: [String]
+        var id: String { profile.name }
+    }
+    private var secretUses: [SecretUse] {
+        #if DEBUG
+        let profiles = previewSecretProfiles ?? model.secrets.profiles
+        #else
+        let profiles = model.secrets.profiles
+        #endif
+        return profiles.compactMap { profile in
+            let variables = profile.variables(using: item)
+            return variables.isEmpty ? nil : SecretUse(profile: profile, variables: variables)
+        }.sorted { $0.profile.title.localizedStandardCompare($1.profile.title) == .orderedAscending }
+    }
     private var displayFields: [ItemField] {
         item.fields.map { field in
             guard item.isAPIKey, model.showsAPIKeyTools else { return field }
@@ -2864,6 +2884,49 @@ struct ItemDetail: View {
                     .font(.system(size: 12)).foregroundStyle(.orange)
             }
         }
+    }
+
+    private var secretUsageCard: some View {
+        FormCard(title: "Used by") {
+            VStack(spacing: 0) {
+                ForEach(Array(secretUses.enumerated()), id: \.element.id) { index, use in
+                    if index > 0 { Divider().opacity(0.6).padding(.leading, 46) }
+                    Button { model.showToolInSecrets(use.profile) } label: {
+                        HStack(spacing: 12) {
+                            ToolGlyph(profile: use.profile, size: 34)
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(spacing: 7) {
+                                    Text(verbatim: use.profile.title).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                                    if !use.profile.enabled {
+                                        Text("Paused").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+                                            .padding(.horizontal, 6).padding(.vertical, 2)
+                                            .overlay(Capsule().strokeBorder(.secondary.opacity(0.35)))
+                                    }
+                                }
+                                Text(verbatim: secretUseSubtitle(use))
+                                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                                    .lineLimit(1).truncationMode(.tail)
+                            }
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
+                                .accessibilityHidden(true)
+                        }
+                        .padding(.vertical, 9)
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text(verbatim: "\(use.profile.title), \(String(localized: "Open Secrets"))"))
+                    .accessibilityIdentifier("secretUsage-\(use.profile.name)")
+                }
+            }
+        }
+    }
+
+    private func secretUseSubtitle(_ use: SecretUse) -> String {
+        let folder = (use.profile.directory as NSString).lastPathComponent
+        let place = folder.isEmpty ? use.profile.directory : folder
+        return (use.variables + [place]).joined(separator: " · ")
     }
 
     private var toolVariableBadge: some View {
@@ -2937,6 +3000,7 @@ struct ItemDetail: View {
                 HeroCard(item: item, reveal: secretsVisible)
 
                 if model.showsAPIKeyTools, item.isAPIKey, !item.isDeleted, !item.isArchived {
+                    if !secretUses.isEmpty { secretUsageCard }
                     toolAccessCard
                 }
 

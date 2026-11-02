@@ -146,6 +146,9 @@ enum ToolsBrowserSelfTest {
         var other = keys[0]; other.accountId = "another"; other.name = "Separate account key"
         let lookup = ToolBrowserIndex(profiles: p, items: keys + [other], unlocked: ["demo", "another"])
         check(lookup.item(for: .init(accountID: "another", itemID: other.id, field: .hidden("api-key"), variable: "OTHER_KEY"))?.name == "Separate account key", "key lookup is qualified by account")
+        let directUse = p[0].variables(using: keys[0])
+        check(directUse == ["API_KEY_0"], "API key detail finds the exact saved-tool binding")
+        check(p[0].variables(using: other).isEmpty, "API key usage never crosses account boundaries")
         let began = ContinuousClock.now
         for _ in 0..<100 {
             _ = index.results(query: "assistant", filter: .all, order: .ascending)
