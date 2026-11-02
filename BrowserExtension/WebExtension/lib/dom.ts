@@ -22,6 +22,9 @@ export function usernameFor(pw: HTMLInputElement): HTMLInputElement | null {
   return scope.querySelector('input[autocomplete~="username"], input[type="email"]');
 }
 
+/** Whether a field lays out right to left (Persian, Arabic, Hebrew pages): its text starts at the right edge. */
+export const isRTL = (el: Element): boolean => getComputedStyle(el).direction === 'rtl';
+
 /** Set a value the way a user would, so frameworks that track input events notice it. */
 export function setValue(input: HTMLInputElement | null | undefined, value: string | undefined): void {
   if (!input || value == null) return;
