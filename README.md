@@ -182,7 +182,7 @@ Paste the command, enter your Mac password, and the sheet notices when `tw` is i
 Reading from the vault asks for Touch ID in the app.
 
 Local API-key tools are optional developer features. New users start with these pages hidden.
-Enable **Settings > Developer > Show API key tools**, then open **Tools**.
+Enable **Settings > Developer > Show Secrets**, then open **Secrets**.
 Start with **Import from an .env file**, **Use a key already in the vault**, or **Walk me through it**.
 The guide covers key storage, tool setup, helper installation, first approval, and repeat use.
 It includes a dummy-key exercise that needs no provider account or API charges.

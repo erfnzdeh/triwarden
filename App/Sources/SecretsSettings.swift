@@ -9,8 +9,8 @@ struct SecretsSettings: View {
     var body: some View {
         Form {
             Section {
-                Text("Save API keys in your vault. Use Tools to choose how a tool receives a saved key.")
-                Button("Open Tools") { model.showToolsAndProjects() }
+                Text("Save API keys in your vault. Use Secrets to choose how a tool receives a saved key.")
+                Button("Open Secrets") { model.showToolsAndProjects() }
                 Button("Setup Guide…") { model.showToolGuide() }
                 Button("Terminal Helper Setup…") { helperSetup = true }
             } header: { Text("Local Tool Access") }
@@ -87,7 +87,7 @@ private struct AdvancedSecretsSettings: View {
                 Text("Save a development command and its credential reference. Launches require approval unless temporary access is still active.")
                     .font(.caption).foregroundStyle(.secondary)
                 if !additionalBindings.isEmpty {
-                    Text("This tool also has \(additionalBindings.count) additional key bindings. They are preserved here; edit them in Tools.")
+                    Text("This tool also has \(additionalBindings.count) additional key bindings. They are preserved here; edit them in Secrets.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             } header: { Text("Local Secrets Agent") }
@@ -163,7 +163,7 @@ private struct AdvancedSecretsSettings: View {
                             .font(.system(.body, design: .monospaced))
                     }
                 }
-                Text("Install tw through Tools > Terminal Helper Setup. Keep Triwarden open and the required accounts unlocked. Each launch requires an online refresh. Command overrides are disabled.")
+                Text("Install tw through Secrets › Terminal Helper Setup. Keep Triwarden open and the required accounts unlocked. Each launch requires an online refresh. Command overrides are disabled.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

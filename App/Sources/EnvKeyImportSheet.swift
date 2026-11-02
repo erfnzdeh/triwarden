@@ -267,7 +267,7 @@ struct EnvKeyImportSheet: View {
                         }
                     }
                 } else if model.secrets.profiles.count >= 64 {
-                    Text("Remove an unused tool from Tools before you add another.").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text("Remove an unused tool from Secrets before you add another.").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
             }
             .padding(18).frame(maxWidth: .infinity, alignment: .leading)

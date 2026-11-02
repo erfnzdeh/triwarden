@@ -139,7 +139,7 @@ private struct FoldLayout: Layout {
     }
 }
 
-/// A section's heading ("Items", "Tools"…): a title, not a row to pick or hover.
+/// A section's heading ("Items", "Utilities"…): a title, not a row to pick or hover.
 struct SidebarHeading: View {
     let title: LocalizedStringKey
 

@@ -353,7 +353,7 @@ struct ToolLaunchSetup: View {
             if let error = model.secrets.lastError { throw SecretsFailure(error) }
             model.requestedToolSelection = draft.name
             model.requestedSection = .toolLaunches
-            model.flash(String(localized: "Tool saved. Copy its launch from Tools."))
+            model.flash(String(localized: "Tool saved. Copy its launch from Secrets."))
             onSaved?(draft)
             dismiss()
         } catch { self.error = error.localizedDescription }

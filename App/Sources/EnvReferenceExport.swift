@@ -89,7 +89,7 @@ struct EnvReferenceExport: View {
         error = nil
         do {
             guard model.secrets.profiles.first(where: { $0.name == profile.name }) == profile else {
-                throw SecretsFailure("The tool settings changed. Close this window and open it again from Tools.")
+                throw SecretsFailure("The tool settings changed. Close this window and open it again from Secrets.")
             }
             let references = try EnvReferenceFile(profile: profile)
             let panel = NSSavePanel()

@@ -1,7 +1,7 @@
 # Start a saved tool from Terminal
 
 New to this feature? Start with the [guided setup](local-api-keys-getting-started.md).
-Enable **Settings > Developer > Show API key tools**, then open **Tools** and select **Walk me through it**.
+Enable **Settings > Developer > Show Secrets**, then open **Secrets** and select **Walk me through it**.
 This visibility preference is off for new users. Existing saved tool setups keep their entry after upgrading.
 
 ## Set up a tool
@@ -46,8 +46,8 @@ The recipe does not verify provider credentials or establish compatibility with 
 
 ## Install the helper
 
-1. Open **Tools** in Triwarden.
-2. Open the **Tools options** menu (…). Select **Terminal Helper Setup…**.
+1. Open **Secrets** in Triwarden.
+2. Open the **Secrets options** menu (…). Select **Terminal Helper Setup…**.
 3. Select **Copy & Open Terminal**. Triwarden copies the install command and opens Terminal.
 4. Paste the command with Command-V and press Return.
 5. Enter your Mac password.
@@ -72,7 +72,7 @@ Triwarden does not change your shell startup files.
 
 ## Copy a launch
 
-1. Select the saved tool in **Tools**. With only one saved tool, Tools opens it directly.
+1. Select the saved tool in **Secrets**. With only one saved tool, Secrets opens it directly.
 2. Check that the state is **Ready to run**. Select **Copy** beside the launch command.
 3. Paste the command into Terminal and run it.
 
@@ -175,7 +175,7 @@ Lock and revoke stop future delivery. They cannot recover keys that a program al
 
 ## Use an environment reference file
 
-1. Select a saved tool in **Tools**.
+1. Select a saved tool in **Secrets**.
 2. Open its menu (…).
 3. Select **Save .env References…**.
 4. Select **Save File…**. Check the destination in the file picker.
@@ -216,7 +216,7 @@ Only one selector is accepted. Do not combine `--env-file` with `--profile` or a
 
 All references must match the saved tool's selected keys and variable names.
 Triwarden rejects extra keys, missing keys, and changed references before it requests approval.
-After you change key selections or variable names, save a new file from Tools.
+After you change key selections or variable names, save a new file from Secrets.
 A value rotation on the same vault item does not require a new file.
 
 The normal launch checks still apply. Once remains the initial approval choice.
@@ -261,8 +261,8 @@ See the [acceptance record](plans/2026-10-24-env-reference-acceptance.md).
 ## Import keys from an existing .env file
 
 1. Unlock the destination account.
-2. Open **Tools**. Open **Tools options** (…) and select **Import .env File…**.
-   On an empty Tools page, select **Import from an .env file**.
+2. Open **Secrets**. Open **Secrets options** (…) and select **Import .env File…**.
+   On an empty Secrets page, select **Import from an .env file**.
 3. Select **Choose…**. Select one local file.
 4. Check the destination account and project name.
 5. Review the variable names. Select only the keys you want to save.

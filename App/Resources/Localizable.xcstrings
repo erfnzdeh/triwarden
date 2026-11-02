@@ -13779,6 +13779,110 @@
         }
       }
     },
+    "Secrets": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "シークレット"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "机密"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "機密資料"
+          }
+        },
+        "zh-HK": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "機密資料"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "보안 정보"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secrets"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Secretos"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อมูลลับ"
+          }
+        }
+      }
+    },
+    "Show Secrets": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "シークレットを表示"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示机密"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示機密資料"
+          }
+        },
+        "zh-HK": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示機密資料"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "보안 정보 표시"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher les secrets"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar secretos"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แสดงข้อมูลลับ"
+          }
+        }
+      }
+    },
     "Appearance": {
       "localizations": {
         "ja": {
@@ -67403,6 +67507,58 @@
         }
       }
     },
+    "Utilities": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ユーティリティ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "实用工具"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "實用工具"
+          }
+        },
+        "zh-HK": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "實用工具"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "유틸리티"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilitaires"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilidades"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยูทิลิตี้"
+          }
+        }
+      }
+    },
     "Value": {
       "localizations": {
         "ja": {
@@ -80156,54 +80312,54 @@
         }
       }
     },
-    "Copy the launch from Tools": {
+    "Copy the launch from Secrets": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "「ツール」から起動コマンドをコピー"
+            "value": "「シークレット」から起動コマンドをコピー"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "从“工具”复制启动命令"
+            "value": "从“机密”复制启动命令"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "從「工具」拷貝啟動指令"
+            "value": "從「機密資料」拷貝啟動指令"
           }
         },
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "喺「工具」複製啟動指令"
+            "value": "喺「機密資料」複製啟動指令"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "'도구'에서 실행 명령 복사"
+            "value": "'보안 정보'에서 실행 명령 복사"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copier le lancement depuis Outils"
+            "value": "Copier le lancement depuis Secrets"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copiar el inicio desde Herramientas"
+            "value": "Copiar el inicio desde Secretos"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "คัดลอกคำสั่งเรียกใช้จากเครื่องมือ"
+            "value": "คัดลอกคำสั่งเรียกใช้จากข้อมูลลับ"
           }
         }
       }
@@ -83224,54 +83380,54 @@
         }
       }
     },
-    "Missing key: open the tool in Tools and choose the key again.": {
+    "Missing key: open the tool in Secrets and choose the key again.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "キーが見つかりません：「ツール」でツールを開き、キーを選び直してください。"
+            "value": "キーが見つかりません：「シークレット」でツールを開き、キーを選び直してください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "缺少密钥：请在“工具”中打开此工具，然后重新选择密钥。"
+            "value": "缺少密钥：请在“机密”中打开此工具，然后重新选择密钥。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "缺少金鑰：請在「工具」中開啟此工具，然後重新選擇金鑰。"
+            "value": "缺少金鑰：請在「機密資料」中開啟此工具，然後重新選擇金鑰。"
           }
         },
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "缺少密鑰：請喺「工具」開啟呢個工具，再揀過條密鑰。"
+            "value": "缺少密鑰：請喺「機密資料」開啟呢個工具，再揀過條密鑰。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "키가 없습니다: '도구'에서 도구를 열고 키를 다시 선택하세요."
+            "value": "키가 없습니다: '보안 정보'에서 도구를 열고 키를 다시 선택하세요."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Clé manquante : ouvrez l'outil dans Outils et choisissez à nouveau la clé."
+            "value": "Clé manquante : ouvrez l'outil dans Secrets et choisissez à nouveau la clé."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Falta una clave: abre la herramienta en Herramientas y vuelve a elegir la clave."
+            "value": "Falta una clave: abre la herramienta en Secretos y vuelve a elegir la clave."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "ไม่พบคีย์: เปิดเครื่องมือใน เครื่องมือ แล้วเลือกคีย์อีกครั้ง"
+            "value": "ไม่พบคีย์: เปิดเครื่องมือในข้อมูลลับ แล้วเลือกคีย์อีกครั้ง"
           }
         }
       }
@@ -84472,54 +84628,54 @@
         }
       }
     },
-    "Open Tools": {
+    "Open Secrets": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "「ツール」を開く"
+            "value": "「シークレット」を開く"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开“工具”"
+            "value": "打开“机密”"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "開啟「工具」"
+            "value": "開啟「機密資料」"
           }
         },
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "開啟「工具」"
+            "value": "開啟「機密資料」"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "도구 열기"
+            "value": "보안 정보 열기"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ouvrir Outils"
+            "value": "Ouvrir Secrets"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abrir Herramientas"
+            "value": "Abrir Secretos"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "เปิดเครื่องมือ"
+            "value": "เปิดข้อมูลลับ"
           }
         }
       }
@@ -86136,54 +86292,54 @@
         }
       }
     },
-    "Remove an unused tool from Tools before you add another.": {
+    "Remove an unused tool from Secrets before you add another.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "別のツールを追加する前に、「ツール」から使っていないツールを削除してください。"
+            "value": "別のツールを追加する前に、「シークレット」から使っていないツールを削除してください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "添加其他工具前，请先从“工具”移除不用的工具。"
+            "value": "添加其他工具前，请先从“机密”移除不用的工具。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "新增其他工具前，請先從「工具」移除不用的工具。"
+            "value": "新增其他工具前，請先從「機密資料」移除不用的工具。"
           }
         },
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "新增其他工具之前，請先喺「工具」移除冇用嘅工具。"
+            "value": "新增其他工具之前，請先喺「機密資料」移除冇用嘅工具。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "다른 도구를 추가하기 전에 '도구'에서 사용하지 않는 도구를 제거하세요."
+            "value": "다른 도구를 추가하기 전에 '보안 정보'에서 사용하지 않는 도구를 제거하세요."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Retirez un outil inutilisé dans Outils avant d'en ajouter un autre."
+            "value": "Retirez un outil inutilisé dans Secrets avant d'en ajouter un autre."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quita una herramienta que no uses en Herramientas antes de añadir otra."
+            "value": "Quita una herramienta que no uses en Secretos antes de añadir otra."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "นำเครื่องมือที่ไม่ได้ใช้ออกจาก เครื่องมือ ก่อนเพิ่มเครื่องมืออื่น"
+            "value": "นำเครื่องมือที่ไม่ได้ใช้ออกจากข้อมูลลับก่อนเพิ่มเครื่องมืออื่น"
           }
         }
       }
@@ -91648,54 +91804,54 @@
         }
       }
     },
-    "Tool saved. Copy its launch from Tools.": {
+    "Tool saved. Copy its launch from Secrets.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ツールを保存しました。「ツール」から起動コマンドをコピーしてください。"
+            "value": "ツールを保存しました。「シークレット」から起動コマンドをコピーしてください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "已保存工具。请从“工具”复制其启动命令。"
+            "value": "已保存工具。请从“机密”复制其启动命令。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "已儲存工具。請從「工具」拷貝其啟動指令。"
+            "value": "已儲存工具。請從「機密資料」拷貝其啟動指令。"
           }
         },
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "已儲存工具。請喺「工具」複製佢嘅啟動指令。"
+            "value": "已儲存工具。請喺「機密資料」複製佢嘅啟動指令。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "도구를 저장했습니다. '도구'에서 실행 명령을 복사하세요."
+            "value": "도구를 저장했습니다. '보안 정보'에서 실행 명령을 복사하세요."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Outil enregistré. Copiez son lancement depuis Outils."
+            "value": "Outil enregistré. Copiez son lancement depuis Secrets."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Herramienta guardada. Copia su inicio desde Herramientas."
+            "value": "Herramienta guardada. Copia su inicio desde Secretos."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "บันทึกเครื่องมือแล้ว คัดลอกคำสั่งเรียกใช้จาก เครื่องมือ"
+            "value": "บันทึกเครื่องมือแล้ว คัดลอกคำสั่งเรียกใช้จากข้อมูลลับ"
           }
         }
       }
@@ -91752,54 +91908,54 @@
         }
       }
     },
-    "Tools options": {
+    "Secrets options": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ツールのオプション"
+            "value": "シークレットのオプション"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "工具选项"
+            "value": "机密选项"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "工具選項"
+            "value": "機密資料選項"
           }
         },
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "工具選項"
+            "value": "機密資料選項"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "도구 옵션"
+            "value": "보안 정보 옵션"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Options des outils"
+            "value": "Options de Secrets"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Opciones de herramientas"
+            "value": "Opciones de Secretos"
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "ตัวเลือกเครื่องมือ"
+            "value": "ตัวเลือกข้อมูลลับ"
           }
         }
       }
@@ -92896,54 +93052,54 @@
         }
       }
     },
-    "Unlock its account, resume it, or fix its keys in Tools.": {
+    "Unlock its account, resume it, or fix its keys in Secrets.": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アカウントのロックを解除するか、ツールを再開するか、「ツール」でキーを修正してください。"
+            "value": "アカウントのロックを解除するか、ツールを再開するか、「シークレット」でキーを修正してください。"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请解锁其账户、恢复工具，或在“工具”中修正其密钥。"
+            "value": "请解锁其账户、恢复工具，或在“机密”中修正其密钥。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "請解鎖其帳號、恢復工具，或在「工具」中修正其金鑰。"
+            "value": "請解鎖其帳號、恢復工具，或在「機密資料」中修正其金鑰。"
           }
         },
         "zh-HK": {
           "stringUnit": {
             "state": "translated",
-            "value": "請解鎖佢嘅帳戶、恢復佢，或者喺「工具」修正佢嘅密鑰。"
+            "value": "請解鎖佢嘅帳戶、恢復佢，或者喺「機密資料」修正佢嘅密鑰。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "계정을 잠금 해제하거나, 도구를 재개하거나, '도구'에서 키를 수정하세요."
+            "value": "계정을 잠금 해제하거나, 도구를 재개하거나, '보안 정보'에서 키를 수정하세요."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Déverrouillez son compte, reprenez-le ou corrigez ses clés dans Outils."
+            "value": "Déverrouillez son compte, reprenez-le ou corrigez ses clés dans Secrets."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Desbloquea su cuenta, reanúdala o corrige sus claves en Herramientas."
+            "value": "Desbloquea su cuenta, reanúdala o corrige sus claves en Secretos."
           }
         },
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "ปลดล็อกบัญชี เปิดใช้ต่อ หรือแก้ไขคีย์ใน เครื่องมือ"
+            "value": "ปลดล็อกบัญชี เปิดใช้ต่อ หรือแก้ไขคีย์ในข้อมูลลับ"
           }
         }
       }

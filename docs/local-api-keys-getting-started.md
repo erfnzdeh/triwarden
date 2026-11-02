@@ -6,13 +6,13 @@ You can use Triwarden for passwords without enabling it.
 ## Open the guide
 
 1. Open **Settings > Developer**.
-2. Turn on **Show API key tools**.
+2. Turn on **Show Secrets**.
 3. Unlock the account you want to use.
-4. Open **Tools** and select **Walk me through it**.
+4. Open **Secrets** and select **Walk me through it**.
 
-The empty Tools page also offers **Import from an .env file** and **Use a key already in the vault** if you prefer to start without the guide.
-You can reopen the guide from the question-mark button, **Tools options > Setup Guide…**, or **Start Setup Guide…** in **Settings > Developer**.
-The Help topic **API keys and tools** also opens it.
+The empty Secrets page also offers **Import from an .env file** and **Use a key already in the vault** if you prefer to start without the guide.
+You can reopen the guide from the question-mark button, **Secrets options > Setup Guide…**, or **Start Setup Guide…** in **Settings > Developer**.
+The Help topic **Secrets** also opens it.
 You can close the guide at any time. It remembers the page, not a key value or an approval.
 
 The guide opens the real forms. You can use a provider key or complete the practice below with a dummy key.
@@ -96,13 +96,13 @@ Each launch refreshes the required vault accounts online. If sync fails, restore
 
 If no card appears, check helper setup and keep Triwarden open.
 If an account locks, unlock it.
-If a key is missing, use **Edit Setup…** in Tools to select it again.
+If a key is missing, use **Edit Setup…** in Secrets to select it again.
 If the provider rejects a real key, check the provider account and key.
 Remove credentials from logs and screenshots before reporting a problem.
 
 ## 5. Use it again
 
-Open Tools, select the saved tool, and copy its launch command.
+Open Secrets, select the saved tool, and copy its launch command.
 A ready tool also shows a short alias, such as `tw-documentation-assistant`.
 Select **Copy Alias**, add the copied line to `~/.zshrc`, and open a new terminal. Then type the alias name.
 You can also run `tw run` to choose a saved tool, or `tw tools list` to list exact commands.
@@ -118,7 +118,7 @@ Open **Access > Permissions** to review or end temporary access.
 Lock, expiry, and revoke stop future delivery. They cannot recover keys that a program already received.
 The receiving program can read, retain, or transmit keys. Other processes under your user account may inspect them.
 
-For an `.env.triwarden` reference file, select **Save .env References…** in the guide or in the tool's menu in Tools.
+For an `.env.triwarden` reference file, select **Save .env References…** in the guide or in the tool's menu in Secrets.
 Triwarden does not add aliases to shell files.
 Ordinary dotenv loaders cannot resolve Triwarden references. Use the exported file with `tw`.
 
@@ -129,12 +129,12 @@ Keep other settings that the project needs.
 
 ## Hide the developer interface
 
-Turn off **Settings > Developer > Show API key tools**.
-API Keys, Tools, the setup guide, and related creation actions disappear from the main interface.
+Turn off **Settings > Developer > Show Secrets**.
+API Keys, Secrets, the setup guide, and related creation actions disappear from the main interface.
 The vault retains the items as ordinary Secure Notes.
 This preference hides controls. It does not delete tools or stop configured launches.
 An open setup can finish normally. The page closes after its forms close, so a visibility change does not discard input.
-Use Access to end temporary approvals, or pause a tool in Tools before hiding the controls.
+Use Access to end temporary approvals, or pause a tool in Secrets before hiding the controls.
 Active API-key approvals remain visible in Access so you can end them.
 
 Existing tool users keep their navigation after upgrading until they choose to hide it.

@@ -709,12 +709,12 @@ private struct Sidebar: View {
                         }
                     }
                     // Things to do with the vault, rather than kinds of items in it.
-                    SidebarHeading(title: "Tools")
+                    SidebarHeading(title: "Utilities")
                     tool("Send", symbol: "paperplane", .sends, count: model.sends.count)
                     tool("One-Time Codes", symbol: "clock.badge.checkmark", .codes,
                          count: items.count(where: { !$0.isDeleted && !$0.isArchived && $0.totp != nil }))
                     tool("Generator", symbol: "dice", .generator)
-                    if model.showsAPIKeyTools { tool("Tools", symbol: "terminal", .toolLaunches) }
+                    if model.showsAPIKeyTools { tool("Secrets", symbol: "terminal", .toolLaunches) }
                     tool("Access", symbol: "checkmark.shield", .access)
                     tool("Watchtower", symbol: "checkmark.shield", .watchtower, count: model.watchtowerIssueCount)
                     // Your own ways of sorting items, and items set aside: kept (Archive) or on their way out (Trash).
@@ -4665,7 +4665,7 @@ struct SidebarCalmSelection: NSViewRepresentable {
     }
 }
 
-/// API-key navigation for the vault window: following a request to show a key, hiding Tools and Access when the
+/// API-key navigation for the vault window: following a request to show a key, hiding Secrets and Access when the
 /// feature is turned off, and the guide and helper sheets.
 private struct APIKeyNavigation: ViewModifier {
     @Environment(AppModel.self) private var model

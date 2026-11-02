@@ -243,7 +243,7 @@ struct ToolSetupGuide: View {
             disclosure("If the launch doesn't work") {
                 Text("No approval card: check that tw is installed and Triwarden is open.")
                 Text("Account locked or sync failed: unlock or reconnect, then run it again.")
-                Text("Missing key: open the tool in Tools and choose the key again.")
+                Text("Missing key: open the tool in Secrets and choose the key again.")
                 Text("Provider error: check the key in your provider account. Never paste key values into a report.")
             }
         }
@@ -265,7 +265,7 @@ struct ToolSetupGuide: View {
                 }
             }
             VStack(spacing: 0) {
-                tip("square.on.square", "Copy the launch from Tools", "Or run tw run and pick a saved tool.")
+                tip("square.on.square", "Copy the launch from Secrets", "Or run tw run and pick a saved tool.")
                 Divider().opacity(0.4).padding(.leading, 52)
                 tip("timer", "Approve for longer", "Choose 10 minutes or Until lock on the card to skip repeat prompts.")
                 Divider().opacity(0.4).padding(.leading, 52)
@@ -274,7 +274,7 @@ struct ToolSetupGuide: View {
             .background(Color.panelStrong, in: .rect(cornerRadius: 14, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.panelEdge))
             HStack(spacing: 10) {
-                Button("Open Tools") { dismiss(); model.requestedSection = .toolLaunches }.buttonStyle(.appPrimarySmall)
+                Button("Open Secrets") { dismiss(); model.requestedSection = .toolLaunches }.buttonStyle(.appPrimarySmall)
                 Button("Review Access") { dismiss(); model.requestedSection = .access }.buttonStyle(.appSecondarySmall)
                 Spacer()
                 if target != nil {
@@ -307,8 +307,8 @@ struct ToolSetupGuide: View {
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.panelEdge))
                 if target != nil, !toolReady {
                     HStack(spacing: 10) {
-                        Text("Unlock its account, resume it, or fix its keys in Tools.").font(.system(size: 11)).foregroundStyle(.secondary)
-                        Button("Open Tools to Repair") { dismiss(); model.requestedToolSelection = selectedTool; model.requestedSection = .toolLaunches }
+                        Text("Unlock its account, resume it, or fix its keys in Secrets.").font(.system(size: 11)).foregroundStyle(.secondary)
+                        Button("Open Secrets") { dismiss(); model.requestedToolSelection = selectedTool; model.requestedSection = .toolLaunches }
                             .buttonStyle(.appSecondarySmall)
                     }.padding(.horizontal, 4)
                 }

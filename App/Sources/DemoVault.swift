@@ -321,7 +321,7 @@ enum DemoShots {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(3))
             guard let window = NSApp.windows.first(where: { $0.isVisible && $0.canBecomeMain }) else { exit(1) }
-            // Tall enough for the whole sidebar (Tools included), so it never scrolls under the traffic lights.
+            // Tall enough for the whole sidebar (Utilities included), so it never scrolls under the traffic lights.
             window.setContentSize(NSSize(width: 1240, height: 930))
             window.center()
             // Front and key, so the traffic lights and selection show in colour.
