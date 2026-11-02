@@ -1029,12 +1029,7 @@ private struct PaletteUnlock: View {
         if let account = model.unlockTarget {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
-                    AccountAvatar(account: account, size: 28)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Unlock to search").font(.system(size: 13, weight: .semibold))
-                        Text(verbatim: "\(account.email) · \(account.serverSummary)")
-                            .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                    }
+                    accountPicker(account)
                     Spacer()
                     if model.touchIDEnabled {
                         Button { Task { await model.unlockWithTouchID() } } label: {
@@ -1069,6 +1064,7 @@ private struct PaletteUnlock: View {
             }
             .padding(12)
             .onAppear { focused = true }
+            .onChange(of: account.id) { resetForAccountChange() }
             .onChange(of: focusRequest) { Task { @MainActor in focused = true } }
             // Let go on close, so the next opening's request lands as a change.
             .onChange(of: model.quickSearchDismissNonce) { focused = false }
@@ -1086,6 +1082,61 @@ private struct PaletteUnlock: View {
             }
             .padding(12)
         }
+    }
+
+    @ViewBuilder private func accountPicker(_ account: SavedAccount) -> some View {
+        if model.accounts.count > 1 {
+            Menu {
+                ForEach(model.accounts, id: \.id) { candidate in
+                    Button { select(candidate) } label: {
+                        Label {
+                            Text(verbatim: "\(candidate.email) · \(candidate.serverSummary)")
+                        } icon: {
+                            Image(systemName: candidate.id == account.id ? "checkmark" : "person.crop.circle")
+                        }
+                    }
+                }
+            } label: {
+                accountLabel(account, showsPicker: true)
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .help(Text("Switch account"))
+        } else {
+            accountLabel(account, showsPicker: false)
+        }
+    }
+
+    private func accountLabel(_ account: SavedAccount, showsPicker: Bool) -> some View {
+        HStack(spacing: 10) {
+            AccountAvatar(account: account, size: 28)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Unlock to search").font(.system(size: 13, weight: .semibold))
+                Text(verbatim: "\(account.email) · \(account.serverSummary)")
+                    .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+            }
+            if showsPicker {
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .contentShape(.rect)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func select(_ account: SavedAccount) {
+        guard model.unlockTargetID != account.id else { return }
+        model.unlockTargetID = account.id
+        resetForAccountChange()
+    }
+
+    private func resetForAccountChange() {
+        password = ""
+        usePassword = false
+        model.errorMessage = nil
+        focused = true
     }
 
     private func submit() {

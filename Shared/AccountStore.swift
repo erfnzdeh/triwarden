@@ -62,6 +62,10 @@ enum AccountStore {
         return d
     }
 
+    /// Non-secret metadata shared by the app and its extensions, kept beside this namespace's account folders.
+    /// Tests use a separate namespace, so their indexes can never affect real AutoFill requests.
+    static func metadataURL(_ name: String) -> URL { root.appending(path: name) }
+
     /// Files must be writable while the screen is locked (background sync). Their contents are already
     /// encrypted with vault keys, so "until first unlock" protection is the right class; "complete" protection
     /// makes atomic writes fail while the Mac is locked.

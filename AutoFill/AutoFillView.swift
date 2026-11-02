@@ -18,6 +18,7 @@ final class AutoFillState {
         var userName = ""
         var userHandle = Data()
         var algorithms: [Int] = []
+        var userVerificationPreference: ASAuthorizationPublicKeyCredentialUserVerificationPreference = .preferred
     }
 
     var mode: Mode = .password
@@ -25,11 +26,17 @@ final class AutoFillState {
     var preselect: String?
     var items: [VaultItem] = []
     var unlocked = false
+    /// True only after this extension request performed password or biometric verification and opened a vault.
+    private(set) var verifiedThisRequest = false
+    /// Keeps an automatic assertion from briefly exposing an actionable Sign In list or running twice.
+    private(set) var asserting = false
     var busy = false
     var error: String?
     var accounts = AccountStore.accounts()
     /// Account the master-password field unlocks (when there are several).
-    var selectedAccountID = AccountStore.accounts().first?.id
+    var selectedAccountID = AccountStore.accounts().first?.id {
+        didSet { refreshTouchIDEnabled() }
+    }
     var touchIDEnabled = AccountStore.accounts().contains { AccountStore.isTouchIDEnabled($0.id) }
     var email: String {
         get { accounts.first { $0.id == selectedAccountID }?.email ?? storedEmail }
@@ -60,14 +67,21 @@ final class AutoFillState {
         }
     }
 
-    func begin(passkey request: PasskeyRequest, registering: Bool, preselect: String? = nil) {
+    func begin(passkey request: PasskeyRequest, registering: Bool, preselect: String? = nil,
+               preferredAccountID: String? = nil) {
+        resetRequest()
         mode = registering ? .registration : .passkey
         passkeyRequest = request
         self.preselect = preselect
+        if let preferredAccountID, accounts.contains(where: { $0.id == preferredAccountID }) {
+            selectedAccountID = preferredAccountID
+        }
         domains = [request.rpId.lowercased()]
+        refreshTouchIDEnabled()
     }
 
     func begin(mode: Mode, services: [ASCredentialServiceIdentifier], preselect: String?) {
+        resetRequest()
         self.mode = mode
         self.preselect = preselect
         domains = services.compactMap { service in
@@ -76,6 +90,37 @@ final class AutoFillState {
             default: URL(string: service.identifier)?.host()?.lowercased() ?? service.identifier.lowercased()
             }
         }
+        refreshTouchIDEnabled()
+    }
+
+    private func resetRequest() {
+        accounts = AccountStore.accounts()
+        hasAccount = !accounts.isEmpty
+        selectedAccountID = accounts.first?.id
+        passkeyRequest = nil
+        preselect = nil
+        domains = []
+        items = []
+        opened = [:]
+        equivalents = .none
+        unlocked = false
+        verifiedThisRequest = false
+        asserting = false
+        busy = false
+        error = nil
+        refreshTouchIDEnabled()
+    }
+
+    /// A named credential targets one account. Discoverable and registration requests can still open every enrolled account.
+    private var touchIDAccountIDs: [String] {
+        if mode == .passkey, passkeyRequest?.credentialIDs.isEmpty == false, let selectedAccountID {
+            return [selectedAccountID]
+        }
+        return accounts.map(\.id)
+    }
+
+    private func refreshTouchIDEnabled() {
+        touchIDEnabled = touchIDAccountIDs.contains(where: AccountStore.isTouchIDEnabled)
     }
 
     func unlock(password: String) async {
@@ -94,7 +139,7 @@ final class AutoFillState {
         case .registration: String(localized: "save a passkey")
         default: String(localized: "fill a password")
         }
-        let keys = await AccountStore.unlockAllWithTouchID(accounts.map(\.id), reason: reason)
+        let keys = await AccountStore.unlockAllWithTouchID(touchIDAccountIDs, reason: reason)
         if !keys.isEmpty { open(with: keys) }
     }
 
@@ -114,6 +159,7 @@ final class AutoFillState {
         }
         items = vaults.flatMap(\.items).filter { !$0.isDeleted && !$0.isArchived && $0.kind == .login }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        verifiedThisRequest = true
         unlocked = true
         error = nil
         if mode == .registration, let request = passkeyRequest,
@@ -126,14 +172,25 @@ final class AutoFillState {
             fail(.matchedExcludedCredential) // the site already has one of our passkeys for this account
             return
         }
-        // A QuickType pick fills immediately after unlock.
+        // A QuickType pick fills immediately after unlock. Unlocking was the user verification, so no second tap.
         if let preselect, let item = items.first(where: { $0.id == preselect }) {
             if mode == .passkey, let pk = passkeyCandidates.first(where: { $0.item.id == preselect }) {
-                Task { await signIn(pk.item, pk.passkey) }
+                beginSignIn(pk.item, pk.passkey)
             } else if mode != .passkey {
                 fill(item)
             }
+        } else if let only = namedPasskey {
+            beginSignIn(only.item, only.passkey)
         }
+    }
+
+    /// The one passkey the site itself named (its allow list) when we hold exactly that one. The user already chose
+    /// the credential in the system or browser sheet, so listing it again for a "Sign In" tap only repeats that choice.
+    /// Discoverable requests (empty allow list) keep the list, since the user still has to pick the account.
+    private var namedPasskey: (item: VaultItem, passkey: PasskeyCredential)? {
+        guard mode == .passkey, preselect == nil, let request = passkeyRequest, !request.credentialIDs.isEmpty else { return nil }
+        let found = passkeyCandidates
+        return found.count == 1 ? found.first : nil
     }
 
     // MARK: Passkeys
@@ -156,6 +213,30 @@ final class AutoFillState {
     }
 
     func signIn(_ item: VaultItem, _ passkey: PasskeyCredential) async {
+        guard verifiedThisRequest else {
+            error = String(localized: "Unlock before signing in with this passkey.")
+            return
+        }
+        guard !asserting else { return }
+        asserting = true
+        await performSignIn(item, passkey)
+        asserting = false
+    }
+
+    func beginSignIn(_ item: VaultItem, _ passkey: PasskeyCredential) {
+        guard verifiedThisRequest else {
+            error = String(localized: "Unlock before signing in with this passkey.")
+            return
+        }
+        guard !asserting else { return }
+        asserting = true
+        Task {
+            await performSignIn(item, passkey)
+            asserting = false
+        }
+    }
+
+    private func performSignIn(_ item: VaultItem, _ passkey: PasskeyCredential) async {
         guard let request = passkeyRequest else { return }
         do {
             let a = try Passkey.assert(passkey, clientDataHash: request.clientDataHash)
@@ -222,7 +303,7 @@ final class AutoFillState {
         AccountStore.saveCache(data, accountId)
         if let fresh = try? VaultDecoder.decode(data, userKey: key, accountId: accountId) {
             opened[accountId] = (key, fresh)
-            AutoFillIdentities.publish(opened.values.flatMap(\.vault.items), equivalents: equivalents)
+            await AutoFillIdentities.publishAndWait(opened.values.flatMap(\.vault.items), equivalents: equivalents)
         }
     }
 
@@ -242,7 +323,7 @@ final class AutoFillState {
             guard let totp = item.totp else { return }
             completeCode(totp.code())
         case .passkey:
-            if let pk = passkeyCandidates.first(where: { $0.item.id == item.id }) { Task { await signIn(pk.item, pk.passkey) } }
+            if let pk = passkeyCandidates.first(where: { $0.item.id == item.id }) { beginSignIn(pk.item, pk.passkey) }
         case .registration:
             break
         }
@@ -283,6 +364,8 @@ struct AutoFillView: View {
                                            description: Text("Open Triwarden and log in first."))
                 } else if state.unlocked && state.mode == .registration {
                     RegisterPane(state: state)
+                } else if state.unlocked && state.mode == .passkey && state.asserting {
+                    PasskeyProgress()
                 } else if state.unlocked && state.mode == .passkey {
                     PasskeyList(state: state)
                 } else if state.unlocked {
@@ -296,6 +379,18 @@ struct AutoFillView: View {
         .frame(width: 440, height: 480)
         .background { AutoFillGlass() }
         .tint(Color(nsColor: .triwardenBrand))
+    }
+}
+
+private struct PasskeyProgress: View {
+    var body: some View {
+        VStack(spacing: 14) {
+            ProgressView().controlSize(.large)
+            Text("Signing in…").font(.system(size: 15, weight: .semibold))
+            Text("Completing the passkey request")
+                .font(.system(size: 12)).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -524,6 +619,11 @@ private struct UnlockPane: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 28).padding(.bottom, 20)
+        .onChange(of: state.selectedAccountID) {
+            password = ""
+            state.error = nil
+            focused = true
+        }
         .onAppear {
             focused = true
             if state.touchIDEnabled { Task { await state.unlockWithTouchID() } }
@@ -605,10 +705,10 @@ private struct PasskeyList: View {
                                           subtitle: "\(c.item.name) · \(c.passkey.rpId)", selected: i == index, trailing: "Sign In") {
                                     IconTile(symbol: "person.badge.key.fill", size: 32)
                                 }
-                                .onTapGesture { Task { await state.signIn(c.item, c.passkey) } }
+                                .onTapGesture { state.beginSignIn(c.item, c.passkey) }
                                 .accessibilityElement(children: .combine)
                                 .accessibilityAddTraits(.isButton)
-                                .accessibilityAction { Task { await state.signIn(c.item, c.passkey) } }
+                                .accessibilityAction { state.beginSignIn(c.item, c.passkey) }
                             }
                         }
                     }
@@ -618,7 +718,7 @@ private struct PasskeyList: View {
                     .onKeyPress(.downArrow) { index = min(index + 1, candidates.count - 1); return .handled }
                     .onKeyPress(.upArrow) { index = max(index - 1, 0); return .handled }
                     .onKeyPress(.return) {
-                        if candidates.indices.contains(index) { Task { await state.signIn(candidates[index].item, candidates[index].passkey) } }
+                        if candidates.indices.contains(index) { state.beginSignIn(candidates[index].item, candidates[index].passkey) }
                         return .handled
                     }
                 }

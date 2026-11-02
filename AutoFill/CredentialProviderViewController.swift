@@ -51,9 +51,13 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     override func prepareInterfaceToProvideCredential(for credentialRequest: any ASCredentialRequest) {
         if let request = credentialRequest as? ASPasskeyCredentialRequest,
            let identity = request.credentialIdentity as? ASPasskeyCredentialIdentity {
+            let stored = AutoFillIdentities.parsePasskeyRecordIdentifier(identity.recordIdentifier)
+            let accountID = stored?.accountID ?? AutoFillIdentities.preferredAccountID(for: [identity.credentialID])
             state.begin(passkey: .init(rpId: identity.relyingPartyIdentifier, clientDataHash: request.clientDataHash,
-                                       credentialIDs: [identity.credentialID]),
-                        registering: false, preselect: identity.recordIdentifier)
+                                       credentialIDs: [identity.credentialID],
+                                       userVerificationPreference: request.userVerificationPreference),
+                        registering: false, preselect: stored?.itemID ?? identity.recordIdentifier,
+                        preferredAccountID: accountID)
             return
         }
         let mode: AutoFillState.Mode = credentialRequest.type == .oneTimeCode ? .oneTimeCode : .password
@@ -71,8 +75,10 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     override func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier],
                                         requestParameters: ASPasskeyCredentialRequestParameters) {
         state.begin(passkey: .init(rpId: requestParameters.relyingPartyIdentifier, clientDataHash: requestParameters.clientDataHash,
-                                   credentialIDs: requestParameters.allowedCredentials),
-                    registering: false)
+                                   credentialIDs: requestParameters.allowedCredentials,
+                                   userVerificationPreference: requestParameters.userVerificationPreference),
+                    registering: false,
+                    preferredAccountID: AutoFillIdentities.preferredAccountID(for: requestParameters.allowedCredentials))
     }
 
     // A site is creating a passkey and the user chose to save it in Triwarden.
@@ -85,7 +91,8 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
         state.begin(passkey: .init(rpId: identity.relyingPartyIdentifier, clientDataHash: request.clientDataHash,
                                    credentialIDs: request.excludedCredentials?.map(\.credentialID) ?? [],
                                    userName: identity.userName, userHandle: identity.userHandle,
-                                   algorithms: request.supportedAlgorithms.map(\.rawValue)),
+                                   algorithms: request.supportedAlgorithms.map(\.rawValue),
+                                   userVerificationPreference: request.userVerificationPreference),
                     registering: true)
     }
 

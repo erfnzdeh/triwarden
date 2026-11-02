@@ -647,7 +647,10 @@ enum Snapshot {
                    to: dir.appending(path: "palette-\(slug)-dark.png"))
         }
         let lockedPalette = AppModel()
-        lockedPalette.setPreviewAccounts(vault.accounts)
+        lockedPalette.setPreviewAccounts(vault.accounts + [
+            SavedAccount(id: "work", email: "alex@work.example", serverKind: "bitwardenUS", serverURL: "",
+                         kdf: .pbkdf2(iterations: 600_000), protectedUserKey: "")
+        ])
         lockedPalette.phase = .locked
         render(desktop(CommandPalette(close: {}).environment(lockedPalette).tint(.brand), dark: true),
                size: CGSize(width: 760, height: 420), appearance: .darkAqua, to: dir.appending(path: "palette-locked-dark.png"))
@@ -1587,6 +1590,19 @@ enum SelfTest {
                 }
 
                 // The AutoFill extension's flow, in-process: register a passkey for a site, then sign in with it.
+                let referenceID = AutoFillIdentities.passkeyRecordIdentifier(accountID: firstID, itemID: "item-1")
+                let reference = AutoFillIdentities.parsePasskeyRecordIdentifier(referenceID)
+                let credentialA = Data([1]), credentialB = Data([2])
+                let passkeyIndex = [
+                    credentialA.base64EncodedString(): [AutoFillIdentities.PasskeyReference(accountID: firstID, itemID: "item-1")],
+                    credentialB.base64EncodedString(): [AutoFillIdentities.PasskeyReference(accountID: "other", itemID: "item-2")]
+                ]
+                check(reference?.accountID == firstID && reference?.itemID == "item-1"
+                      && AutoFillIdentities.parsePasskeyRecordIdentifier("legacy-item-id") == nil,
+                      "AutoFill: versioned passkey identities retain their account and accept legacy fallback")
+                check(AutoFillIdentities.preferredAccountID(for: [credentialA], index: passkeyIndex) == firstID
+                      && AutoFillIdentities.preferredAccountID(for: [credentialA, credentialB], index: passkeyIndex) == nil,
+                      "AutoFill: a named passkey selects one account but ambiguous credentials keep the chooser")
                 let ext = AutoFillState()
                 var registered: ASPasskeyRegistrationCredential?
                 var asserted: ASPasskeyAssertionCredential?
@@ -1603,9 +1619,33 @@ enum SelfTest {
                 signIn.begin(passkey: .init(rpId: "passkeys.example", clientDataHash: hash), registering: false)
                 signIn.selectedAccountID = firstID
                 await signIn.unlock(password: password)
+                check(asserted == nil, "AutoFill: a discoverable passkey request waits for an account choice")
                 if let c = signIn.passkeyCandidates.first { await signIn.signIn(c.item, c.passkey) }
                 check(asserted != nil && asserted?.credentialID == registered?.credentialID
                       && asserted?.userHandle == Data("u-2".utf8), "AutoFill: sign in with that passkey from the cached vault")
+                // The site named this credential: unlocking is the only step, no extra "Sign In" tap.
+                var named: ASPasskeyAssertionCredential?
+                let byName = AutoFillState()
+                byName.completeAssertion = { named = $0 }
+                byName.begin(passkey: .init(rpId: "passkeys.example", clientDataHash: hash,
+                                            credentialIDs: registered.map { [$0.credentialID] } ?? [],
+                                            userVerificationPreference: .required), registering: false,
+                             preferredAccountID: firstID)
+                check(byName.selectedAccountID == firstID && !byName.verifiedThisRequest && named == nil,
+                      "AutoFill: a site-named passkey targets its account but cannot assert before verification")
+                byName.selectedAccountID = firstID
+                await byName.unlock(password: password)
+                check(byName.verifiedThisRequest && byName.asserting,
+                      "AutoFill: required UV is recorded before the automatic assertion starts")
+                // The sign-in runs in a task started by the unlock; poll only until it completes.
+                for _ in 0..<50 where named == nil { try? await Task.sleep(for: .milliseconds(10)) }
+                check(named != nil && named?.credentialID == registered?.credentialID && !byName.asserting,
+                      "AutoFill: a site-named passkey signs in right after unlock without leaving an actionable list")
+                byName.begin(passkey: .init(rpId: "passkeys.example", clientDataHash: hash,
+                                            credentialIDs: registered.map { [$0.credentialID] } ?? [],
+                                            userVerificationPreference: .required), registering: false)
+                check(!byName.unlocked && !byName.verifiedThisRequest && !byName.asserting,
+                      "AutoFill: every new request requires fresh user verification")
                 try? await model.refresh()
                 if let made = model.items.first(where: { $0.passkeys.first?.rpId == "passkeys.example" }) { await model.deleteForever(made) }
             }
