@@ -37,6 +37,8 @@
     return scope.querySelector('input[autocomplete~="username"], input[type="email"]');
   }
 
+  const isRTL = (el) => getComputedStyle(el).direction === "rtl";
+
   function setValue(input, value) {
     if (!input || value == null) return;
     const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
@@ -54,8 +56,10 @@
     .key{position:absolute;width:22px;height:22px;border:0;border-radius:6px;padding:0;display:grid;place-items:center;
       color:${BRAND};background:transparent;cursor:pointer;opacity:.85}
     .key:hover{background:rgba(128,197,239,.25);opacity:1}
-    .menu{position:absolute;min-width:240px;max-width:340px;padding:6px;border-radius:12px;font:13px -apple-system,system-ui,sans-serif;
+    .menu{position:absolute;direction:ltr;text-align:left;min-width:240px;max-width:340px;padding:6px;border-radius:12px;font:13px -apple-system,system-ui,sans-serif;
       background:Canvas;color:CanvasText;box-shadow:0 10px 30px rgba(0,0,0,.18),0 0 0 .5px rgba(0,0,0,.15)}
+    .menu.rtl{transform:translateX(-100%)}
+    .row>*,.note{text-align:start}
     .row{display:flex;flex-direction:column;gap:1px;padding:7px 10px;border-radius:8px;cursor:pointer}
     .row:hover,.row:focus{background:#80C5EF;color:#0B2A40;outline:none}
     .row small{opacity:.7}
@@ -72,7 +76,8 @@
       if (!field.isConnected || !visible(field)) { button.style.display = "none"; continue; }
       const r = field.getBoundingClientRect();
       button.style.display = "grid";
-      button.style.left = `${r.right + scrollX - 28}px`;
+      // Sit at the field's end edge, away from where the text starts: the right in LTR, the left in RTL.
+      button.style.left = `${(isRTL(field) ? r.left + 6 : r.right - 28) + scrollX}px`;
       button.style.top = `${r.top + scrollY + (r.height - 22) / 2}px`;
     }
   }
@@ -84,9 +89,13 @@
     const r = field.getBoundingClientRect();
     menu = document.createElement("div");
     menu.className = "menu";
-    menu.style.left = `${r.left + scrollX}px`;
+    // The menu's own text is English, so it stays LTR on RTL pages; only its anchor follows the field,
+    // lining its right edge up with the field's right edge.
+    const rtl = isRTL(field);
+    menu.classList.toggle("rtl", rtl);
+    menu.style.left = `${(rtl ? r.right : r.left) + scrollX}px`;
     menu.style.top = `${r.bottom + scrollY + 4}px`;
-    menu.innerHTML = `<div class="head">Triwarden</div><div class="note">Looking for logins…</div>`;
+    menu.innerHTML = `<div class="head">Triwarden</div><div class="note" dir="auto">Looking for logins…</div>`;
     root.appendChild(menu);
     const reply = await send({ command: "match" });
     if (!menu) return;
@@ -98,7 +107,8 @@
       const el = document.createElement("div");
       el.className = "row";
       el.tabIndex = 0;
-      el.innerHTML = "<span></span><small></small>";
+      // Item names and usernames can be in any script: let each pick its own direction.
+      el.innerHTML = '<span dir="auto"></span><small dir="auto"></small>';
       el.firstChild.textContent = row.name;
       el.lastChild.textContent = row.detail || "";
       const choose = async () => {
