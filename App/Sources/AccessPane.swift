@@ -5,9 +5,9 @@ import SwiftUI
 struct AccessPane: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
-    @State private var source = Source.all
     @State private var history = false
     @State private var outcome = HistoryFilter.all
+    @State private var permissionSearchRevealed = false
     @State private var revokeAll = false
     @State private var clearHistory = false
     @State private var removeAlways: SSHAllowlistEntry?
@@ -21,10 +21,6 @@ struct AccessPane: View {
     var previewShowsHistory = false
     #endif
 
-    enum Source: String, CaseIterable {
-        case all, apiKeys, ssh
-        var title: String { switch self { case .all: String(localized: "All access"); case .apiKeys: String(localized: "API keys"); case .ssh: "SSH" } }
-    }
     enum HistoryFilter: String, CaseIterable {
         case all, allowed, refused
         var title: String { switch self { case .all: String(localized: "All results"); case .allowed: String(localized: "Allowed"); case .refused: String(localized: "Not allowed") } }
@@ -65,10 +61,12 @@ struct AccessPane: View {
         return model.sshAgent.accessLog.events
     }
     private var showsAPIKeys: Bool { model.showsAPIKeyTools || !grants.isEmpty }
+    private static let permissionSearchThreshold = 8
 
     var body: some View {
         let index = ToolBrowserIndex(profiles: profiles, items: model.items, unlocked: Set(model.sessions.map(\.id)))
         let lookup = Dictionary(index.entries.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let permissionCount = grants.count + sshTrusts.count + alwaysAllowed.count
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .center) {
@@ -80,9 +78,11 @@ struct AccessPane: View {
                         .accessibilityLabel("Access view")
                         .accessibilityIdentifier("accessTabs")
                 }
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) { search.frame(maxWidth: 360); filters; Spacer(minLength: 0) }
-                    VStack(alignment: .leading, spacing: 8) { search; HStack { filters; Spacer() } }
+                if history || permissionCount >= Self.permissionSearchThreshold || permissionSearchRevealed || !query.isEmpty {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { search.frame(maxWidth: 360); filters; Spacer(minLength: 0) }
+                        VStack(alignment: .leading, spacing: 8) { search; HStack { filters; Spacer() } }
+                    }
                 }
             }.padding(.horizontal, 24).padding(.top, 20).padding(.bottom, 16)
             Divider().opacity(0.5)
@@ -98,9 +98,15 @@ struct AccessPane: View {
             #endif
         }
         .onChange(of: model.wantsAccessSearchFocus, initial: true) { _, wants in
-            if wants { model.wantsAccessSearchFocus = false; searchFocused = true }
+            if wants {
+                model.wantsAccessSearchFocus = false
+                if !history { permissionSearchRevealed = true }
+                Task { @MainActor in
+                    await Task.yield()
+                    searchFocused = true
+                }
+            }
         }
-        .onChange(of: showsAPIKeys) { _, visible in if !visible { source = .all } }
         .confirmationDialog("End all temporary access?", isPresented: $revokeAll) {
             Button("End Temporary Access", role: .destructive) { model.secrets.reset(); model.sshAgent.reset() }
         } message: {
@@ -118,14 +124,12 @@ struct AccessPane: View {
     }
 
     private var search: some View {
-        WorkspaceSearchField(prompt: showsAPIKeys ? "Search apps, tools or keys" : "Search apps or keys", text: $query, focused: $searchFocused)
+        WorkspaceSearchField(prompt: history ? "Search SSH apps or keys" : showsAPIKeys ? "Search apps, tools or keys" : "Search apps or keys",
+                             text: $query, focused: $searchFocused)
             .frame(minWidth: 140).accessibilityIdentifier("accessSearch")
     }
     private var filters: some View {
         Group {
-            if showsAPIKeys {
-                WorkspaceFilter(title: "Access type", options: Source.allCases.map { ($0, $0.title) }, selection: $source)
-            }
             if history {
                 WorkspaceFilter(title: "Result", options: HistoryFilter.allCases.map { ($0, $0.title) }, selection: $outcome)
             }
@@ -137,18 +141,18 @@ struct AccessPane: View {
     }
 
     private func permissions(_ lookup: [String: ToolBrowserIndex.Entry]) -> some View {
-        let api = !showsAPIKeys || source == .ssh ? [] : grants.filter { grant in
+        let api = !showsAPIKeys ? [] : grants.filter { grant in
             let entry = lookup[grant.tool]
             return matches([entry?.profile.title ?? grant.tool, grant.caller.label] + (entry?.keys.flatMap { [$0.name, $0.binding.variable] } ?? []))
         }
-        let temporary = source == .apiKeys ? [] : sshTrusts.filter { matches([$0.displayName, $0.keyName]) }
-        let persistent = source == .apiKeys ? [] : alwaysAllowed.filter { matches([$0.displayName]) }
+        let temporary = sshTrusts.filter { matches([$0.displayName, $0.keyName]) }
+        let persistent = alwaysAllowed.filter { matches([$0.displayName]) }
         let none = api.isEmpty && temporary.isEmpty && persistent.isEmpty
         return Group {
             if none {
                 VStack(spacing: 14) {
                     Image(systemName: "checkmark.shield").font(.system(size: 30, weight: .light)).foregroundStyle(.secondary)
-                    Text(query.isEmpty && source == .all ? "Nothing has access right now" : "No matching permissions")
+                    Text(query.isEmpty ? "Nothing has access right now" : "No matching permissions")
                         .font(.system(size: 15, weight: .semibold))
                     Text(showsAPIKeys ? "When you approve a tool launch or an SSH signature for a while, it appears here so you can end it early. Saving a tool grants nothing."
                                       : "When you approve an SSH signature for a while, it appears here so you can end it early.")
@@ -250,17 +254,17 @@ struct AccessPane: View {
     }
 
     private var historyList: some View {
-        let filtered = source == .apiKeys ? [] : events.filter { event in
+        let filtered = events.filter { event in
             outcome.includes(event.outcome) && matches([event.appName, event.keyName, event.via, event.path ?? ""])
         }
         return Group {
             if filtered.isEmpty {
                 VStack(spacing: 14) {
                     Image(systemName: "clock").font(.system(size: 30, weight: .light)).foregroundStyle(.secondary)
-                    Text(source == .apiKeys ? "Tool launches are not recorded" : events.isEmpty ? "No SSH requests yet" : "No matching requests")
+                    Text(events.isEmpty ? "No SSH requests yet" : "No matching requests")
                         .font(.system(size: 15, weight: .semibold))
-                    Text(source == .apiKeys ? "Triwarden keeps no launch log. See current tool approvals in Permissions."
-                                            : events.isEmpty ? "Each time an app asks to sign with an SSH key, the request and its outcome appear here." : "Try another search or result.")
+                    Text(events.isEmpty ? "Each time an app asks to sign with an SSH key, the request and its outcome appear here. Tool launches are not recorded."
+                                        : "Try another search or result.")
                         .font(.system(size: 12)).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 380)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(32)
             } else {
@@ -268,7 +272,7 @@ struct AccessPane: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 24) {
                             HStack(alignment: .firstTextBaseline) {
-                                Text(showsAPIKeys ? "SSH requests · last 200. Tool launches are not recorded." : "SSH requests · last 200.")
+                                Text("SSH request history · last 200. Tool launches are not recorded.")
                                     .font(.system(size: 12)).foregroundStyle(.secondary)
                                 Spacer()
                                 Button("Clear History…") { clearHistory = true }.buttonStyle(.appSecondarySmall).disabled(events.isEmpty)
