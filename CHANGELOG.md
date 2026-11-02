@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0](https://github.com/sinhong2011/triwarden/compare/v0.5.3...v0.6.0) (2026-11-02)
+
+
+### Features
+
+* browser pane, WXT extension build, Firefox host and store publishing ([#137](https://github.com/sinhong2011/triwarden/issues/137)) ([fa1635f](https://github.com/sinhong2011/triwarden/commit/fa1635f5e83cc62d4f30417d0c38520befb7e5ec))
+* local API keys for tools, with approvals and a notch status ([#138](https://github.com/sinhong2011/triwarden/issues/138)) ([fe093ff](https://github.com/sinhong2011/triwarden/commit/fe093ff9b95a13cf1b6bfbadb6dc6b8329c398f9))
+
+
+### Fixes
+
+* streamline passkey authentication after unlock ([#142](https://github.com/sinhong2011/triwarden/issues/142)) ([653ee81](https://github.com/sinhong2011/triwarden/commit/653ee8184c5f9f94b304f225141ea57fcf7a06af))
+
 ## [0.5.3](https://github.com/sinhong2011/triwarden/compare/v0.5.2...v0.5.3) (2026-10-27)
 
 
