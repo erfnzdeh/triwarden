@@ -65,9 +65,7 @@
   max-width: calc(100vw - 16px);
   padding: 6px;
   border-radius: 20px;
-  /* Persian and Arabic letters come from Vazirmatn (registered in index.tsx for those letters only); the rest stays
-     in the system font. */
-  font: 13px/1.3 'Triwarden Vazirmatn', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font: 13px/1.3 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   /* The menu's own words are English, so it stays left to right on right-to-left pages. `all: initial` on the host
      doesn't reset direction, so without this the page's would leak in. */
@@ -184,7 +182,7 @@
   object-fit: contain;
 }
 .avatar .letter {
-  font: 600 15px/1 'Triwarden Vazirmatn', ui-rounded, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font: 600 15px/1 ui-rounded, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   text-transform: uppercase;
   color: rgba(0, 0, 0, 0.62);
 }

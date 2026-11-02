@@ -2,6 +2,7 @@ import { createEffect, createSignal, For, onCleanup, onMount, Show } from 'solid
 import { browser } from 'wxt/browser';
 import { send } from '../../lib/send';
 import { fillOtp, isRTL, otpTargets, passwordFields, setValue, usernameFor, visible } from '../../lib/dom';
+import { iconPosition, menuLeft } from '../../lib/overlay-layout';
 import type { Row } from '../../lib/protocol';
 import { AppMark } from './AppMark';
 
@@ -156,11 +157,11 @@ export default function Overlay() {
       // A row of one-digit boxes has no room inside: put the icon after the last one.
       const r = last.getBoundingClientRect();
       if (r.width < 8) return { display: 'none' };
-      return { display: 'grid', left: `${rtl ? r.left - 28 : r.right + 6}px`, top: `${r.top + (r.height - 22) / 2}px` };
+      return iconPosition(r, rtl, true);
     }
     if (!visible(t.field)) return { display: 'none' };
     const r = t.field.getBoundingClientRect();
-    return { display: 'grid', left: `${rtl ? r.left + 8 : r.right - 30}px`, top: `${r.top + (r.height - 22) / 2}px` };
+    return iconPosition(r, rtl, false);
   };
 
   /** Where the menu sits: under its field, or over it when the space below is too small; kept inside the window. */
@@ -175,8 +176,7 @@ export default function Overlay() {
     const below = innerHeight - r.bottom - 12;
     const wide = m.target.otp ? CODE_MENU_WIDTH : MENU_WIDTH;
     // Lined up with the field's start: its left edge, or its right edge when the field is right to left.
-    const start = isRTL(f) ? r.right - wide : r.left;
-    const left = `${Math.max(8, Math.min(start, innerWidth - wide - 8))}px`;
+    const left = menuLeft(r, wide, isRTL(f), innerWidth);
     const width = `${wide}px`;
     return below >= height || r.top < below ? { left, width, top: `${r.bottom + 6}px` } : { left, width, bottom: `${innerHeight - r.top + 6}px` };
   };

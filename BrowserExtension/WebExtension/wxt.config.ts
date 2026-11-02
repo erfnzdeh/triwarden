@@ -10,8 +10,6 @@ export default defineConfig({
     description: 'Fill and save logins from your Triwarden vault. Filling asks for Touch ID in the app.',
     icons: { 48: 'icon-48.png', 96: 'icon-96.png', 128: 'icon-128.png' },
     permissions: ['nativeMessaging', 'contextMenus'],
-    // The content script's menu draws Persian and Arabic names in Vazirmatn, which the page loads by its URL.
-    web_accessible_resources: [{ resources: ['fonts/*.woff2'], matches: ['https://*/*', 'http://*/*'] }],
     commands: {
       'fill-login': {
         suggested_key: { default: 'Ctrl+Shift+L', mac: 'Command+Shift+L' },
