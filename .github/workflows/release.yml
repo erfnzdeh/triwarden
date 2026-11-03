@@ -65,6 +65,9 @@ jobs:
     name: Validate manual release tag
     needs: source
     if: github.event_name == 'workflow_dispatch' && needs.source.outputs.current == 'true'
+    permissions:
+      contents: read
+      pull-requests: read
     uses: ./.github/workflows/ci.yml
     with:
       ref: ${{ needs.source.outputs.sha }}
