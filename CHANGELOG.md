@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.7.0](https://github.com/sinhong2011/triwarden/compare/v0.6.0...v0.7.0) (2026-11-03)
+
+
+### Features
+
+* rename tools workspace to secrets ([#145](https://github.com/sinhong2011/triwarden/issues/145)) ([e14fede](https://github.com/sinhong2011/triwarden/commit/e14fede910cea20745312cfd18b9d617a64d9739))
+* show where API keys are used ([#149](https://github.com/sinhong2011/triwarden/issues/149)) ([bad955a](https://github.com/sinhong2011/triwarden/commit/bad955a7e7eb0c1498a35ec26b7af532125a2fcd))
+
+
+### Fixes
+
+* **extension:** lay out the fill icon and menu on right-to-left pages ([#148](https://github.com/sinhong2011/triwarden/issues/148)) ([9d63f77](https://github.com/sinhong2011/triwarden/commit/9d63f77dafa11814992a407bc8413c35a24ed76a))
+* keep Access history when clearing notifications ([#152](https://github.com/sinhong2011/triwarden/issues/152)) ([6194209](https://github.com/sinhong2011/triwarden/commit/6194209efee059b52d576d6710202db3e11003fe))
+
+
+### UI
+
+* simplify access page controls ([#150](https://github.com/sinhong2011/triwarden/issues/150)) ([6f2a769](https://github.com/sinhong2011/triwarden/commit/6f2a769d5b7849996d3c7173156b6fb468538883))
+
 ## [0.6.0](https://github.com/sinhong2011/triwarden/compare/v0.5.3...v0.6.0) (2026-11-02)
 
 
