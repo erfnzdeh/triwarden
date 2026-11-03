@@ -4,9 +4,10 @@ name: Publish browser extension
 # Firefox Add-ons (AMO) for review. Run by hand: Actions › Publish browser extension › Run workflow.
 #
 # Not tied to app releases: the extension has its own version (BrowserExtension/WebExtension/package.json) and
-# each store reviews every upload, so publish only when the extension itself changed. A release-please release
-# cannot trigger this anyway, because events made with GITHUB_TOKEN do not start other workflows.
-# Safari needs nothing here: it ships inside Triwarden.app.
+# each store reviews every upload, so publish only when the extension itself changed. release-please tracks that
+# package separately (tags extension-v*) and opens its own version bump PR; this workflow stays manual because
+# each store reviews every upload. A release-please release cannot trigger this anyway, because events made with
+# GITHUB_TOKEN do not start other workflows. Safari needs nothing here: it ships inside Triwarden.app.
 #
 # Secrets (repo or environment "extension-store"):
 #   Chrome  CHROME_EXTENSION_ID, CHROME_PUBLISHER_ID, CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL, CHROME_SERVICE_ACCOUNT_PRIVATE_KEY

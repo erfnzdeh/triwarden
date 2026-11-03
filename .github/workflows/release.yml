@@ -79,6 +79,8 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
+    # Root package outputs only (app). Extension releases use path-prefixed outputs
+    # (BrowserExtension/WebExtension--*) and tags extension-v*; they must not start the DMG job.
     outputs:
       created: ${{ steps.rp.outputs.release_created }}
       tag: ${{ steps.rp.outputs.tag_name }}

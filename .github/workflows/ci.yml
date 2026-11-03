@@ -58,6 +58,40 @@ jobs:
   # or release-please config changed. main, workflow_dispatch, and workflow_call always run
   # the full suite. Required checks (VaultCore tests, Build app) still report success on the
   # skip path so rulesets stay green.
+  # Chrome/Firefox store zips use BrowserExtension/WebExtension/package.json. A PR that
+  # changes zip inputs without raising that version cannot be published (store rejects
+  # reuse). release-please bumps it on main for conventional commits under that path;
+  # this check still requires the bump on the PR that ships the code.
+  extension-version:
+    name: Extension version bump
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            extension_zip:
+              - 'BrowserExtension/WebExtension/entrypoints/**'
+              - 'BrowserExtension/WebExtension/lib/**'
+              - '!BrowserExtension/WebExtension/lib/**/*.test.ts'
+              - 'BrowserExtension/WebExtension/public/**'
+              - 'BrowserExtension/WebExtension/wxt.config.ts'
+              - 'BrowserExtension/WebExtension/package.json'
+              - 'BrowserExtension/WebExtension/pnpm-lock.yaml'
+              - 'BrowserExtension/WebExtension/tsconfig.json'
+      - name: No Chrome/Firefox zip inputs changed
+        if: steps.filter.outputs.extension_zip != 'true'
+        run: echo 'No BrowserExtension/WebExtension zip inputs in this PR.'
+      - name: Require package.json version bump
+        if: steps.filter.outputs.extension_zip == 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: scripts/ci/check-extension-version.sh "$BASE_SHA"
+
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
