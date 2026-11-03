@@ -1510,11 +1510,20 @@ private struct SSHRequestsPopover: View {
                 Text("Notifications")
                     .font(.system(size: 13, weight: .semibold))
                 Spacer(minLength: 8)
-                if !agent.accessLog.events.isEmpty {
-                    Button("Clear") { agent.clearAccessLog() }
+                // Clear only dismisses bell rows (same as swipe). Access / Secrets history stays;
+                // that audit trail is cleared only from Access → History → Clear History….
+                let canClearBell = !notes.isEmpty || !eventGroups.isEmpty
+                if canClearBell {
+                    Button("Clear") {
+                        for note in notes { model.hideInbox(note.id) }
+                        for event in agent.accessLog.events {
+                            model.hideInbox("ssh-" + event.id.uuidString)
+                        }
+                    }
                         .buttonStyle(.borderless)
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)
+                        .help(Text("Dismiss notifications. Does not clear Access history."))
                 }
             }
             if let prompt = agent.pending {
