@@ -24,6 +24,36 @@ defaults:
     shell: bash
 
 jobs:
+  # Keep this required check in the same pull_request workflow as the other
+  # required checks. release-please updates its PR with GITHUB_TOKEN; a
+  # separate pull_request_target workflow can stay on the previous revision
+  # and leave the release PR permanently blocked.
+  title:
+    name: Conventional title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            perf
+            security
+            ui
+            docs
+            chore
+            test
+            ci
+            refactor
+            build
+            revert
+          requireScope: false
+
   # On pull requests, skip the macOS VaultCore / Vaultwarden / app jobs when only docs
   # or release-please config changed. main, workflow_dispatch, and workflow_call always run
   # the full suite. Required checks (VaultCore tests, Build app) still report success on the
