@@ -814,18 +814,23 @@ struct EditItemSheet: View {
             ForEach($customFields) { $field in
                 if !isAPIKey || !apiPresetFieldIDs.contains(field.id) {
                 HStack(spacing: 8) {
-                    TextField("Name", text: $field.name, prompt: Text("Name"))
+                    // Distinct titles from the item Name field — identical "Name" labels made
+                    // AppKit's shared field editor more likely to commit into the wrong binding.
+                    TextField("Field name", text: $field.name, prompt: Text("Name"))
                         .textFieldStyle(SoftFieldStyle()).frame(width: 130)
+                        .accessibilityIdentifier("customFieldName-\(field.id.uuidString)")
                     Group {
                         switch field.kind {
                         case .boolean:
-                            Toggle("Value", isOn: Binding(get: { field.value == "true" }, set: { field.value = $0 ? "true" : "false" }))
+                            Toggle("Field value", isOn: Binding(get: { field.value == "true" }, set: { field.value = $0 ? "true" : "false" }))
                                 .labelsHidden().toggleStyle(.switch).tint(.brand)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         case .hidden where !showSecrets:
-                            SecureField("Value", text: $field.value, prompt: Text("Value")).textFieldStyle(SoftFieldStyle())
+                            SecureField("Field value", text: $field.value, prompt: Text("Value")).textFieldStyle(SoftFieldStyle())
+                                .accessibilityIdentifier("customFieldValue-\(field.id.uuidString)")
                         default:
-                            TextField("Value", text: $field.value, prompt: Text("Value")).textFieldStyle(SoftFieldStyle())
+                            TextField("Field value", text: $field.value, prompt: Text("Value")).textFieldStyle(SoftFieldStyle())
+                                .accessibilityIdentifier("customFieldValue-\(field.id.uuidString)")
                         }
                     }
                     SoftMenu(options: [(CustomField.Kind.text, String(localized: "Text")), (.hidden, String(localized: "Hidden")),
@@ -838,6 +843,7 @@ struct EditItemSheet: View {
                     }
                     .buttonStyle(.plain).help(Text("Remove"))
                 }
+                .id(field.id)
                 .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
@@ -1062,7 +1068,13 @@ struct EditItemSheet: View {
                 folderId = createdFolder
             }
             guard let newKind = AppModel.NewItemKind(kind) else { return }
-            var edit = CipherEdit(name: name, notes: notes, folderId: .some(folderId))
+            var savedName = name
+            if cleanFields.contains(where: { $0.kind == .hidden && !$0.value.isEmpty && $0.value == savedName }) {
+                // Prefer an explicit prefill title; otherwise a generic label — never the secret.
+                let fallback = prefill?.name.trimmingCharacters(in: .whitespaces) ?? ""
+                savedName = fallback.isEmpty ? String(localized: "Item") : fallback
+            }
+            var edit = CipherEdit(name: savedName, notes: notes, folderId: .some(folderId))
             edit.reprompt = reprompt
             edit.favorite = prefill?.favorite ?? false
             if newKind == .login {
@@ -1075,7 +1087,14 @@ struct EditItemSheet: View {
         case .edit(let item):
             // Send only what changed.
             var edit = CipherEdit()
-            if name != item.name { edit.name = name }
+            // Safety net: if a focus mix-up pasted a hidden custom-field value into Name, keep the
+            // original title so the secret is not stored (and shown) as the item name in plaintext.
+            if name != item.name {
+                let nameLooksLikeHiddenField = cleanFields.contains {
+                    $0.kind == .hidden && !$0.value.isEmpty && $0.value == name
+                }
+                if !nameLooksLikeHiddenField { edit.name = name }
+            }
             if notes != (item.notes ?? "") { edit.notes = notes }
             if folderId != item.folderId { edit.folderId = .some(folderId) }
             if reprompt != item.reprompt { edit.reprompt = reprompt }

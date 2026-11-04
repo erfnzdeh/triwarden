@@ -186,4 +186,23 @@ import Testing
             try CipherEditor.sharedCipher(raw: JSONSerialization.data(withJSONObject: raw), key: userKey, organizationKey: orgKey, organizationId: "o1")
         }
     }
+
+    /// A login that gains a hidden custom field (e.g. "API KEY") must keep its title. The secret belongs
+    /// only in `fields`, never as `name` — that would show the key in plaintext in list/detail headers.
+    @Test func addingHiddenCustomFieldDoesNotReplaceLoginName() throws {
+        let created = CipherEdit(name: "Resend", username: "meerlingo@example.com", password: "vault-pass",
+                                 uri: "https://resend.com")
+        let raw = try CipherEditor.newCipher(kind: .login, edit: created, key: userKey)
+        var change = CipherEdit()
+        change.customFields = [CustomField(name: "API KEY", value: "re_test_only_not_a_real_secret", kind: .hidden)]
+        let updated = try #require(JSONSerialization.jsonObject(with: CipherEditor.updatedCipher(
+            raw: raw, edit: change, key: userKey)) as? [String: Any])
+        let plain = try #require(CipherFields.decrypt(updated, key: userKey) as? [String: Any])
+        #expect(plain["name"] as? String == "Resend")
+        let fields = try #require(plain["fields"] as? [[String: Any]])
+        #expect(fields.count == 1)
+        #expect(fields[0]["name"] as? String == "API KEY")
+        #expect(fields[0]["value"] as? String == "re_test_only_not_a_real_secret")
+        #expect(fields[0]["type"] as? Int == CustomField.Kind.hidden.rawValue)
+    }
 }

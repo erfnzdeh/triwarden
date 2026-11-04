@@ -11,26 +11,27 @@ extension Color {
 }
 
 /// Rounded field used on the login, unlock and AutoFill screens.
+///
+/// Do not put `@FocusState` on this style. `TextFieldStyle` is not a per-field view, so one
+/// focus slot would be shared across every soft field in a form and AppKit's field editor can
+/// commit typed/pasted text into the wrong binding (for example a custom-field value landing in
+/// the item Name). The chrome stays a static hairline; the system caret still shows focus.
 struct SoftFieldStyle: TextFieldStyle {
     var height: CGFloat = 38
     /// Room on the right for an accessory inside the field (the reveal button).
     var trailingInset: CGFloat = 0
-    @FocusState private var focused: Bool
 
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
             .textFieldStyle(.plain)
-            .focused($focused)
             .padding(.leading, 12)
             .padding(.trailing, 12 + trailingInset)
             .frame(height: height)
             .background(Color.formInputFill, in: .rect(cornerRadius: 9, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    // Focus: a firmer neutral outline — no colour, no glow.
-                    .strokeBorder(focused ? Color.primary.opacity(0.35) : Color(nsColor: .separatorColor), lineWidth: focused ? 1.5 : 1)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
             )
-            .animation(.easeOut(duration: 0.15), value: focused)
     }
 }
 
