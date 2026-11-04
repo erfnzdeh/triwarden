@@ -62,6 +62,7 @@ enum Snapshot {
             let views: [(String, AnyView, CGSize)] = [
                 ("guide-key", AnyView(ToolSetupGuide(previewStep: .key, previewProfiles: [])), CGSize(width: 640, height: 640)),
                 ("guide-tool", AnyView(ToolSetupGuide(previewStep: .tool, previewProfiles: real)), CGSize(width: 640, height: 640)),
+                ("guide-tool-attention", AnyView(ToolSetupGuide(previewStep: .tool, previewProfiles: [profiles[3]])), CGSize(width: 640, height: 640)),
                 ("guide-helper", AnyView(ToolSetupGuide(previewStep: .helper, previewProfiles: real)), CGSize(width: 640, height: 640)),
                 ("guide-launch", AnyView(ToolSetupGuide(previewStep: .launch, previewProfiles: real)), CGSize(width: 640, height: 640)),
                 ("guide-daily", AnyView(ToolSetupGuide(previewStep: .daily, previewProfiles: real)), CGSize(width: 640, height: 640)),

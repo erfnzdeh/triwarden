@@ -320,13 +320,13 @@ struct ToolLaunchesPane: View {
 
     /// The one thing to do next. Ready tools show the command; anything else shows why not, and the fix.
     @ViewBuilder private func hero(_ entry: ToolBrowserIndex.Entry, state: ToolState, index: ToolBrowserIndex) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 8) {
-                StatusDot(state: state)
-                Text(verbatim: state.headline).font(.system(size: 13, weight: .semibold))
-                Spacer(minLength: 0)
-            }
-            if state == .ready {
+        if state == .ready {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 8) {
+                    StatusDot(state: state)
+                    Text(verbatim: state.headline).font(.system(size: 13, weight: .semibold))
+                    Spacer(minLength: 0)
+                }
                 CommandWell(command: (try? SavedToolCommands.launch(entry.profile)) ?? "", copyLabel: "Copy", prominent: true) {
                     copyLaunch(entry.profile)
                 }
@@ -346,31 +346,38 @@ struct ToolLaunchesPane: View {
                     Button("Copy Alias") { copyAlias(entry.profile) }.buttonStyle(.appSecondarySmall).fixedSize()
                         .accessibilityIdentifier("copyToolAlias")
                 }
-            } else {
+            }
+            .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.panelStrong, in: .rect(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.panelEdge))
+            .shadow(color: .black.opacity(0.06), radius: 14, y: 6)
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    StatusDot(state: state)
+                    Text(verbatim: state.headline).font(.system(size: 12, weight: .semibold))
+                }
                 Text(verbatim: state.explanation(entry)).font(.system(size: 13)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 primaryAction(entry, index: index)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.panelStrong, in: .rect(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Color.panelEdge))
-        .shadow(color: .black.opacity(0.06), radius: 14, y: 6)
     }
 
     @ViewBuilder private func primaryAction(_ entry: ToolBrowserIndex.Entry, index: ToolBrowserIndex) -> some View {
         switch entry.nextAction {
         case .copyLaunch:
-            Button("Install Terminal Helper…") { helperSetup = true }.buttonStyle(.appPrimarySmall)
+            Button("Install Terminal Helper…") { helperSetup = true }.buttonStyle(.appSecondarySmall)
                 .accessibilityIdentifier("toolsHelperSetup")
         case .resume:
-            Button("Resume Tool") { setEnabled(true, entry.profile) }.buttonStyle(.appPrimarySmall)
+            Button("Resume Tool") { setEnabled(true, entry.profile) }.buttonStyle(.appSecondarySmall)
         case .repairKey(let id):
             if let key = entry.keys.first(where: { $0.id == id }) {
-                Button(repairTitle(key, entry: entry)) { repair(key, entry: entry, index: index) }.buttonStyle(.appPrimarySmall)
+                Button(repairTitle(key, entry: entry)) { repair(key, entry: entry, index: index) }.buttonStyle(.appSecondarySmall)
             }
         case .editSetup:
-            Button("Edit Setup…") { edit(entry, index: index) }.buttonStyle(.appPrimarySmall)
+            Button("Edit Setup…") { edit(entry, index: index) }.buttonStyle(.appSecondarySmall)
         }
     }
 

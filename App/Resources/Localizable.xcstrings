@@ -98459,6 +98459,266 @@
           }
         }
       }
+    },
+    "Choose the program and project folder that should receive this key. Triwarden saves them together so you can launch the tool again later.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このキーを渡すプログラムとプロジェクトフォルダを選びます。Triwarden はそれらをまとめて保存するため、次回もそのツールを起動できます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择应接收此密钥的程序和项目文件夹。Triwarden 会将它们保存为一组，方便你以后再次启动该工具。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇應接收此金鑰的程式和專案資料夾。Triwarden 會將它們儲存為一組，方便你日後再次啟動該工具。"
+          }
+        },
+        "zh-HK": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "揀選應該接收呢條密鑰嘅程式同項目資料夾。Triwarden 會將佢哋一齊儲存，方便你之後再次啟動工具。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 키를 받을 프로그램과 프로젝트 폴더를 선택하세요. Triwarden은 둘을 함께 저장하므로 나중에 도구를 다시 실행할 수 있습니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez le programme et le dossier de projet qui doivent recevoir cette clé. Triwarden les enregistre ensemble afin que vous puissiez relancer l’outil plus tard."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige el programa y la carpeta del proyecto que deben recibir esta clave. Triwarden los guarda juntos para que puedas volver a iniciar la herramienta más tarde."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เลือกโปรแกรมและโฟลเดอร์โปรเจกต์ที่จะรับคีย์นี้ Triwarden จะบันทึกทั้งสองไว้ด้วยกัน เพื่อให้คุณเรียกใช้เครื่องมืออีกครั้งในภายหลัง"
+          }
+        }
+      }
+    },
+    "Set up a tool": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ツールを設定"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置工具"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定工具"
+          }
+        },
+        "zh-HK": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定工具"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "도구 설정"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurer un outil"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurar una herramienta"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตั้งค่าเครื่องมือ"
+          }
+        }
+      }
+    },
+    "Choose a common tool or any installed program, then check its folder and key name.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一般的なツールまたはインストール済みのプログラムを選び、フォルダとキー名を確認します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择常用工具或任何已安装的程序，然后检查其文件夹和密钥名称。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇常用工具或任何已安裝的程式，然後檢查其資料夾和金鑰名稱。"
+          }
+        },
+        "zh-HK": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "揀常用工具或者任何已安裝嘅程式，然後檢查資料夾同密鑰名稱。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일반적인 도구나 설치된 프로그램을 선택한 다음 폴더와 키 이름을 확인하세요."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez un outil courant ou n’importe quel programme installé, puis vérifiez son dossier et le nom de la clé."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige una herramienta habitual o cualquier programa instalado y comprueba su carpeta y el nombre de la clave."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เลือกเครื่องมือทั่วไปหรือโปรแกรมที่ติดตั้งไว้ แล้วตรวจสอบโฟลเดอร์และชื่อคีย์"
+          }
+        }
+      }
+    },
+    "What can I set up?": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "何を設定できますか？"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可以设置哪些内容？"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可以設定哪些內容？"
+          }
+        },
+        "zh-HK": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可以設定啲乜？"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "무엇을 설정할 수 있나요?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Que puis-je configurer ?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Qué puedo configurar?"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตั้งค่าอะไรได้บ้าง"
+          }
+        }
+      }
+    },
+    "Claude Code, Codex CLI, Gemini CLI, Aider, a web app, or a script can all be saved as tools. Triwarden provides the key using the variable name that program expects.": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code、Codex CLI、Gemini CLI、Aider、Web アプリ、スクリプトは、すべてツールとして保存できます。Triwarden は、そのプログラムが想定する変数名を使ってキーを渡します。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code、Codex CLI、Gemini CLI、Aider、网页应用或脚本都可以保存为工具。Triwarden 会使用程序所需的变量名称提供密钥。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code、Codex CLI、Gemini CLI、Aider、網頁應用程式或指令碼都可以儲存為工具。Triwarden 會使用程式預期的變數名稱提供金鑰。"
+          }
+        },
+        "zh-HK": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code、Codex CLI、Gemini CLI、Aider、網頁應用程式或者指令碼都可以儲存做工具。Triwarden 會用程式預期嘅變數名稱提供密鑰。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code, Codex CLI, Gemini CLI, Aider, 웹 앱 또는 스크립트를 모두 도구로 저장할 수 있습니다. Triwarden은 해당 프로그램이 요구하는 변수 이름으로 키를 제공합니다."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code, Codex CLI, Gemini CLI, Aider, une application web ou un script peuvent tous être enregistrés comme outils. Triwarden fournit la clé sous le nom de variable attendu par le programme."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code, Codex CLI, Gemini CLI, Aider, una aplicación web o un script pueden guardarse como herramientas. Triwarden proporciona la clave con el nombre de variable que espera ese programa."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claude Code, Codex CLI, Gemini CLI, Aider, เว็บแอป หรือสคริปต์ สามารถบันทึกเป็นเครื่องมือได้ทั้งหมด Triwarden จะส่งคีย์โดยใช้ชื่อตัวแปรที่โปรแกรมนั้นต้องการ"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

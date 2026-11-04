@@ -154,27 +154,19 @@ struct ToolSetupGuide: View {
 
     private var toolStep: some View {
         VStack(alignment: .leading, spacing: 18) {
-            lead("A tool is one program in one project folder, plus the keys it gets. Triwarden hands each key over under the variable name the program reads.")
-            card {
-                sectionLabel("For example")
-                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 9) {
-                    example("sparkles", "Claude Code", "claude", "ANTHROPIC_API_KEY")
-                    example("sparkles", "Codex CLI", "codex", "OPENAI_API_KEY")
-                    example("sparkles", "Gemini CLI", "gemini", "GEMINI_API_KEY")
-                    example("shippingbox", "Your web app", "npm run dev", "STRIPE_SECRET_KEY")
-                    example("chevron.left.forwardslash.chevron.right", "A Python script", "uv run main.py", "HF_TOKEN")
-                }
-                Text("Aider, OpenCode, Cursor CLI, pnpm, Bun and any other program work too.")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
-                Divider().opacity(0.4)
-                HStack(spacing: 12) {
-                    Button(keyReady ? "Set Up Tool…" : "Choose a Key and Set Up Tool…") {
-                        if keyReady { sheet = .setup } else { sheet = .keyPicker }
-                    }.buttonStyle(.appPrimarySmall).disabled(model.sessions.isEmpty || profiles.count >= 64)
-                    Text("Pick a recipe, then check the program and folder.").font(.system(size: 11)).foregroundStyle(.secondary)
-                }
+            lead("Choose the program and project folder that should receive this key. Triwarden saves them together so you can launch the tool again later.")
+            VStack(alignment: .leading, spacing: 10) {
+                sectionLabel("Set up a tool")
+                Text("Choose a common tool or any installed program, then check its folder and key name.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                Button(keyReady ? "Set Up Tool…" : "Choose a Key and Set Up Tool…") {
+                    if keyReady { sheet = .setup } else { sheet = .keyPicker }
+                }.buttonStyle(.appSecondarySmall).disabled(model.sessions.isEmpty || profiles.count >= 64)
             }
             toolSelection
+            disclosure("What can I set up?") {
+                Text("Claude Code, Codex CLI, Gemini CLI, Aider, a web app, or a script can all be saved as tools. Triwarden provides the key using the variable name that program expects.")
+            }
             disclosure("Practice with Python") {
                 Text("Save this as check_key.py in a test folder. Choose Python script during setup and select the file.")
                 CommandWell(command: Self.practiceScript.trimmingCharacters(in: .newlines), copyLabel: "Copy") {
@@ -288,9 +280,9 @@ struct ToolSetupGuide: View {
 
     @ViewBuilder private var toolSelection: some View {
         if !profiles.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 16) {
-                    Text("Tool").font(.system(size: 12)).foregroundStyle(.secondary).frame(width: 40, alignment: .leading)
+            VStack(alignment: .leading, spacing: 10) {
+                sectionLabel("Saved tool")
+                HStack(spacing: 12) {
                     SoftMenu(options: [("", String(localized: "Choose a saved tool…"))] + profiles.map { ($0.name, $0.title + " · " + ToolLaunchesPane.abbreviated($0.directory)) },
                              selection: $selectedTool, accessibilityLabel: "Saved tool")
                     if let target {
@@ -302,19 +294,17 @@ struct ToolSetupGuide: View {
                         }.fixedSize()
                     }
                 }
-                .padding(.horizontal, 14).frame(minHeight: 44)
-                .background(Color.panelStrong, in: .rect(cornerRadius: 14, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.panelEdge))
-                if target != nil, !toolReady {
-                    HStack(spacing: 10) {
-                        Text("Unlock its account, resume it, or fix its keys in Secrets.").font(.system(size: 11)).foregroundStyle(.secondary)
+                if let target, !toolReady {
+                    let state = ToolState(target, helperReady: true)
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(verbatim: state.explanation(target)).font(.system(size: 11)).foregroundStyle(.secondary)
                         Button("Open Secrets") { dismiss(); model.requestedToolSelection = selectedTool; model.requestedSection = .toolLaunches }
                             .buttonStyle(.appSecondarySmall)
-                    }.padding(.horizontal, 4)
+                    }
                 }
             }
         } else if step != .tool {
-            card { status(symbol: "exclamationmark.circle.fill", tint: .orange, title: "No saved tool yet", note: "Set one up in step 2 first.") }
+            status(symbol: "exclamationmark.circle.fill", tint: .orange, title: "No saved tool yet", note: "Set one up in step 2 first.")
         }
     }
 
@@ -331,25 +321,6 @@ struct ToolSetupGuide: View {
 
     private func sectionLabel(_ text: LocalizedStringKey) -> some View {
         Text(text).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary).textCase(.uppercase).tracking(0.4)
-    }
-
-    private func chip(_ text: String) -> some View {
-        Text(verbatim: text).font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(.secondary)
-            .padding(.horizontal, 7).padding(.vertical, 3)
-            .background(.primary.opacity(0.05), in: .rect(cornerRadius: 6, style: .continuous))
-    }
-
-    /// One recipe example: what runs, the command, and the variable it reads its key from.
-    private func example(_ symbol: String, _ title: LocalizedStringKey, _ command: String, _ variable: String) -> some View {
-        GridRow {
-            Label { Text(title).font(.system(size: 12, weight: .medium)) } icon: {
-                Image(systemName: symbol).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary).frame(width: 16)
-            }
-            Text(verbatim: command).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
-            Image(systemName: "arrow.left").font(.system(size: 9, weight: .semibold)).foregroundStyle(.tertiary)
-                .accessibilityLabel("reads")
-            chip(variable)
-        }
     }
 
     private func card(@ViewBuilder _ content: () -> some View) -> some View {
