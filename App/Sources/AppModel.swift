@@ -317,7 +317,18 @@ final class AppModel {
 
     /// Opens an item form in the detail panel. A new item or clone steps the list's selection aside; an edit keeps
     /// that item selected. Leaving a form with input in it asks first.
-    func beginEditing(_ request: EditRequest) {
+    func beginEditing(_ originalRequest: EditRequest) {
+        var request = originalRequest
+        if case .create(.login) = request.mode, let browserPrefill = foreground.flatMap(PaletteCreate.prefill) {
+            if var prefill = request.prefill {
+                // A typed domain or another guided flow wins; fill only the pieces it did not supply.
+                if prefill.name.isEmpty { prefill.name = browserPrefill.name }
+                if prefill.uri.isEmpty { prefill.uri = browserPrefill.uri }
+                request.prefill = prefill
+            } else {
+                request.prefill = browserPrefill
+            }
+        }
         switch request.mode {
         case .edit(let item), .clone(let item): guard item.isSupported, allowMutation([item.id]) else { return }
         case .create: break

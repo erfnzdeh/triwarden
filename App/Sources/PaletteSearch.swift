@@ -185,6 +185,12 @@ enum PaletteGenerate: Equatable {
 
 /// A new login from what was typed: a domain becomes the website (and the name, without "www.").
 enum PaletteCreate {
+    /// A new login for the browser tab the user explicitly allowed Triwarden to match.
+    static func prefill(_ context: ForegroundContext) -> EditItemSheet.Prefill? {
+        guard let source = BrowserLoginPrefill(isBrowser: context.isBrowser, host: context.host, pageURL: context.pageURL) else { return nil }
+        return EditItemSheet.Prefill(name: source.name, uri: source.uri)
+    }
+
     static func prefill(_ text: String) -> EditItemSheet.Prefill? {
         let t = text.trimmingCharacters(in: .whitespaces)
         guard !t.isEmpty else { return nil }

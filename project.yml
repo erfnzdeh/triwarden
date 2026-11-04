@@ -146,6 +146,7 @@ targets:
     sources:
       - AppTests
       - App/Sources/IconStore.swift
+      - App/Sources/BrowserLoginPrefill.swift
     dependencies:
       - package: VaultCore
         product: VaultwardenAPI

@@ -9,6 +9,8 @@ struct ForegroundContext: Equatable {
     let pid: pid_t
     /// The front tab's host, once the browser has answered (nil for other apps, or if the user declined).
     var host: String?
+    /// The front tab's full address. Memory-only, and available under the same opt-in browser permission as `host`.
+    var pageURL: URL?
 
     var isBrowser: Bool { Self.browsers[bundleID] != nil }
 
@@ -23,8 +25,8 @@ struct ForegroundContext: Equatable {
     ]
     enum Kind { case safari, chromium }
 
-    init(app: String, bundleID: String, pid: pid_t, host: String?) {
-        self.app = app; self.bundleID = bundleID; self.pid = pid; self.host = host
+    init(app: String, bundleID: String, pid: pid_t, host: String?, pageURL: URL? = nil) {
+        self.app = app; self.bundleID = bundleID; self.pid = pid; self.host = host; self.pageURL = pageURL
     }
 
     init(_ app: NSRunningApplication) {
@@ -90,7 +92,10 @@ extension AppModel {
         guard let app = (front == .current ? lastOtherApp : front), !app.isTerminated else { foreground = nil; return }
         var context = ForegroundContext(app)
         guard context.isBrowser else { foreground = context; return }
-        context.host = foreground?.bundleID == context.bundleID && foreground?.pid == context.pid ? foreground?.host : nil
+        if foreground?.bundleID == context.bundleID, foreground?.pid == context.pid {
+            context.host = foreground?.host
+            context.pageURL = foreground?.pageURL
+        }
         foreground = context
         readFrontTab()
     }
@@ -104,6 +109,7 @@ extension AppModel {
         } else {
             UserDefaults.standard.set(true, forKey: Pref.matchFrontTabDismissed)
             foreground?.host = nil
+            foreground?.pageURL = nil
         }
     }
 
@@ -115,8 +121,10 @@ extension AppModel {
     private func readFrontTab() {
         guard UserDefaults.standard.bool(forKey: Pref.matchFrontTab), let context = foreground, context.isBrowser else { return }
         Task {
-            let host = await ForegroundContext.pageURL(bundleID: context.bundleID)?.host()?.lowercased()
+            let pageURL = await ForegroundContext.pageURL(bundleID: context.bundleID)
+            let host = pageURL?.host()?.lowercased()
             guard foreground?.pid == context.pid else { return }
+            foreground?.pageURL = pageURL
             foreground?.host = host.map { $0.hasPrefix("www.") ? String($0.dropFirst(4)) : $0 }
         }
     }
