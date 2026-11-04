@@ -35,6 +35,7 @@ struct TriwardenApp: App {
         SecretsSelfTest.runIfRequested()
         SecretsOnlineSelfTest.runIfRequested()
         Snapshot.runIfRequested()
+        AttachmentSelfTest.runIfRequested()
         SelfTest.runIfRequested()
         CloudSelfTest.runIfRequested()
         #endif

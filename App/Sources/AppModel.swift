@@ -1732,7 +1732,13 @@ final class AppModel {
 
     @discardableResult
     func createItem(_ kind: NewItemKind, edit: CipherEdit, accountId: String? = nil, organizationId: String? = nil, collectionIds: [String] = []) async -> Bool {
-        guard let session = (accountId ?? defaultAccountId).flatMap(session(for:)) else { return offline() }
+        await createItemID(kind, edit: edit, accountId: accountId, organizationId: organizationId, collectionIds: collectionIds) != nil
+    }
+
+    /// Creates an item and returns the server ID. Forms that stage follow-up work, such as attachments, need the
+    /// ID while the ordinary callers only care whether creation succeeded.
+    func createItemID(_ kind: NewItemKind, edit: CipherEdit, accountId: String? = nil, organizationId: String? = nil, collectionIds: [String] = []) async -> String? {
+        guard let session = (accountId ?? defaultAccountId).flatMap(session(for:)) else { _ = offline(); return nil }
         do {
             let id = try await session.create(kind.editorKind, edit: edit, organizationId: organizationId, collectionIds: collectionIds)
             selectedID = id
@@ -1742,8 +1748,8 @@ final class AppModel {
                 if arrivedID == id { arrivedID = nil }
             }
             flash(String(localized: "Item created"))
-            return true
-        } catch { return failed(error) }
+            return id
+        } catch { _ = failed(error); return nil }
     }
 
     private func session(for item: VaultItem) -> AccountSession? {
@@ -2095,13 +2101,86 @@ final class AppModel {
         return true
     }
 
-    func deleteAttachment(_ attachment: VaultItem.Attachment, of item: VaultItem) async {
-        guard allowMutation([item.id]) else { return }
-        guard let session = session(for: item) else { _ = offline(); return }
+    /// Adds one chosen file using the name from the editor, which may differ from the file on disk.
+    @discardableResult
+    func addAttachment(_ url: URL, named name: String, to item: VaultItem) async -> Bool {
+        guard allowMutation([item.id]) else { return false }
+        guard let session = session(for: item) else { return offline() }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        attachmentBusy.insert(item.id)
+        defer { attachmentBusy.remove(item.id) }
+        do {
+            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size <= Self.attachmentLimit else {
+                flash(String(localized: "“\(url.lastPathComponent)” is larger than 500 MB."))
+                return false
+            }
+            let contents = try Data(contentsOf: url)
+            guard contents.count <= Self.attachmentLimit else {
+                flash(String(localized: "“\(url.lastPathComponent)” is larger than 500 MB."))
+                return false
+            }
+            try await session.addAttachment(item.id, name: name, contents: contents)
+            flash(String(localized: "Attached “\(name)”"))
+            return true
+        } catch { return failed(error) }
+    }
+
+    /// Replaces an attachment without exposing plaintext on disk. The new encrypted file is uploaded before the
+    /// old one is removed, so a failed upload never destroys the user's existing copy.
+    @discardableResult
+    func replaceAttachment(_ attachment: VaultItem.Attachment, of item: VaultItem, with url: URL, named name: String) async -> Bool {
+        guard allowMutation([item.id]) else { return false }
+        guard let session = session(for: item) else { return offline() }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        attachmentBusy.formUnion([item.id, attachment.id])
+        defer { attachmentBusy.subtract([item.id, attachment.id]) }
+        do {
+            let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+            guard size <= Self.attachmentLimit else {
+                flash(String(localized: "“\(url.lastPathComponent)” is larger than 500 MB."))
+                return false
+            }
+            let contents = try Data(contentsOf: url)
+            guard contents.count <= Self.attachmentLimit else {
+                flash(String(localized: "“\(url.lastPathComponent)” is larger than 500 MB."))
+                return false
+            }
+            try await session.addAttachment(item.id, name: name, contents: contents)
+            try await session.deleteAttachment(item.id, attachment.id)
+            flash(String(localized: "Replaced “\(attachment.fileName)”"))
+            return true
+        } catch { return failed(error) }
+    }
+
+    /// Bitwarden has no rename endpoint, so renaming safely re-wraps the decrypted bytes in memory under a new
+    /// attachment key, uploads that copy, and only then removes the old encrypted attachment.
+    @discardableResult
+    func renameAttachment(_ attachment: VaultItem.Attachment, of item: VaultItem, to name: String) async -> Bool {
+        guard allowMutation([item.id]) else { return false }
+        guard let session = session(for: item) else { return offline() }
+        attachmentBusy.formUnion([item.id, attachment.id])
+        defer { attachmentBusy.subtract([item.id, attachment.id]) }
+        do {
+            let contents = try await session.attachmentContents(item.id, attachment)
+            try await session.addAttachment(item.id, name: name, contents: contents)
+            try await session.deleteAttachment(item.id, attachment.id)
+            flash(String(localized: "Renamed attachment to “\(name)”"))
+            return true
+        } catch { return failed(error) }
+    }
+
+    @discardableResult
+    func deleteAttachment(_ attachment: VaultItem.Attachment, of item: VaultItem) async -> Bool {
+        guard allowMutation([item.id]) else { return false }
+        guard let session = session(for: item) else { return offline() }
         do {
             try await session.deleteAttachment(item.id, attachment.id)
             flash(String(localized: "Deleted “\(attachment.fileName)”"))
-        } catch { _ = failed(error) }
+            return true
+        } catch { return failed(error) }
     }
 
     /// Shows a change at once, with animation, while the server catches up; the next rebuild (after the server's

@@ -91,6 +91,12 @@ struct EditItemSheet: View {
     @State private var websiteRowHeight: CGFloat = 64
     @State private var websiteAdds = 0
     @FocusState private var focusedWebsite: UUID?
+    /// Attachment changes stay local to the form until Save, just like the item's text fields.
+    @State private var attachmentRows: [AttachmentDraft] = []
+    @State private var choosingAttachments = false
+    @State private var choosingReplacement = false
+    @State private var replacementTarget: UUID?
+    @State private var attachmentDropTargeted = false
 
     /// Row height plus the stack's gap, so a drag swaps as the pointer crosses the next row.
     private var websiteStride: CGFloat { websiteRowHeight + 12 }
@@ -101,6 +107,22 @@ struct EditItemSheet: View {
     private struct WebsiteRow: Identifiable, Equatable {
         var id = UUID()
         var text = ""
+    }
+
+    private struct ChosenFile: Equatable {
+        let url: URL
+        let size: Int
+        let sizeName: String
+    }
+
+    /// An existing attachment, a newly chosen file, or an existing attachment with a replacement chosen.
+    private struct AttachmentDraft: Identifiable, Equatable {
+        var id = UUID()
+        var original: VaultItem.Attachment?
+        var chosen: ChosenFile?
+        var name: String
+
+        var sizeName: String { chosen?.sizeName ?? original?.sizeName ?? "" }
     }
 
     /// Websites with the blanks left out, which is what gets saved.
@@ -119,12 +141,14 @@ struct EditItemSheet: View {
         var props: [String: String]
         var customFields: [CustomField]
         var reprompt: Bool
+        var attachments: [AttachmentDraft]
     }
 
     private var draft: Draft {
         Draft(name: name, username: username, password: password, totp: totp, notes: notes, uris: websiteValues, folderId: folderId, accountId: accountId, destinationVault: destinationVault,
               destinationCollection: destinationCollection, chosenCollections: chosenCollections,
-              props: props.filter { !$0.value.isEmpty }, customFields: customFields, reprompt: reprompt)
+              props: props.filter { !$0.value.isEmpty }, customFields: customFields, reprompt: reprompt,
+              attachments: attachmentRows)
     }
 
     private var hasChanges: Bool { original.map { $0 != draft } ?? false }
@@ -148,7 +172,8 @@ struct EditItemSheet: View {
     private var saveDisabled: Bool {
         let keys = customFields.filter { $0.name == APIKeyTemplate.keyField }
         let missingAPIKey = isAPIKey && (hasDuplicateAPIFields || apiVariableProblem != nil || keys.count != 1 || !keys.contains { $0.kind == .hidden && !$0.value.isEmpty && !$0.value.utf8.contains(0) && $0.value.utf8.count <= 32_768 })
-        return missingAPIKey || name.trimmingCharacters(in: .whitespaces).isEmpty || newFolderIn != nil || (!mode.isEdit && accountId == nil)
+        let invalidAttachmentName = attachmentRows.contains { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        return missingAPIKey || invalidAttachmentName || name.trimmingCharacters(in: .whitespaces).isEmpty || newFolderIn != nil || (!mode.isEdit && accountId == nil)
             || (selectsVault && destinationVault == nil)
             || (!mode.isEdit && creationOrganizationID != nil && creationCollectionIDs.isEmpty)
             || movingNeedsCollection || sharedNeedsCollection
@@ -412,6 +437,8 @@ struct EditItemSheet: View {
                 SoftEditor(text: $notes, minHeight: kind == .note && !isAPIKey ? 200 : 80)
             }
 
+            attachmentsSection
+
             FormCard {
                 Toggle(isOn: $reprompt) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -421,6 +448,134 @@ struct EditItemSheet: View {
                 }
                 .toggleStyle(.trailingSwitch)
             }
+    }
+
+    // MARK: Attachments
+
+    /// Add, rename, replace and remove attachments in the same Save/Cancel transaction as the rest of the form.
+    /// The chosen security-scoped URLs are retained and only read when Save is pressed.
+    private var attachmentsSection: some View {
+        FormCard(title: "Attachments") {
+            if attachmentRows.isEmpty {
+                VStack(spacing: 7) {
+                    Image(systemName: "paperclip").font(.system(size: 18)).foregroundStyle(.secondary)
+                    Text("Drop files here, or choose files below.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 72)
+                .background(Color.formInputFill, in: .rect(cornerRadius: 10, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Color(nsColor: .separatorColor), style: StrokeStyle(dash: [5, 4])))
+            } else {
+                VStack(spacing: 10) {
+                    ForEach($attachmentRows) { $row in
+                        attachmentRow($row)
+                    }
+                }
+            }
+
+            HStack(spacing: 10) {
+                Button { choosingAttachments = true } label: {
+                    Label("Add Files…", systemImage: "plus")
+                }
+                .buttonStyle(.appSecondarySmall)
+                Spacer()
+                Text(mode.isEdit ? "Changes are applied when you save." : "Files upload after the item is saved.")
+                    .font(.system(size: 11)).foregroundStyle(.tertiary)
+            }
+            Text("Files are encrypted before upload. Each file can be up to 500 MB.")
+                .font(.system(size: 11)).foregroundStyle(.tertiary)
+        }
+        .dropDestination(for: URL.self) { urls, _ in
+            stageAttachments(urls)
+        } isTargeted: { attachmentDropTargeted = $0 }
+        .overlay {
+            if attachmentDropTargeted {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.brand, style: StrokeStyle(lineWidth: 2, dash: [7, 5]))
+                    .background(Color.brand.opacity(0.06), in: .rect(cornerRadius: 18, style: .continuous))
+                    .overlay {
+                        Label("Drop to attach", systemImage: "paperclip")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .allowsHitTesting(false)
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: attachmentDropTargeted)
+        .fileImporter(isPresented: $choosingAttachments, allowedContentTypes: [.item], allowsMultipleSelection: true) { result in
+            if case .success(let urls) = result { _ = stageAttachments(urls) }
+        }
+        .fileImporter(isPresented: $choosingReplacement, allowedContentTypes: [.item]) { result in
+            defer { replacementTarget = nil }
+            guard case .success(let url) = result, let replacementTarget,
+                  let file = chosenFile(url), let index = attachmentRows.firstIndex(where: { $0.id == replacementTarget }) else { return }
+            attachmentRows[index].chosen = file
+            attachmentRows[index].name = url.lastPathComponent
+        }
+    }
+
+    private func attachmentRow(_ row: Binding<AttachmentDraft>) -> some View {
+        HStack(spacing: 10) {
+            Image(nsImage: NSWorkspace.shared.icon(for: UTType(filenameExtension: (row.wrappedValue.name as NSString).pathExtension) ?? .data))
+                .resizable().frame(width: 28, height: 28)
+            VStack(alignment: .leading, spacing: 3) {
+                TextField("File name", text: row.name, prompt: Text("File name"))
+                    .textFieldStyle(SoftFieldStyle())
+                HStack(spacing: 6) {
+                    Text(verbatim: row.wrappedValue.sizeName)
+                    if row.wrappedValue.original != nil, row.wrappedValue.chosen != nil {
+                        Label("Replacement selected", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                }
+                .font(.system(size: 10)).foregroundStyle(.tertiary)
+            }
+            if row.wrappedValue.original != nil {
+                Button("Replace…") {
+                    replacementTarget = row.wrappedValue.id
+                    choosingReplacement = true
+                }
+                .buttonStyle(.appSecondarySmall)
+            }
+            Button {
+                withAnimation(.snappy(duration: 0.22)) { attachmentRows.removeAll { $0.id == row.wrappedValue.id } }
+            } label: {
+                Image(systemName: "trash").frame(width: 24, height: 24).accessibilityLabel(Text("Remove attachment"))
+            }
+            .buttonStyle(.plain).foregroundStyle(.secondary).help(Text("Remove attachment"))
+        }
+        .padding(.vertical, 2)
+    }
+
+    @discardableResult
+    private func stageAttachments(_ urls: [URL]) -> Bool {
+        let files = urls.compactMap(chosenFile)
+        guard !files.isEmpty else { return false }
+        withAnimation(.snappy(duration: 0.22)) {
+            attachmentRows.append(contentsOf: files.map { AttachmentDraft(original: nil, chosen: $0, name: $0.url.lastPathComponent) })
+        }
+        return true
+    }
+
+    private func chosenFile(_ url: URL) -> ChosenFile? {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let values = try url.resourceValues(forKeys: [.fileSizeKey, .isDirectoryKey])
+            guard values.isDirectory != true else {
+                model.flash(String(localized: "Choose files, not folders."))
+                return nil
+            }
+            let size = values.fileSize ?? 0
+            guard size <= AppModel.attachmentLimit else {
+                model.flash(String(localized: "“\(url.lastPathComponent)” is larger than 500 MB."))
+                return nil
+            }
+            return ChosenFile(url: url, size: size,
+                              sizeName: ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file))
+        } catch {
+            model.flash(error.localizedDescription)
+            return nil
+        }
     }
 
     // MARK: Where the item lives
@@ -1037,6 +1192,9 @@ struct EditItemSheet: View {
         props = item.properties
         customFields = item.customFields.filter { $0.kind != .linked }
         reprompt = item.reprompt
+        if case .edit = mode {
+            attachmentRows = item.attachments.map { AttachmentDraft(original: $0, chosen: nil, name: $0.fileName) }
+        }
         if case .clone = mode {
             name = String(localized: "\(item.name) - Clone")
             accountId = item.accountId
@@ -1059,7 +1217,7 @@ struct EditItemSheet: View {
         saving = true
         defer { saving = false }
         let cleanFields = customFields.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }
-        let ok: Bool
+        let savedItemID: String
         switch mode {
         case .create, .clone:
             if let path = prefill?.folderPath, let accountId,
@@ -1083,7 +1241,9 @@ struct EditItemSheet: View {
             }
             edit.properties = props.filter { !$0.value.isEmpty }
             if !cleanFields.isEmpty { edit.customFields = cleanFields }
-            ok = await model.createItem(newKind, edit: edit, accountId: accountId, organizationId: creationOrganizationID, collectionIds: creationCollectionIDs)
+            guard let id = await model.createItemID(newKind, edit: edit, accountId: accountId,
+                                                    organizationId: creationOrganizationID, collectionIds: creationCollectionIDs) else { return }
+            savedItemID = id
         case .edit(let item):
             // Send only what changed.
             var edit = CipherEdit()
@@ -1115,15 +1275,58 @@ struct EditItemSheet: View {
             if let organizationId = movingTo {
                 let collectionIds = Array(chosenCollections)
                 guard await model.share([item.id], organizationId: organizationId, collectionIds: collectionIds) else { return }
-                ok = true
             } else if item.organizationId != nil, Set(item.collectionIds) != chosenCollections {
                 guard await model.setCollections(item, collectionIds: Array(chosenCollections)) else { return }
-                ok = true
-            } else {
-                ok = true
+            }
+            savedItemID = item.id
+        }
+        // The item itself now exists or has been updated. If an attachment request fails, close onto its detail
+        // view so the successful work is visible and retrying cannot accidentally create a duplicate item.
+        _ = await saveAttachments(to: savedItemID)
+        onSaved?()
+        close(saved: true)
+    }
+
+    private var originalAttachments: [VaultItem.Attachment] {
+        if case .edit(let item) = mode { return item.attachments }
+        return []
+    }
+
+    private var hasAttachmentChanges: Bool {
+        let kept = Set(attachmentRows.compactMap { $0.original?.id })
+        if kept != Set(originalAttachments.map(\.id)) { return true }
+        return attachmentRows.contains { row in
+            row.original == nil || row.chosen != nil || row.original.map { row.name != $0.fileName } == true
+        }
+    }
+
+    /// Uploads additions and safe replacements before processing removals, so failure cannot discard an existing
+    /// attachment before its successor is on the server.
+    private func saveAttachments(to itemID: String) async -> Bool {
+        guard hasAttachmentChanges else { return true }
+        guard let item = model.items.first(where: { $0.id == itemID }) else {
+            model.flash(String(localized: "The item was saved, but its attachments could not be updated."))
+            return false
+        }
+
+        for row in attachmentRows {
+            let name = row.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let original = row.original {
+                if let chosen = row.chosen {
+                    guard await model.replaceAttachment(original, of: item, with: chosen.url, named: name) else { return false }
+                } else if name != original.fileName {
+                    guard await model.renameAttachment(original, of: item, to: name) else { return false }
+                }
+            } else if let chosen = row.chosen {
+                guard await model.addAttachment(chosen.url, named: name, to: item) else { return false }
             }
         }
-        if ok { onSaved?(); close(saved: true) }
+
+        let kept = Set(attachmentRows.compactMap { $0.original?.id })
+        for attachment in originalAttachments where !kept.contains(attachment.id) {
+            guard await model.deleteAttachment(attachment, of: item) else { return false }
+        }
+        return true
     }
 }
 

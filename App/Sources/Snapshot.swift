@@ -1103,6 +1103,105 @@ enum Snapshot {
 #endif
 
 #if DEBUG
+/// Focused server-backed attachment lifecycle. It uses an isolated account namespace and one exact item ID, so a
+/// prior interrupted run cannot make file-count assertions observe stale test data.
+@MainActor
+enum AttachmentSelfTest {
+    /// `--selftest-attachments <server> <email> <password>`
+    static func runIfRequested() {
+        let args = CommandLine.arguments
+        guard let i = args.firstIndex(of: "--selftest-attachments"), i + 3 < args.count else { return }
+        let (server, email, password) = (args[i + 1], args[i + 2], args[i + 3])
+        AccountStore.namespace = "AttachmentSelfTestAccounts"
+        AutoFillIdentities.isEnabled = false
+        Task {
+            var failures = 0
+            func check(_ ok: Bool, _ what: String) {
+                print(ok ? "PASS" : "FAIL", what)
+                if !ok { failures += 1 }
+            }
+
+            let model = AppModel()
+            for account in model.accounts { model.logOut(account.id) }
+            model.serverKind = .selfHosted
+            model.serverURL = server
+            model.email = email
+            await model.login(password: password)
+            check(model.isUnlocked && !model.items.isEmpty, "login + sync")
+            for stale in model.items.filter({ $0.name == "Selftest files" }) { await model.deleteForever(stale) }
+
+            let testName = "Attachment lifecycle \(UUID().uuidString)"
+            guard let noteID = await model.createItemID(.secureNote, edit: CipherEdit(name: testName, notes: "live test")),
+                  let note = model.items.first(where: { $0.id == noteID }) else {
+                check(false, "create attachment test item")
+                print("ATTACHMENT SELFTEST FAILED (\(failures))")
+                exit(1)
+            }
+            check(true, "create attachment test item")
+
+            let root = FileManager.default.temporaryDirectory.appending(path: "triwarden-attachment-selftest-\(UUID().uuidString)", directoryHint: .isDirectory)
+            try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+            defer { try? FileManager.default.removeItem(at: root); AttachmentFiles.wipe() }
+
+            let originalURL = root.appending(path: "source.bin")
+            let originalBytes = Data("original attachment ✓\n".utf8) + Data(repeating: 7, count: 200_000)
+            try? originalBytes.write(to: originalURL)
+            let added = await model.addAttachment(originalURL, named: "original.bin", to: note)
+            var current = model.items.first { $0.id == noteID }
+            var file = current?.attachments.first { $0.fileName == "original.bin" }
+            check(added && current?.attachments.count == 1 && file != nil, "upload attachment from editor path")
+            if let item = current, let attachment = file {
+                await model.previewAttachment(attachment, of: item)
+                check(model.previewURL.flatMap { try? Data(contentsOf: $0) } == originalBytes,
+                      "download and decrypt uploaded attachment")
+            }
+
+            if let item = current, let attachment = file {
+                let renamed = await model.renameAttachment(attachment, of: item, to: "renamed attachment.bin")
+                self.refresh(&current, &file, model: model, itemID: noteID, fileName: "renamed attachment.bin")
+                check(renamed && current?.attachments.count == 1 && file != nil, "rename attachment without a plaintext temp copy")
+                if let renamedItem = current, let renamedAttachment = file {
+                    await model.previewAttachment(renamedAttachment, of: renamedItem)
+                    check(model.previewURL.flatMap { try? Data(contentsOf: $0) } == originalBytes,
+                          "renamed attachment preserves bytes")
+                }
+            }
+
+            let replacementURL = root.appending(path: "replacement.bin")
+            let replacementBytes = Data("replacement attachment ✓\n".utf8) + Data(repeating: 9, count: 120_000)
+            try? replacementBytes.write(to: replacementURL)
+            if let item = current, let attachment = file {
+                let replaced = await model.replaceAttachment(attachment, of: item, with: replacementURL, named: "replacement.bin")
+                self.refresh(&current, &file, model: model, itemID: noteID, fileName: "replacement.bin")
+                check(replaced && current?.attachments.count == 1 && file != nil, "replace attachment and remove the old encrypted file")
+                if let replacedItem = current, let replacedAttachment = file {
+                    await model.previewAttachment(replacedAttachment, of: replacedItem)
+                    check(model.previewURL.flatMap { try? Data(contentsOf: $0) } == replacementBytes,
+                          "replacement attachment decrypts to new bytes")
+                }
+            }
+
+            if let item = current, let attachment = file {
+                let deleted = await model.deleteAttachment(attachment, of: item)
+                check(deleted && model.items.first(where: { $0.id == noteID })?.attachments.isEmpty == true,
+                      "delete attachment")
+            }
+            if let item = model.items.first(where: { $0.id == noteID }) { await model.deleteForever(item) }
+            check(!model.items.contains(where: { $0.id == noteID }), "clean up attachment test item")
+            for account in model.accounts { model.logOut(account.id) }
+
+            print(failures == 0 ? "ATTACHMENT SELFTEST PASSED" : "ATTACHMENT SELFTEST FAILED (\(failures))")
+            exit(failures == 0 ? 0 : 1)
+        }
+    }
+
+    private static func refresh(_ item: inout VaultItem?, _ attachment: inout VaultItem.Attachment?,
+                                model: AppModel, itemID: String, fileName: String) {
+        item = model.items.first { $0.id == itemID }
+        attachment = item?.attachments.first { $0.fileName == fileName }
+    }
+}
+
 /// Debug-only: `Triwarden --selftest <server> <email> <password>` runs the account lifecycle inside the
 /// real (signed, sandboxed) app: log in → lock → offline unlock from cache → resume session → wrong password → log out.
 @MainActor
@@ -1408,9 +1507,10 @@ enum SelfTest {
                 check(login?.passkeys.first?.keyValue == reg?.credential.keyValue, "editing a login keeps its passkey")
                 if let login { await model.deleteForever(login) }
 
-                // Attachments: add from a file, preview a decrypted copy, delete.
-                _ = await model.createItem(.secureNote, edit: CipherEdit(name: "Selftest files", notes: "x"))
-                if let note = model.items.first(where: { $0.name == "Selftest files" }) {
+                // Attachments: add, decrypt/preview, rename, safely replace, then delete.
+                for stale in model.items.filter({ $0.name == "Selftest files" }) { await model.deleteForever(stale) }
+                if let noteID = await model.createItemID(.secureNote, edit: CipherEdit(name: "Selftest files", notes: "x")),
+                   let note = model.items.first(where: { $0.id == noteID }) {
                     let source = FileManager.default.temporaryDirectory.appending(path: "selftest 附件.txt")
                     let contents = Data("chiikawa attachment ✓\n".utf8) + Data(repeating: 7, count: 200_000)
                     try? contents.write(to: source)
@@ -1424,8 +1524,34 @@ enum SelfTest {
                         let previewed = model.previewURL.flatMap { try? Data(contentsOf: $0) }
                         check(previewed == contents && model.previewURL?.lastPathComponent == file.fileName,
                               "download and decrypt for Quick Look")
-                        await model.deleteAttachment(file, of: withFile)
-                        check(model.items.first { $0.id == note.id }?.attachments.isEmpty == true, "delete attachment")
+                        let renamed = await model.renameAttachment(file, of: withFile, to: "renamed attachment.txt")
+                        let afterRename = model.items.first { $0.id == note.id }
+                        let renamedFile = afterRename?.attachments.first { $0.fileName == "renamed attachment.txt" }
+                        check(renamed && afterRename?.attachments.count == 1 && renamedFile != nil, "rename attachment")
+                        if let afterRename, let renamedFile {
+                            await model.previewAttachment(renamedFile, of: afterRename)
+                            check(model.previewURL.flatMap { try? Data(contentsOf: $0) } == contents,
+                                  "renamed attachment keeps its contents")
+
+                            let replacementURL = FileManager.default.temporaryDirectory.appending(path: "replacement.bin")
+                            let replacementContents = Data("replacement ✓\n".utf8) + Data(repeating: 9, count: 120_000)
+                            try? replacementContents.write(to: replacementURL)
+                            let replaced = await model.replaceAttachment(renamedFile, of: afterRename, with: replacementURL,
+                                                                         named: "replacement.bin")
+                            try? FileManager.default.removeItem(at: replacementURL)
+                            let afterReplace = model.items.first { $0.id == note.id }
+                            let replacement = afterReplace?.attachments.first { $0.fileName == "replacement.bin" }
+                            check(replaced && afterReplace?.attachments.count == 1 && replacement != nil,
+                                  "replace attachment")
+                            if let afterReplace, let replacement {
+                                await model.previewAttachment(replacement, of: afterReplace)
+                                check(model.previewURL.flatMap { try? Data(contentsOf: $0) } == replacementContents,
+                                      "replacement attachment decrypts to the new contents")
+                                await model.deleteAttachment(replacement, of: afterReplace)
+                                check(model.items.first { $0.id == note.id }?.attachments.isEmpty == true,
+                                      "delete attachment")
+                            }
+                        }
                     }
                     if let n = model.items.first(where: { $0.id == note.id }) { await model.deleteForever(n) }
                 }
