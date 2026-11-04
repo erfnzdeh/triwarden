@@ -96,6 +96,26 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: scripts/ci/check-extension-version.sh "$BASE_SHA"
 
+
+  # Manifest version for BrowserExtension/WebExtension must have a matching
+  # extension-v* tag (or release-please reopens chore: release 0.1.0).
+  extension-release-anchor:
+    name: Extension release anchor
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release-please--'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ref: ${{ inputs.ref || github.sha }}
+      - name: Ensure origin remote for ls-remote fallback
+        run: |
+          git remote get-url origin >/dev/null 2>&1 || git remote add origin "https://github.com/${{ github.repository }}.git"
+          git fetch --tags --force origin
+      - name: Require extension-v* tag for manifest version
+        run: scripts/ci/check-extension-release-anchor.sh
+
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
