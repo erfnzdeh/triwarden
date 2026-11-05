@@ -67,6 +67,44 @@ final class CISmokeTests: XCTestCase {
         XCTAssertFalse(editorName.exists)
     }
 
+    func testSecureNoteEditorSurvivesRemovingFocusedField() {
+        continueAfterFailure = false
+        let app = launchDemo()
+        defer { app.terminate() }
+        XCTAssertTrue(app.staticTexts["GitHub"].firstMatch.waitForExistence(timeout: 15))
+        app.typeKey(.escape, modifierFlags: [])
+        app.menuBars.menuBarItems["File"].click()
+        app.menuBars.menuBarItems["File"].menus.menuItems["New Secure Note"].firstMatch.click()
+
+        let name = app.textFields["itemName"].firstMatch
+        let notes = app.textViews["itemNotes"].firstMatch
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        XCTAssertTrue(notes.waitForExistence(timeout: 5))
+        enterText("Incident notes", in: name)
+        enterText("First line", in: notes)
+
+        app.buttons["Add Field"].firstMatch.click()
+        let fieldName = app.textFields.matching(NSPredicate(format: "identifier BEGINSWITH %@", "customFieldName-")).firstMatch
+        let fieldValue = app.textFields.matching(NSPredicate(format: "identifier BEGINSWITH %@", "customFieldValue-")).firstMatch
+        let remove = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "customFieldRemove-")).firstMatch
+        XCTAssertTrue(fieldName.waitForExistence(timeout: 5))
+        XCTAssertTrue(fieldValue.waitForExistence(timeout: 5))
+        XCTAssertTrue(remove.waitForExistence(timeout: 5))
+        enterText("Context", in: fieldName)
+        enterText("Temporary", in: fieldValue)
+
+        // Remove while AppKit's shared field editor still owns the row, then immediately lay out
+        // the note fields again. A stale index binding used to trap during this transition.
+        remove.click()
+        XCTAssertTrue(fieldName.waitForNonExistence(timeout: 5))
+        enterText("First line\nSecond line", in: notes)
+        XCTAssertEqual(name.value as? String, "Incident notes")
+
+        app.windows.firstMatch.buttons["Cancel"].firstMatch.click()
+        app.sheets.buttons["Discard Changes"].firstMatch.click()
+        XCTAssertTrue(name.waitForNonExistence(timeout: 5))
+    }
+
     func testSecretsSettingsUsesReferences() {
         continueAfterFailure = false
         let app = launchDemo(apiKeyTools: true)

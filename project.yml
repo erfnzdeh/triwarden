@@ -147,6 +147,7 @@ targets:
       - AppTests
       - App/Sources/IconStore.swift
       - App/Sources/BrowserLoginPrefill.swift
+      - Shared/IdentifiedArrayBinding.swift
     dependencies:
       - package: VaultCore
         product: VaultwardenAPI

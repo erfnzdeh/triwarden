@@ -377,6 +377,7 @@ struct EditItemSheet: View {
                     TextField("Name", text: $name, prompt: Text("e.g. GitHub"))
                         .textFieldStyle(SoftFieldStyle())
                         .focused($focus, equals: .name)
+                        .accessibilityIdentifier("itemName")
                 }
                 if case .edit = mode {
                     editDestinationFields
@@ -435,6 +436,7 @@ struct EditItemSheet: View {
 
             FormCard(title: "Notes") {
                 SoftEditor(text: $notes, minHeight: kind == .note && !isAPIKey ? 200 : 80)
+                    .accessibilityIdentifier("itemNotes")
             }
 
             attachmentsSection
@@ -468,8 +470,8 @@ struct EditItemSheet: View {
                     .strokeBorder(Color(nsColor: .separatorColor), style: StrokeStyle(dash: [5, 4])))
             } else {
                 VStack(spacing: 10) {
-                    ForEach($attachmentRows) { $row in
-                        attachmentRow($row)
+                    ForEach(attachmentRows) { row in
+                        attachmentRow($attachmentRows.identifiedElement(id: row.id, fallback: row))
                     }
                 }
             }
@@ -722,10 +724,14 @@ struct EditItemSheet: View {
     @ViewBuilder private var autofillSection: some View {
         FormCard(title: "AutoFill") {
             VStack(alignment: .leading, spacing: 12) {
-                ForEach($websites) { $site in
+                ForEach(websites) { site in
                     let index = websites.firstIndex(where: { $0.id == site.id }) ?? 0
                     let dragging = draggingWebsite == site.id
-                    websiteRow($site, index: index, dragging: dragging)
+                    websiteRow(
+                        $websites.identifiedElement(id: site.id, fallback: site),
+                        index: index,
+                        dragging: dragging
+                    )
                         .background {
                             GeometryReader { proxy in
                                 Color.clear.preference(key: WebsiteRowHeightKey.self, value: proxy.size.height)
@@ -966,36 +972,41 @@ struct EditItemSheet: View {
 
     @ViewBuilder private var customFieldsSection: some View {
         FormCard(title: "Custom fields") {
-            ForEach($customFields) { $field in
+            ForEach(customFields) { field in
+                let fieldBinding = $customFields.identifiedElement(id: field.id, fallback: field)
                 if !isAPIKey || !apiPresetFieldIDs.contains(field.id) {
                 HStack(spacing: 8) {
                     // Distinct titles from the item Name field — identical "Name" labels made
                     // AppKit's shared field editor more likely to commit into the wrong binding.
-                    TextField("Field name", text: $field.name, prompt: Text("Name"))
+                    TextField("Field name", text: fieldBinding.name, prompt: Text("Name"))
                         .textFieldStyle(SoftFieldStyle()).frame(width: 130)
                         .accessibilityIdentifier("customFieldName-\(field.id.uuidString)")
                     Group {
                         switch field.kind {
                         case .boolean:
-                            Toggle("Field value", isOn: Binding(get: { field.value == "true" }, set: { field.value = $0 ? "true" : "false" }))
+                            Toggle("Field value", isOn: Binding(
+                                get: { fieldBinding.wrappedValue.value == "true" },
+                                set: { fieldBinding.wrappedValue.value = $0 ? "true" : "false" }
+                            ))
                                 .labelsHidden().toggleStyle(.switch).tint(.brand)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         case .hidden where !showSecrets:
-                            SecureField("Field value", text: $field.value, prompt: Text("Value")).textFieldStyle(SoftFieldStyle())
+                            SecureField("Field value", text: fieldBinding.value, prompt: Text("Value")).textFieldStyle(SoftFieldStyle())
                                 .accessibilityIdentifier("customFieldValue-\(field.id.uuidString)")
                         default:
-                            TextField("Field value", text: $field.value, prompt: Text("Value")).textFieldStyle(SoftFieldStyle())
+                            TextField("Field value", text: fieldBinding.value, prompt: Text("Value")).textFieldStyle(SoftFieldStyle())
                                 .accessibilityIdentifier("customFieldValue-\(field.id.uuidString)")
                         }
                     }
                     SoftMenu(options: [(CustomField.Kind.text, String(localized: "Text")), (.hidden, String(localized: "Hidden")),
                                        (.boolean, String(localized: "Yes / No"))],
-                             selection: $field.kind, accessibilityLabel: "Type")
+                             selection: fieldBinding.kind, accessibilityLabel: "Type")
                         .frame(width: 110)
                     Button { withAnimation(.snappy) { customFields.removeAll { $0.id == field.id } } } label: {
                         Image(systemName: "minus.circle.fill").font(.system(size: 15)).foregroundStyle(.secondary)
                             .accessibilityLabel(Text("Remove"))
                     }
+                    .accessibilityIdentifier("customFieldRemove-\(field.id.uuidString)")
                     .buttonStyle(.plain).help(Text("Remove"))
                 }
                 .id(field.id)
