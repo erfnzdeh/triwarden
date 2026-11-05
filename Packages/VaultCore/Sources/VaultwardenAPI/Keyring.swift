@@ -27,9 +27,15 @@ public struct Keyring: Sendable {
 
     /// The key that decrypts this cipher's fields, or nil if unavailable.
     public func key(for cipher: SyncResponse.Cipher) -> SymmetricKeyPair? {
-        let owner: SymmetricKeyPair? = cipher.organizationId.map { orgKeys[$0] } ?? userKey
+        key(organizationId: cipher.organizationId, itemKey: cipher.key)
+    }
+
+    /// Resolves a cipher key from the only two encrypted-cipher fields needed after the vault is decoded.
+    /// Keeping this compact form lets the app release the much larger decoded `SyncResponse.Cipher` graph.
+    public func key(organizationId: String?, itemKey: String?) -> SymmetricKeyPair? {
+        let owner: SymmetricKeyPair? = organizationId.map { orgKeys[$0] } ?? userKey
         guard let owner else { return nil }
-        guard let itemKey = cipher.key else { return owner }
+        guard let itemKey else { return owner }
         return (try? EncString(itemKey).decrypt(with: owner)).flatMap { try? SymmetricKeyPair(combined: $0) }
     }
 }

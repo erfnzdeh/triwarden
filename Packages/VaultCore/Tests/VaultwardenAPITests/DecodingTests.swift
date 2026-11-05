@@ -30,6 +30,18 @@ import TriCrypto
             #"{"Kdf":1,"KdfIterations":3,"KdfMemory":64,"KdfParallelism":4}"#.utf8))
         #expect(try p.config() == .argon2id(iterations: 3, memoryMiB: 64, parallelism: 4))
     }
+
+    @Test func compactCipherMetadataResolvesTheSameKey() throws {
+        let userKey = try SymmetricKeyPair(combined: Data((0..<64).map(UInt8.init)))
+        let itemKey = try SymmetricKeyPair(combined: Data((0..<64).map { UInt8(255 - $0) }))
+        let wrapped = try EncString.encrypt(Data((0..<64).map { UInt8(255 - $0) }), with: userKey).description
+        let sync = try SyncResponse.decode(Data(#"{"profile":{"id":"u","email":"u@example.com","key":""},"ciphers":[]}"#.utf8))
+        let keyring = Keyring(userKey: userKey, profile: sync.profile)
+
+        #expect(keyring.key(organizationId: nil, itemKey: nil) == userKey)
+        #expect(keyring.key(organizationId: nil, itemKey: wrapped) == itemKey)
+        #expect(keyring.key(organizationId: "missing", itemKey: nil) == nil)
+    }
 }
 
 @Suite struct SendSealTests {

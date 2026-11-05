@@ -108,11 +108,12 @@ final class IconStoreTests: XCTestCase {
     func testManyHostsStayWithinBudgetAndClearOnDisable() async throws {
         let data = png()
         let toggle = Toggle()
-        let store = IconStore(memoryBudget: 12 * 1024 * 1024, cacheDir: try directory(),
-                              key: SymmetricKey(size: .bits256), iconsEnabled: { toggle.enabled }) { url, _ in
+        let store = IconStore(cacheDir: try directory(), key: SymmetricKey(size: .bits256),
+                              iconsEnabled: { toggle.enabled }) { url, _ in
             return (url.path.contains("triwarden-no-icon.invalid") ? Data([0]) : data,
                     HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)!)
         }
+        XCTAssertEqual(store.memoryBudget, 6 * 1024 * 1024)
         for i in 0..<1000 {
             let host = "site\(i).test"
             store.request(host: host, environment: environment)

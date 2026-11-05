@@ -34,7 +34,9 @@ final class IconStore {
     private let iconsEnabled: @MainActor () -> Bool
     private let fetch: @MainActor (URL, URLSession) async throws -> (Data, URLResponse)
 
-    init(memoryBudget: Int = 12 * 1024 * 1024, cacheDir: URL, key: SymmetricKey,
+    /// Six MiB holds about 96 of the largest 128 px icons—well beyond one visible screen. Older icons can be
+    /// reconstructed from the encrypted disk cache without another network request.
+    init(memoryBudget: Int = 6 * 1024 * 1024, cacheDir: URL, key: SymmetricKey,
          iconsEnabled: @escaping @MainActor () -> Bool,
          fetch: @escaping @MainActor (URL, URLSession) async throws -> (Data, URLResponse) = { url, session in
              try await session.data(from: url)

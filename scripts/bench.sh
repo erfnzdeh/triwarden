@@ -15,8 +15,8 @@
 # --interactive N also times N real unlocks (Touch ID or master password) on this Mac's own accounts: the app opens
 # normally, you lock (⇧⌘L or the lock button) and unlock N times, and the script reads the app's marks.
 #
-# Build: Debug configuration (the demo vault is debug-only) with Swift optimisation turned on (-O, whole module), in
-# its own folder, build/bench. --no-build reuses it.
+# Build: the Release configuration used for shipping, with DEBUG enabled only to compile the isolated demo fixtures,
+# in its own folder, build/bench. --no-build reuses it. Release optimisation settings come from project.yml.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -36,13 +36,14 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-APP=build/bench/Build/Products/Debug/Triwarden.app
+APP=build/bench/Build/Products/Release/Triwarden.app
 BIN=$APP/Contents/MacOS/Triwarden
 if [ "$BUILD" = 1 ]; then
-    echo "Building (Debug, -O) into build/bench…"
+    echo "Building (Release with isolated benchmark fixtures) into build/bench…"
     xcodegen generate -q
-    xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Debug -derivedDataPath build/bench \
-        -allowProvisioningUpdates SWIFT_OPTIMIZATION_LEVEL=-O SWIFT_COMPILATION_MODE=wholemodule build 2>&1 \
+    xcodebuild -project Triwarden.xcodeproj -scheme Triwarden -configuration Release -derivedDataPath build/bench \
+        -allowProvisioningUpdates ONLY_ACTIVE_ARCH=YES ARCHS="$(uname -m)" \
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS=DEBUG build 2>&1 \
         | grep -E "error:|BUILD (SUCCEEDED|FAILED)"
 fi
 test -x "$BIN" || { echo "No build at $BIN" >&2; exit 1; }
@@ -68,20 +69,20 @@ for i in $(seq 1 "$RUNS"); do
     first=$(mark "$log" first-frame); ready=$(mark "$log" vault-ready)
     if [ -z "$ready" ]; then echo "run $i: the vault never came up:" >&2; tail -20 "$log" >&2; kill "$pid" 2>/dev/null; exit 1; fi
     echo "$first" >> "$TMP/first"; echo "$ready" >> "$TMP/ready"
-    if [ "$i" = 1 ]; then
-        # Memory once, on the first run: after sitting idle with the vault open.
-        sleep "$IDLE"
-        footprint -p "$pid" 2>/dev/null | awk '/Footprint:/ { for (i = 1; i <= NF; i++) if ($i == "Footprint:") { print $(i+1), $(i+2); exit } }' >> "$TMP/mem"
-    fi
+    # Icon loading and framework caches settle at slightly different times. Sample every run rather than trusting
+    # the first launch, and store MiB so the same stats helper can report a median and range.
+    sleep "$IDLE"
+    footprint -p "$pid" 2>/dev/null | awk '/Footprint:/ { for (i = 1; i <= NF; i++) if ($i == "Footprint:") {
+        v = $(i+1); u = $(i+2); if (u == "KB") v /= 1024; if (u == "GB") v *= 1024; print v; exit
+    } }' >> "$TMP/mem"
     kill "$pid"; wait "$pid" 2>/dev/null || true
     printf "run %d: first frame %s ms, vault ready %s ms\n" "$i" "$first" "$ready"
     sleep 1
 done
 read -r first_med first_min first_max < <(stats < "$TMP/first")
 read -r ready_med ready_min ready_max < <(stats < "$TMP/ready")
-mem=$(head -1 "$TMP/mem")
-mem_mb=$(echo "$mem" | awk '{ v = $1; u = $2; if (u == "KB") v /= 1024; if (u == "GB") v *= 1024; printf "%.0f MB", v }')
-echo "memory at idle: $mem_mb"
+read -r mem_med mem_min mem_max < <(stats < "$TMP/mem")
+echo "memory at idle: ${mem_med} MB (${mem_min}–${mem_max} MB)"
 
 echo "Timing master-password unlocks…"
 "$BIN" --bench-unlock 2>/dev/null > "$TMP/unlock"
@@ -125,13 +126,13 @@ How quickly Triwarden opens, how little memory it keeps, and how long an unlock 
 
 ## Triwarden $version ($commit)
 
-$(date +%Y-%m-%d) · $chip ($model), ${ram} GB · macOS $os · Debug build with Swift optimisation (-O) · demo vault of 200+ items
+$(date +%Y-%m-%d) · $chip ($model), ${ram} GB · macOS $os · Release configuration with isolated benchmark fixtures · demo vault of 200+ items
 
 | Measure | Median | Range | Notes |
 | --- | ---: | ---: | --- |
-| Launch to first frame | $first_med ms | $first_min–$first_max ms | $RUNS fresh launches; from the kernel starting the process |
-| Launch to vault ready | $ready_med ms | $ready_min–$ready_max ms | the item list on screen with items in it |
-| Memory at idle | $mem_mb | | phys_footprint (Activity Monitor's “Memory”) after ${IDLE} s idle, vault open |
+| Launch to first frame | $first_med ms | ${first_min}–${first_max} ms | $RUNS fresh launches; from the kernel starting the process |
+| Launch to vault ready | $ready_med ms | ${ready_min}–${ready_max} ms | the item list on screen with items in it |
+| Memory at idle | ${mem_med} MB | ${mem_min}–${mem_max} MB | phys_footprint (Activity Monitor's “Memory”) after ${IDLE} s idle, vault open; $RUNS fresh launches |
 | Master-password unlock, PBKDF2 600,000 | $pbkdf2 ms | | key derivation + user key decryption, median of 5 |
 | Master-password unlock, Argon2id 64 MiB · 3 · 4 | $argon ms | | Bitwarden's default Argon2id settings, median of 5 |
 ${touch_rows}

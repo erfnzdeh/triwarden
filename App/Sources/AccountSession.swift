@@ -24,7 +24,13 @@ final class AccountSession {
     private var rawCiphers: [String: Data] = [:]
     /// The sync payload as last saved (every secret still encrypted), and the parts of it read often.
     private var payload = Data()
-    private var cipherIndex: [String: SyncResponse.Cipher] = [:]
+    /// Editing needs only the type and key ownership. Do not retain every encrypted field a second time after decode.
+    private struct CipherMetadata {
+        let type: Int
+        let organizationId: String?
+        let itemKey: String?
+    }
+    private var cipherIndex: [String: CipherMetadata] = [:]
     private var profile: SyncResponse.Profile?
     /// The server's revision date at the last sync or one-item update: while it's the same, there's nothing new.
     private var knownRevision: String?
@@ -183,7 +189,9 @@ final class AccountSession {
         } ?? [:]
         let vault = try VaultDecoder.decode(data, userKey: userKey, accountId: account.id, unchanged: unchanged)
         payload = data
-        cipherIndex = Dictionary(vault.sync.ciphers.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        cipherIndex = Dictionary(vault.sync.ciphers.map {
+            ($0.id, CipherMetadata(type: $0.type, organizationId: $0.organizationId, itemKey: $0.key))
+        }, uniquingKeysWith: { a, _ in a })
         profile = vault.sync.profile
         items = vault.items
         folders = vault.folders
@@ -279,7 +287,7 @@ final class AccountSession {
 
     /// The key that encrypts this item's fields (its own key, the org key, or the user key).
     private func itemKey(_ id: String) -> SymmetricKeyPair? {
-        cipherIndex[id].flatMap { keyring?.key(for: $0) }
+        cipherIndex[id].flatMap { keyring?.key(organizationId: $0.organizationId, itemKey: $0.itemKey) }
     }
 
     // MARK: Import and export

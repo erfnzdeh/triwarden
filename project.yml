@@ -15,6 +15,10 @@ settings:
     DEVELOPMENT_TEAM: FX3VR69P5K
     CODE_SIGN_STYLE: Automatic
     CODE_SIGN_IDENTITY: "Apple Development"
+  configs:
+    release:
+      # The shipped app favours a smaller native binary. Release benchmarks guard launch and unlock performance.
+      SWIFT_OPTIMIZATION_LEVEL: "-Osize"
 packages:
   VaultCore:
     path: Packages/VaultCore
@@ -267,7 +271,6 @@ targets:
     sources:
       - AutoFill
       - Shared
-      - path: App/Resources/Localizable.xcstrings
     dependencies:
       - package: VaultCore
         product: TriCrypto
