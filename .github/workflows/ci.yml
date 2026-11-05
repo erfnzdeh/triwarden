@@ -337,6 +337,13 @@ jobs:
             ls -la "$helper/Contents" "$resources" >&2 || true
             exit 1
           fi
+      - name: Passkey provider capabilities
+        if: needs.changes.outputs.code == 'true'
+        run: |
+          app_plist="build/Build/Products/Debug/Triwarden.app/Contents/Info.plist"
+          extension_plist="build/Build/Products/Debug/Triwarden.app/Contents/PlugIns/TriwardenAutoFill.appex/Contents/Info.plist"
+          test "$(plutil -extract ASCredentialProviderExtensionCapabilities.ProvidesPasskeys raw -o - "$app_plist")" = true
+          test "$(plutil -extract NSExtension.NSExtensionAttributes.ASCredentialProviderExtensionCapabilities.ProvidesPasskeys raw -o - "$extension_plist")" = true
       - name: Save compiled app before UI tests
         if: needs.changes.outputs.code == 'true' && steps.app-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
