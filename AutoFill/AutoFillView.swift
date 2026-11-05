@@ -547,7 +547,9 @@ private struct ChoiceRow<Leading: View>: View {
 private struct UnlockPane: View {
     @Bindable var state: AutoFillState
     @State private var password = ""
-    @FocusState private var focused: Bool
+    /// Asks the password field to take the keyboard. A plain flag, because a FocusState that no view is
+    /// attached to with `.focused(_:)` ignores every write, so the request never reached the field.
+    @State private var focused = false
 
     var body: some View {
         VStack(spacing: 16) {
@@ -587,7 +589,7 @@ private struct UnlockPane: View {
                         Text(verbatim: state.email).font(.system(size: 12)).foregroundStyle(.primary)
                     }
                     PasswordField(title: "Master password", text: $password, prompt: "Master password",
-                                  isFocused: $focused.wrappedBinding) {
+                                  isFocused: $focused) {
                         Task { await state.unlock(password: password) }
                     }
                     if let error = state.error {

@@ -46,7 +46,8 @@ struct PasswordField: View {
     var look: Look = .soft
     /// Catalog key for the placeholder. Empty shows no placeholder.
     var prompt: String? = nil
-    /// Optional link to the caller's focus state.
+    /// Optional link to the caller's focus request. Pass a binding to a plain @State Bool: a FocusState the caller
+    /// never attaches with `.focused(_:)` drops writes, so setting it to true would not focus this field.
     var isFocused: Binding<Bool>?
     var onSubmit: () -> Void = {}
 
@@ -284,12 +285,5 @@ private struct SelectionWash: NSViewRepresentable {
             editor = nil
             previous = nil
         }
-    }
-}
-
-extension FocusState<Bool>.Binding {
-    /// A plain Bool binding over a FocusState, for `PasswordField(isFocused:)`.
-    var wrappedBinding: Binding<Bool> {
-        Binding(get: { wrappedValue }, set: { wrappedValue = $0 })
     }
 }

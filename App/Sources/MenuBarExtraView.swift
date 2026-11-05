@@ -650,7 +650,9 @@ private struct LockedCard: View {
     @State private var usePassword = false
     /// The identity badge shows the server while hovered, the email otherwise.
     @State private var hoveringIdentity = false
-    @FocusState private var focused: Bool
+    /// Asks the password field to take the keyboard. A plain flag, because a FocusState that no view is
+    /// attached to with `.focused(_:)` ignores every write, so the request never reached the field.
+    @State private var focused = false
 
     /// Account unlock should hit: a focused locked account, else AppModel.unlockTarget (covers single-account
     /// and All accounts, where focusedAccountID is nil).
@@ -678,7 +680,7 @@ private struct LockedCard: View {
                     }
                     .frame(maxWidth: .infinity)
 
-                    UnlockCapsuleField(pinMode: pinMode, password: $password, focused: $focused.wrappedBinding, submit: submit)
+                    UnlockCapsuleField(pinMode: pinMode, password: $password, focused: $focused, submit: submit)
 
                     // Under the field: what's happening, centred. The PIN switch keeps the trailing edge.
                     ZStack {

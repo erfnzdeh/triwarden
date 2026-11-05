@@ -3715,7 +3715,9 @@ struct AccountUnlockPane: View {
     @State private var password = ""
     @State private var usePassword = false
     @State private var refusals = 0
-    @FocusState private var focused: Bool
+    /// Asks the password field to take the keyboard. A plain flag, because a FocusState that no view is
+    /// attached to with `.focused(_:)` ignores every write, so the request never reached the field.
+    @State private var focused = false
 
     private var hasPIN: Bool { model.isPINEnabled(account.id) }
     private var pinMode: Bool { hasPIN && !usePassword }
@@ -3732,7 +3734,7 @@ struct AccountUnlockPane: View {
                 .lineLimit(1).truncationMode(.middle)
                 .padding(.top, 2)
 
-            UnlockCapsuleField(pinMode: pinMode, password: $password, focused: $focused.wrappedBinding, submit: submit)
+            UnlockCapsuleField(pinMode: pinMode, password: $password, focused: $focused, submit: submit)
                 .shake(on: refusals)
                 .padding(.top, 20)
 
@@ -4333,7 +4335,9 @@ private struct RepromptSheet: View {
     let request: AppModel.RepromptRequest
     @State private var password = ""
     @State private var wrong = false
-    @FocusState private var focused: Bool
+    /// Asks the password field to take the keyboard. A plain flag, because a FocusState that no view is
+    /// attached to with `.focused(_:)` ignores every write, so the request never reached the field.
+    @State private var focused = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -4342,7 +4346,7 @@ private struct RepromptSheet: View {
                            subtitle: "“\(request.item.name)” asks for your master password.")
                 FormCard {
                     PasswordField(title: "Master password", text: $password, prompt: "Master password",
-                                  isFocused: $focused.wrappedBinding, onSubmit: submit)
+                                  isFocused: $focused, onSubmit: submit)
                     if wrong {
                         Label("That's not your master password.", systemImage: "exclamationmark.circle.fill")
                             .font(.system(size: 12)).foregroundStyle(.red)

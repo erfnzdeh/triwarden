@@ -1020,7 +1020,9 @@ private struct PaletteUnlock: View {
     /// Bumped by the palette each time it opens over the locked vault (the row stays alive between openings).
     var focusRequest = 0
     @State private var usePassword = false
-    @FocusState private var focused: Bool
+    /// Asks the password field to take the keyboard. A plain flag, because a FocusState that no view is
+    /// attached to with `.focused(_:)` ignores every write, so the request never reached the field.
+    @State private var focused = false
 
     private var hasPIN: Bool { model.unlockTarget.map { model.isPINEnabled($0.id) } ?? false }
     private var pinMode: Bool { hasPIN && !usePassword }
@@ -1041,7 +1043,7 @@ private struct PaletteUnlock: View {
                         .buttonStyle(.plain)
                     }
                 }
-                UnlockCapsuleField(pinMode: pinMode, password: $password, focused: $focused.wrappedBinding, submit: submit)
+                UnlockCapsuleField(pinMode: pinMode, password: $password, focused: $focused, submit: submit)
                 HStack(spacing: 8) {
                     if let message = model.errorMessage {
                         Text(verbatim: message)

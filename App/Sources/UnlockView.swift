@@ -28,7 +28,9 @@ struct UnlockView: View {
     @State private var windowIsInteractive = false
     /// Set after `onAppear` has established whether the door is still assembling.
     @State private var unlockUIReady = false
-    @FocusState private var focused: Bool
+    /// Asks the password field to take the keyboard. A plain flag, because a FocusState that no view is
+    /// attached to with `.focused(_:)` ignores every write, so the request never reached the field.
+    @State private var focused = false
 
     var body: some View {
         GeometryReader { geo in
@@ -149,7 +151,7 @@ private struct DoorCore: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorScheme) private var scheme
     @Binding var password: String
-    var focused: FocusState<Bool>.Binding
+    var focused: Binding<Bool>
     /// Asking for the PIN rather than the master password.
     var pinMode = false
     var hasPIN = false
@@ -168,7 +170,7 @@ private struct DoorCore: View {
                 .contentTransition(.symbolEffect(.replace))
                 .accessibilityHidden(true)
 
-            UnlockCapsuleField(pinMode: pinMode, password: $password, focused: focused.wrappedBinding, submit: submit)
+            UnlockCapsuleField(pinMode: pinMode, password: $password, focused: focused, submit: submit)
 
             // Touch ID just under the field: an icon that names itself on hover, or while it prompts.
             if model.touchIDEnabled { InlineTouchID(ready: touchIDReady) }
