@@ -1485,14 +1485,24 @@ final class AppModel {
 
     /// One Touch ID prompt unlocks every locked account that has it turned on.
     /// - Parameter context: pass the context shown by an embedded Touch ID view to prompt inline.
-    func unlockWithTouchID(context: LAContext = LAContext()) async {
+    @discardableResult
+    func unlockWithTouchID(context: LAContext = LAContext()) async -> TouchIDUnlockResult {
         errorMessage = nil
         let locked = accounts.map(\.id).filter { !isUnlocked($0) }
         Bench.begin("unlock-touchid-prompt") // includes the person's finger: not the app's own time
-        let keys = await AccountStore.unlockAllWithTouchID(locked, reason: String(localized: "unlock your vault"), context: context)
+        let attempt = await AccountStore.attemptUnlockAllWithTouchID(
+            locked, reason: String(localized: "unlock your vault"), context: context
+        )
         Bench.end("unlock-touchid-prompt")
-        if !keys.isEmpty { Bench.begin("unlock-touchid-open"); finishUnlock(keys) }
+        if !attempt.keys.isEmpty {
+            Bench.begin("unlock-touchid-open")
+            finishUnlock(attempt.keys)
+            return .unlocked
+        }
+        return attempt.shouldRetryWhenInteractive ? .retryWhenInteractive : .stopped
     }
+
+    enum TouchIDUnlockResult { case unlocked, retryWhenInteractive, stopped }
 
     private func finishUnlock(_ keys: [String: SymmetricKeyPair], preferredAccountID: String? = nil) {
         for (id, key) in keys {

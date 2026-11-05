@@ -24,6 +24,10 @@ struct UnlockView: View {
     @State private var errorAt: Date?
     /// While the door assembles itself after a lock, the hub's controls wait.
     @State private var assembling = false
+    /// Touch ID cannot present until this specific unlock window is active and key.
+    @State private var windowIsInteractive = false
+    /// Set after `onAppear` has established whether the door is still assembling.
+    @State private var unlockUIReady = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -40,7 +44,9 @@ struct UnlockView: View {
                 VaultDoorStage(radius: radius, center: center, typed: frozen?.typed ?? password.count, turns: turns,
                                busy: frozen?.busy ?? model.isBusy, errorAt: errorAt, openedAt: model.unlockOpenedAt, closedAt: model.lockClosedAt)
 
-                DoorCore(password: $password, focused: $focused, pinMode: pinMode, hasPIN: hasPIN, accountDoor: model.accountDoor != nil,
+                DoorCore(password: $password, focused: $focused, pinMode: pinMode, hasPIN: hasPIN,
+                         accountDoor: model.accountDoor != nil,
+                         touchIDReady: unlockUIReady && !hubHidden && windowIsInteractive,
                          switchMode: { usePassword.toggle(); password = ""; model.errorMessage = nil; focused = true },
                          submit: submit)
                     .shake(on: errorAt)
@@ -73,6 +79,7 @@ struct UnlockView: View {
             .animation(.easeIn(duration: model.unlockOpenedAt == nil ? AppModel.gateFade : 0.28), value: opening)
         }
         .ignoresSafeArea()
+        .background { UnlockWindowReadinessProbe { windowIsInteractive = $0 } }
         // An account's door (other accounts open behind it): Esc goes back to all of them.
         .background {
             if model.accountDoor != nil {
@@ -98,7 +105,9 @@ struct UnlockView: View {
                     assembling = false
                 }
             }
+            unlockUIReady = true
         }
+        .onDisappear { unlockUIReady = false }
         .onChange(of: model.errorMessage) { _, message in
             // A wrong password: the light warms to red and the tumblers rewind to an empty field.
             guard message != nil else { return }
@@ -146,6 +155,7 @@ private struct DoorCore: View {
     var hasPIN = false
     /// One account's door over the open vault: the way out is back to all accounts, not logging out.
     var accountDoor = false
+    var touchIDReady = false
     var switchMode: () -> Void = {}
     let submit: () -> Void
 
@@ -161,7 +171,7 @@ private struct DoorCore: View {
             UnlockCapsuleField(pinMode: pinMode, password: $password, focused: focused.wrappedBinding, submit: submit)
 
             // Touch ID just under the field: an icon that names itself on hover, or while it prompts.
-            if model.touchIDEnabled { InlineTouchID() }
+            if model.touchIDEnabled { InlineTouchID(ready: touchIDReady) }
 
             Group {
                 if let message = model.errorMessage {
@@ -321,9 +331,14 @@ private struct AccountLine: View {
 /// Embedded Touch ID prompt (the system's own sensor glyph) that unseals every enrolled account in place.
 private struct InlineTouchID: View {
     @Environment(AppModel.self) private var model
+    var ready: Bool
     @State private var context = LAContext()
     @State private var attempt = 0
     @State private var prompting = false
+    @State private var autoAttempted = false
+    @State private var retryWhenReady = false
+    @State private var usedSoftRetry = false
+    @State private var readyCycle = 0
     @State private var hovering = false
     @State private var labelWidth: CGFloat = 0
 
@@ -359,20 +374,123 @@ private struct InlineTouchID: View {
         .clipShape(.capsule)
         .contentShape(.capsule)
         .onHover { h in withAnimation(.snappy(duration: 0.28, extraBounce: 0)) { hovering = h } }
-        .onTapGesture { if !prompting { attempt += 1 } }
+        .onTapGesture { requestManualAttempt() }
         .help(open ? Text("Try Touch ID again") : Text("Touch ID to unlock"))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Touch ID to unlock"))
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction { if !prompting { attempt += 1 } }
+        .accessibilityAction { requestManualAttempt() }
+        .onChange(of: ready, initial: true) { _, isReady in
+            guard isReady else {
+                if prompting {
+                    retryWhenReady = true
+                    context.invalidate()
+                }
+                return
+            }
+            readyCycle += 1
+            if !autoAttempted {
+                autoAttempted = true
+                requestAttempt()
+            } else {
+                requestSoftRetryIfNeeded()
+            }
+        }
         .task(id: attempt) {
+            guard attempt > 0, ready else { return }
+            let startedReadyCycle = readyCycle
             // A fresh context per attempt; the embedded view shows its prompt inline.
             let fresh = LAContext()
             context = fresh
-            try? await Task.sleep(for: .milliseconds(150)) // let the view attach to the new context
             withAnimation(.snappy(duration: 0.28, extraBounce: 0)) { prompting = true }
-            await model.unlockWithTouchID(context: fresh)
+            // Let the authentication view attach, become visible and bind this context before policy evaluation.
+            do { try await Task.sleep(for: .milliseconds(150)) } catch {
+                fresh.invalidate()
+                prompting = false
+                return
+            }
+            guard ready else {
+                fresh.invalidate()
+                prompting = false
+                return
+            }
+            let result = await model.unlockWithTouchID(context: fresh)
             withAnimation(.snappy(duration: 0.28, extraBounce: 0)) { prompting = false }
+            guard result == .retryWhenInteractive else { return }
+            retryWhenReady = true
+            // If the window left and re-entered its ready state while cancellation was unwinding, do not miss it.
+            if readyCycle > startedReadyCycle { requestSoftRetryIfNeeded() }
+        }
+    }
+
+    private func requestManualAttempt() {
+        guard ready, !prompting else { return }
+        retryWhenReady = false
+        attempt += 1
+    }
+
+    private func requestAttempt() {
+        guard ready, !prompting else { return }
+        attempt += 1
+    }
+
+    private func requestSoftRetryIfNeeded() {
+        guard ready, retryWhenReady, !usedSoftRetry, !prompting else { return }
+        retryWhenReady = false
+        usedSoftRetry = true
+        attempt += 1
+    }
+}
+
+/// Reports whether the SwiftUI unlock surface's own window can present an interactive authentication prompt.
+private struct UnlockWindowReadinessProbe: NSViewRepresentable {
+    var changed: (Bool) -> Void
+
+    func makeNSView(context: Context) -> ReadinessView {
+        let view = ReadinessView()
+        view.changed = changed
+        return view
+    }
+
+    func updateNSView(_ view: ReadinessView, context: Context) {
+        view.changed = changed
+        view.reportSoon()
+    }
+
+    final class ReadinessView: NSView {
+        var changed: ((Bool) -> Void)?
+        private var observers: [NSObjectProtocol] = []
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stopObserving()
+            guard let window else { reportSoon(); return }
+            let center = NotificationCenter.default
+            for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+                observers.append(center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.report() }
+                })
+            }
+            for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification] {
+                observers.append(center.addObserver(forName: name, object: NSApp, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.report() }
+                })
+            }
+            reportSoon()
+        }
+
+        override func viewWillMove(toWindow newWindow: NSWindow?) {
+            if newWindow == nil { stopObserving() }
+            super.viewWillMove(toWindow: newWindow)
+        }
+
+        func reportSoon() { DispatchQueue.main.async { [weak self] in self?.report() } }
+
+        private func report() { changed?(window?.isKeyWindow == true && NSApp.isActive) }
+
+        private func stopObserving() {
+            observers.forEach(NotificationCenter.default.removeObserver)
+            observers.removeAll()
         }
     }
 }

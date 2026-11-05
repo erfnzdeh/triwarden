@@ -181,14 +181,39 @@ enum AccountStore {
     /// One Touch ID prompt, then every enrolled account in `ids` is unsealed with the same context.
     @MainActor
     static func unlockAllWithTouchID(_ ids: [String], reason: String, context: LAContext = LAContext()) async -> [String: SymmetricKeyPair] {
+        await attemptUnlockAllWithTouchID(ids, reason: reason, context: context).keys
+    }
+
+    /// The keys opened by one Touch ID prompt, plus enough failure detail for an interactive caller to recover from
+    /// a prompt that raced the app or its window becoming usable. Deliberate cancellation is not retryable.
+    struct TouchIDUnlockAttempt {
+        var keys: [String: SymmetricKeyPair]
+        var failure: LAError.Code?
+
+        var shouldRetryWhenInteractive: Bool {
+            switch failure {
+            case .notInteractive?, .appCancel?, .systemCancel?: true
+            default: false
+            }
+        }
+    }
+
+    /// The result-bearing form used by the main unlock screen. Other callers only need the opened keys above.
+    @MainActor
+    static func attemptUnlockAllWithTouchID(_ ids: [String], reason: String,
+                                            context: LAContext = LAContext()) async -> TouchIDUnlockAttempt {
         let enrolled = ids.filter(isTouchIDEnabled)
-        guard !enrolled.isEmpty else { return [:] }
-        guard (try? await context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason)) == true else {
-            return [:]
+        guard !enrolled.isEmpty else { return TouchIDUnlockAttempt(keys: [:], failure: nil) }
+        do {
+            guard try await context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) else {
+                return TouchIDUnlockAttempt(keys: [:], failure: nil)
+            }
+        } catch {
+            return TouchIDUnlockAttempt(keys: [:], failure: (error as? LAError)?.code)
         }
         var keys: [String: SymmetricKeyPair] = [:]
         for id in enrolled { keys[id] = try? unlockWithTouchID(id, context: context) }
-        return keys
+        return TouchIDUnlockAttempt(keys: keys, failure: nil)
     }
 
     private static func wrapKey(_ shared: SharedSecret) -> SymmetricKey {
