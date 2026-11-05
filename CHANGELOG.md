@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.8.0](https://github.com/sinhong2011/triwarden/compare/v0.7.0...v0.8.0) (2026-11-05)
+
+
+### Features
+
+* add attachment management to item editor ([#165](https://github.com/sinhong2011/triwarden/issues/165)) ([8fa70b9](https://github.com/sinhong2011/triwarden/commit/8fa70b95743a95aa2b22e517914a05978694b432))
+* prefill new logins from the active browser tab ([#169](https://github.com/sinhong2011/triwarden/issues/169)) ([f41a3c3](https://github.com/sinhong2011/triwarden/commit/f41a3c3a0389f5bef50c7e2c7a9a483caac3126b))
+
+
+### Fixes
+
+* align Setup Guide and Secrets repair UI with the vault ([#170](https://github.com/sinhong2011/triwarden/issues/170)) ([7aded34](https://github.com/sinhong2011/triwarden/commit/7aded34d310b9c295c300f83deb271794c3cf025))
+* auto-prompt Touch ID when unlock is ready ([#172](https://github.com/sinhong2011/triwarden/issues/172)) ([e34a44a](https://github.com/sinhong2011/triwarden/commit/e34a44a27c2532ec0bf0abad8c382cff2a921dea))
+* **autofill:** expose named passkeys in Safari system sheets ([#174](https://github.com/sinhong2011/triwarden/issues/174)) ([b590f71](https://github.com/sinhong2011/triwarden/commit/b590f71a522be4d7328cc06d4f9f4743d2bbd263))
+* clarify saved tool vault recovery ([#171](https://github.com/sinhong2011/triwarden/issues/171)) ([a5e444b](https://github.com/sinhong2011/triwarden/commit/a5e444b229c956cf5de587c4c342d38931c8905a))
+* prevent stale item field bindings from crashing ([#173](https://github.com/sinhong2011/triwarden/issues/173)) ([aa499a0](https://github.com/sinhong2011/triwarden/commit/aa499a0a0ed233f518ffade17af7c04abd9239e5))
+* stop custom field values from replacing login names ([#163](https://github.com/sinhong2011/triwarden/issues/163)) ([df00b97](https://github.com/sinhong2011/triwarden/commit/df00b9716e2bc1a563d521b993693c9d1f6934da))
+
+
+### Performance
+
+* optimize release size and vault memory usage ([#175](https://github.com/sinhong2011/triwarden/issues/175)) ([de70db3](https://github.com/sinhong2011/triwarden/commit/de70db37145c088c0429a7898ffeacfad86c0dcb))
+
 ## [0.7.0](https://github.com/sinhong2011/triwarden/compare/v0.6.0...v0.7.0) (2026-11-03)
 
 
