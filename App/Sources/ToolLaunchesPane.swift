@@ -47,7 +47,10 @@ struct ToolLaunchesPane: View {
     }
     private var index: ToolBrowserIndex {
         ToolBrowserIndex(profiles: profiles, items: model.items, unlocked: unlockedAccounts,
-                         configurationError: model.secrets.lastError != nil, configuredAccounts: Set(model.accounts.map(\.id)))
+                         configurationError: model.secrets.lastError != nil, configuredAccounts: Set(model.accounts.map(\.id)),
+                         accountLabels: Dictionary(uniqueKeysWithValues: model.accounts.map {
+                             ($0.id, $0.email + " · " + $0.serverSummary)
+                         }))
     }
 
     var body: some View {
@@ -374,7 +377,16 @@ struct ToolLaunchesPane: View {
             Button("Resume Tool") { setEnabled(true, entry.profile) }.buttonStyle(.appSecondarySmall)
         case .repairKey(let id):
             if let key = entry.keys.first(where: { $0.id == id }) {
-                Button(repairTitle(key, entry: entry)) { repair(key, entry: entry, index: index) }.buttonStyle(.appSecondarySmall)
+                HStack(spacing: 10) {
+                    Button(repairTitle(key.repair, key: key, entry: entry)) {
+                        repair(key.repair, key: key, entry: entry, index: index)
+                    }.buttonStyle(.appSecondarySmall)
+                    if let alternate = key.alternateRepair {
+                        Button(repairTitle(alternate, key: key, entry: entry)) {
+                            repair(alternate, key: key, entry: entry, index: index)
+                        }.buttonStyle(.appSecondarySmall)
+                    }
+                }
             }
         case .editSetup:
             Button("Edit Setup…") { edit(entry, index: index) }.buttonStyle(.appSecondarySmall)
@@ -423,7 +435,9 @@ struct ToolLaunchesPane: View {
                 .help("Environment variable the tool reads")
             if key.repair != nil {
                 if entry.nextAction != .repairKey(key.id) {
-                    Button(repairTitle(key, entry: entry)) { repair(key, entry: entry, index: index) }.buttonStyle(.appSecondarySmall)
+                    Button(repairTitle(key.repair, key: key, entry: entry)) {
+                        repair(key.repair, key: key, entry: entry, index: index)
+                    }.buttonStyle(.appSecondarySmall)
                 }
             } else {
                 Button {
@@ -487,19 +501,21 @@ struct ToolLaunchesPane: View {
         return account.email + " · " + account.serverSummary
     }
 
-    private func repairTitle(_ key: ToolBrowserIndex.Key, entry: ToolBrowserIndex.Entry) -> String {
-        switch key.repair {
-        case .unlockAccount: String(localized: "Unlock Account")
-        case .addAccount: String(localized: "Add Account…")
+    private func repairTitle(_ repair: ToolBrowserIndex.Key.Repair?, key: ToolBrowserIndex.Key,
+                             entry: ToolBrowserIndex.Entry) -> String {
+        switch repair {
+        case .unlockVault: String(localized: "Unlock Vault")
+        case .signInToVault: String(localized: "Sign In to Vault…")
         case .selectKey: entry.profile.bindings.first == key.binding ? String(localized: "Select Key…") : String(localized: "Edit Key Setup…")
         case nil: String(localized: "Edit Setup…")
         }
     }
 
-    private func repair(_ key: ToolBrowserIndex.Key, entry: ToolBrowserIndex.Entry, index: ToolBrowserIndex) {
-        switch key.repair {
-        case .unlockAccount: model.accountFocus = key.binding.accountID
-        case .addAccount: model.beginAddAccount()
+    private func repair(_ repair: ToolBrowserIndex.Key.Repair?, key: ToolBrowserIndex.Key,
+                        entry: ToolBrowserIndex.Entry, index: ToolBrowserIndex) {
+        switch repair {
+        case .unlockVault: model.accountFocus = key.binding.accountID
+        case .signInToVault: model.beginAddAccount()
         case .selectKey:
             if entry.profile.bindings.first == key.binding { replacement = entry.profile; choosingKey = true }
             else { edit(entry, index: index) }

@@ -101,8 +101,12 @@ enum ToolsBrowserSelfTest {
         check(index.entries.first { $0.id == "tool-05" }?.availability == .locked, "locked account has a distinct repair state")
         check(index.entries.first { $0.id == "tool-03" }?.keys.first?.repair == .selectKey,
               "missing key offers selection rather than an unlock action")
-        check(index.entries.first { $0.id == "tool-05" }?.keys.first?.repair == .unlockAccount,
-              "locked key offers account repair before key replacement")
+        check(index.entries.first { $0.id == "tool-05" }?.keys.first?.repair == .unlockVault,
+              "locked key offers vault unlock before key replacement")
+        let labelledLocked = ToolBrowserIndex(profiles: ToolsPreviewFixture.profiles(6), items: keys,
+                                              unlocked: ["demo"], accountLabels: ["locked-demo": "person@example.com · vault.example.com"])
+        check(labelledLocked.entries.first { $0.id == "tool-05" }?.keys.first?.problem?.contains("person@example.com · vault.example.com") == true,
+              "locked key identifies the vault when its account metadata is available")
         check(index.entries.first { $0.id == "tool-00" }?.keys.first?.repair == nil,
               "valid key has no repair action")
         check(index.entries.first { $0.id == "tool-00" }?.nextAction == .copyLaunch,
@@ -117,10 +121,16 @@ enum ToolsBrowserSelfTest {
             .entries[0].nextAction == .editSetup, "catalog errors never present launch as the main action")
         let knownAccounts = ToolBrowserIndex(profiles: ToolsPreviewFixture.profiles(6), items: keys,
                                             unlocked: ["demo"], configuredAccounts: ["demo"])
-        check(knownAccounts.entries.first { $0.id == "tool-05" }?.keys.first?.repair == .addAccount,
-              "absent account offers sign-in rather than an unlock action")
+        check(knownAccounts.entries.first { $0.id == "tool-05" }?.keys.first?.repair == .selectKey,
+              "absent account prefers a key already available on this Mac")
+        check(knownAccounts.entries.first { $0.id == "tool-05" }?.keys.first?.alternateRepair == .signInToVault,
+              "absent account also offers sign-in to the original vault")
         check(knownAccounts.entries.first { $0.id == "tool-05" }?.availability == .needsRepair,
               "absent account does not claim to be merely locked")
+        let missingWithoutReplacement = ToolBrowserIndex(profiles: ToolsPreviewFixture.profiles(6), items: [],
+                                                         unlocked: [], configuredAccounts: ["demo"])
+        check(missingWithoutReplacement.entries.first { $0.id == "tool-05" }?.keys.first?.repair == .signInToVault,
+              "absent account offers vault sign-in when no replacement key is available")
         check(index.results(query: "", filter: .attention, order: .ascending).allSatisfy { [.locked, .needsRepair].contains($0.availability) }, "attention includes locked and broken bindings")
         let duplicateNames = index.results(query: "Shared assistant", filter: .all, order: .ascending)
         check(Set(duplicateNames.map(\.id)).count == duplicateNames.count && duplicateNames.count == 7, "duplicate titles retain separate stable identities")

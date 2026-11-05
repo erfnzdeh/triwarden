@@ -18,6 +18,7 @@ struct ToolSetupGuide: View {
     @State private var setupAfterPicker = false
     @State private var copied = false
     @State private var error: String?
+    @State private var toolSelectionHovered = false
     #if DEBUG
     var previewStep: ToolGuide.Step?
     var previewProfiles: [SecretsProfile]?
@@ -39,7 +40,10 @@ struct ToolSetupGuide: View {
         if model.previewUnlocked { unlocked.formUnion(model.accounts.map(\.id)) }
         #endif
         return .init(profiles: profiles, items: model.items, unlocked: unlocked,
-                     configurationError: model.secrets.lastError != nil, configuredAccounts: Set(model.accounts.map(\.id)))
+                     configurationError: model.secrets.lastError != nil, configuredAccounts: Set(model.accounts.map(\.id)),
+                     accountLabels: Dictionary(uniqueKeysWithValues: model.accounts.map {
+                         ($0.id, $0.email + " · " + $0.serverSummary)
+                     }))
     }
     private var target: ToolBrowserIndex.Entry? { index.entries.first { $0.id == selectedTool } }
     private var toolReady: Bool { target?.availability == .ready }
@@ -282,18 +286,60 @@ struct ToolSetupGuide: View {
         if !profiles.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 sectionLabel("Saved tool")
-                HStack(spacing: 12) {
-                    SoftMenu(options: [("", String(localized: "Choose a saved tool…"))] + profiles.map { ($0.name, $0.title + " · " + ToolLaunchesPane.abbreviated($0.directory)) },
-                             selection: $selectedTool, accessibilityLabel: "Saved tool")
-                    if let target {
-                        let state = ToolState(target, helperReady: true)
-                        HStack(spacing: 6) {
-                            StatusDot(state: state)
-                            Text(verbatim: state == .ready ? String(localized: "Ready") : target.availability.title)
-                                .font(.system(size: 11)).foregroundStyle(.secondary)
-                        }.fixedSize()
+                ActionMenu(entries: [
+                    ActionMenuEntry(title: String(localized: "Choose a saved tool…"), symbol: "terminal",
+                                    checked: selectedTool.isEmpty) { selectedTool = "" }
+                ] + profiles.map { profile in
+                    ActionMenuEntry(title: profile.title + " · " + ToolLaunchesPane.abbreviated(profile.directory),
+                                    symbol: ToolGlyph.symbol(profile), checked: selectedTool == profile.name) {
+                        selectedTool = profile.name
                     }
+                }) {
+                    HStack(spacing: 12) {
+                        if let target {
+                            ToolGlyph(profile: target.profile, size: 34)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(verbatim: target.profile.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                                Text(verbatim: ToolLaunchesPane.abbreviated(target.profile.directory))
+                                    .font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                            }
+                        } else {
+                            Image(systemName: "terminal")
+                                .font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
+                                .frame(width: 34, height: 34)
+                                .background(.primary.opacity(0.06), in: .rect(cornerRadius: 10, style: .continuous))
+                                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(.primary.opacity(0.06)))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Choose a saved tool").font(.system(size: 13, weight: .semibold))
+                                Text("Select the tool you want to review or launch.")
+                                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 8)
+                        if let target {
+                            let state = ToolState(target, helperReady: true)
+                            HStack(spacing: 6) {
+                                StatusDot(state: state)
+                                Text(verbatim: state == .ready ? String(localized: "Ready") : target.availability.title)
+                                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                            }.fixedSize()
+                        }
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 12).frame(minHeight: 58)
+                    .background(Color.panelStrong, in: .rect(cornerRadius: 14, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.panelEdge))
+                    .overlay {
+                        if toolSelectionHovered {
+                            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.primary.opacity(0.025))
+                        }
+                    }
+                    .contentShape(.rect(cornerRadius: 14))
                 }
+                .onHover { toolSelectionHovered = $0 }
+                .accessibilityLabel("Saved tool")
+                .accessibilityValue(Text(verbatim: target?.profile.title ?? String(localized: "No tool selected")))
                 if let target, !toolReady {
                     let state = ToolState(target, helperReady: true)
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
